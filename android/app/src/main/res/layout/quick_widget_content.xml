@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Native text leaf inside Glance: TextView auto-size uses the actual launcher
+     width. No ellipsis or abbreviated amounts; the plus keeps its 48dp target. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/quick_widget_card"
+    android:layout_width="match_parent" android:layout_height="72dp"
+    android:orientation="horizontal" android:gravity="center_vertical"
+    android:paddingStart="16dp" android:paddingEnd="12dp"
+    android:background="@drawable/widget_surface_dark">
+    <LinearLayout android:id="@+id/quick_widget_data"
+        android:layout_width="0dp" android:layout_height="56dp"
+        android:layout_weight="1" android:orientation="vertical"
+        android:gravity="center_vertical">
+        <TextView android:id="@+id/quick_widget_label"
+            android:layout_width="match_parent" android:layout_height="20dp"
+            android:gravity="center_vertical" android:includeFontPadding="false"
+            android:textSize="11sp" android:maxLines="1"
+            android:autoSizeTextType="uniform" android:autoSizeMinTextSize="7sp"
+            android:autoSizeMaxTextSize="11sp" android:autoSizeStepGranularity="1sp" />
+        <TextView android:id="@+id/quick_widget_amount"
+            android:layout_width="match_parent" android:layout_height="32dp"
+            android:gravity="center_vertical" android:includeFontPadding="false"
+            android:textSize="22sp" android:textStyle="bold" android:maxLines="1"
+            android:autoSizeTextType="uniform" android:autoSizeMinTextSize="8sp"
+            android:autoSizeMaxTextSize="22sp" android:autoSizeStepGranularity="1sp" />
+    </LinearLayout>
+    <TextView android:id="@+id/quick_widget_add"
+        android:layout_width="44dp" android:layout_height="44dp"
+        android:layout_marginStart="8dp" android:gravity="center"
+        android:text="+" android:textSize="24sp" android:includeFontPadding="false"
+        android:textColor="#FFFFFFFF" android:background="@drawable/widget_quick_action"
+        android:contentDescription="@string/quick_entry_button" />
+</LinearLayout>

@@ -1,0 +1,632 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
+
+import '../app/app_lock_session.dart';
+import '../app/haptics.dart';
+import '../app/models.dart';
+import '../app/feedback.dart';
+import '../app/platform_bridge.dart';
+import '../app/root_navigation.dart';
+import '../app/root_navigation_styles.dart';
+import '../app/veri_fin_scope.dart';
+import '../app/widgets/widget_refresh_scope.dart';
+import '../l10n/app_localizations.dart';
+import 'ai_entry_sheet.dart';
+import 'assets_pages.dart';
+import 'capture_entry.dart';
+import 'entry_detail_page.dart';
+import 'home_page.dart';
+import 'profile_pages.dart';
+import 'reports_page.dart';
+
+class VeriFinShell extends StatefulWidget {
+  const VeriFinShell({super.key});
+
+  @override
+  State<VeriFinShell> createState() => _VeriFinShellState();
+}
+
+class _VeriFinShellState extends State<VeriFinShell> {
+  int _index = 0;
+  int? _programmaticPageTarget;
+  DateTime? _lastBackPressedAt;
+
+  /// 已经进入退出流程（等待最后一次桌面投影冲刷）。期间再按返回键直接忽略，
+  /// 避免重复冲刷或重复调用 `SystemNavigator.pop()`。
+  bool _exiting = false;
+  final PageController _pageController = PageController();
+
+  /// 最近一次滚动更新时的位置与帧时间戳，用于在打断切页动画时估算当前速度。
+  ///
+  /// `ScrollPosition` 不公开速度（`activity` 是 `@protected`），所以在控制器监听里
+  /// 按帧差分一次：连点不同 Tab、甩动中途改点都能接上真实速度。
+  double? _lastScrollPixels;
+  Duration? _lastScrollAt;
+  double _scrollVelocity = 0;
+
+  /// 导航样式偏好的通知器；[didChangeDependencies] 里挂监听，dispose 时摘掉。
+  ValueNotifier<NavigationStylePreference>? _navigationStyleListenable;
+
+  /// 当前导航样式偏好。控制器外部改动（例如恢复或其它页面保存）也会同步到这里。
+  NavigationStylePreference _navigationStylePreference =
+      NavigationStylePreference.liquidGlass;
+
+  /// 当前根导航样式：只由偏好标识决定，壳层不认识任何具体样式类型。
+  VeriRootNavigationStyle get _navigationStyle =>
+      veriRootNavigationStyleFor(_navigationStylePreference.name);
+
+  /// 切页动画的弹簧。
+  ///
+  /// 刻意**不用固定时长**：固定时长的动画每次改目标都得从头重新计时，连点时页面被
+  /// 反复「重新起步」，看起来就像没动。弹簧只由「当前位置 + 当前速度 + 目标」决定，
+  /// 改目标时顺着当前速度接着跑，所以连点是连续的。
+  ///
+  /// 用感知时长描述（语义同 SwiftUI 的 `spring(duration:bounce:)`）：默认 250ms、无回弹。
+  /// 弹簧的收敛时间与距离无关，跨 1 页和跨 3 页手感一致；时间尺度取当前样式的
+  /// [VeriRootNavigationStyle.switchDuration]，底栏选中动效与页面过渡因此同时起步、
+  /// 同时收住。
+  ///
+  /// 样式返回非正时长属于契约违规，这里回退到默认尺度，避免把退化参数传给
+  /// [SpringSimulation]。
+  SpringDescription get _tabSwitchSpring {
+    final duration = _navigationStyle.switchDuration;
+    return SpringDescription.withDurationAndBounce(
+      duration: duration > Duration.zero
+          ? duration
+          : VeriRootNavigationStyle.defaultSwitchDuration,
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController.addListener(_trackScrollVelocity);
+    AppCaptureBridge.setQuickEntryHandler(_openQuickEntryFromPlatform);
+    AppCaptureBridge.setSharedCaptureHandler(_openSharedCaptureFromPlatform);
+    AppWidgetBridge.setRouteHandler(_openWidgetRouteFromPlatform);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 同意与引导由外部门卫完成后才构建本壳。
+      await AppLockSessionScope.waitUntilUnlocked(context);
+      if (!mounted) {
+        return;
+      }
+      if (await AppCaptureBridge.consumeInitialQuickEntryIntent() && mounted) {
+        await _openQuickEntryFromPlatform();
+      }
+      if (!mounted) {
+        return;
+      }
+      final widgetRoute = await AppWidgetBridge.consumeInitialRoute();
+      if (!mounted) return;
+      if (widgetRoute != null) {
+        await _openWidgetRouteFromPlatform(widgetRoute);
+      }
+      if (!mounted) return;
+      // 冷启动带着分享/外部采集内容时（分享截图给 Veri Fin 等），开屏即识别。
+      await startSharedCaptureEntry(context);
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 样式偏好走独立通知器：只有它变化时才需要重建壳层，不必跟着全量账目通知走。
+    final listenable = VeriFinScope.of(
+      context,
+    ).navigationStylePreferenceListenable;
+    if (identical(listenable, _navigationStyleListenable)) {
+      return;
+    }
+    _navigationStyleListenable?.removeListener(_handleNavigationStyleChanged);
+    _navigationStyleListenable = listenable;
+    _navigationStylePreference = listenable.value;
+    listenable.addListener(_handleNavigationStyleChanged);
+  }
+
+  void _handleNavigationStyleChanged() {
+    final listenable = _navigationStyleListenable;
+    if (!mounted || listenable == null) {
+      return;
+    }
+    final value = listenable.value;
+    if (value == _navigationStylePreference) {
+      return;
+    }
+    setState(() => _navigationStylePreference = value);
+  }
+
+  @override
+  void dispose() {
+    _navigationStyleListenable?.removeListener(_handleNavigationStyleChanged);
+    AppCaptureBridge.clearQuickEntryHandler();
+    AppCaptureBridge.clearSharedCaptureHandler();
+    AppWidgetBridge.clearRouteHandler();
+    _pageController.removeListener(_trackScrollVelocity);
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  /// 按帧差分滚动速度，作为切页弹簧的初速度：改点目标时顺着当前速度接着跑。
+  void _trackScrollVelocity() {
+    final binding = SchedulerBinding.instance;
+    // `currentFrameTimeStamp` 只在 `handleBeginFrame` 到 `handleDrawFrame` 之间有效，
+    // 而滚动通知在帧外也会到达（`ensureVisible` 触发的 `jumpTo` 就是），帧外直接跳过
+    // 本次采样，不能让断言把整条通知链打断。
+    if (binding.schedulerPhase == SchedulerPhase.idle) {
+      return;
+    }
+    final now = binding.currentFrameTimeStamp;
+    final pixels = _pageController.position.pixels;
+    final lastAt = _lastScrollAt;
+    final lastPixels = _lastScrollPixels;
+    _lastScrollAt = now;
+    _lastScrollPixels = pixels;
+    if (lastAt == null || lastPixels == null) {
+      return;
+    }
+    final seconds =
+        (now - lastAt).inMicroseconds / Duration.microsecondsPerSecond;
+    if (seconds <= 0) {
+      return;
+    }
+    _scrollVelocity = (pixels - lastPixels) / seconds;
+  }
+
+  /// 切换到指定 Tab：底部导航点击与返回键均走此入口，带一段短动画。
+  ///
+  /// [fromUser] 只在用户点底栏时传 true：程序化跳转（组件路由、快捷记账回首页）
+  /// 不该发出选择触感。
+  ///
+  /// 跨多页动画会依次触发中间页的 [PageView.onPageChanged]；这些页只是过场，
+  /// 不能反向覆盖导航滑块正在吸附的最终目标。直接手势翻页时没有 programmatic
+  /// target，仍由 [_handlePageChanged] 正常同步导航。
+  void _goToTab(int index, {bool fromUser = false}) {
+    // 是否「已经在目标页」以**页面实际停下的位置**为准，而不是 `_index`：`_index`
+    // 是点击时乐观写入的，切页动画被打断时它会先跑到目标值，而页面还停在半路。
+    // 只看 `_index` 的话，这种脱节状态下点「底栏已经显示在那儿的那个 Tab」会被当成
+    // 重复点击直接丢掉——表现就是点了没反应、卡在某个 Tab 上。
+    final settled = _pageController.hasClients
+        ? (_pageController.page ?? index.toDouble()).round()
+        : _index;
+    if (index == _index && settled == index) {
+      return;
+    }
+    if (fromUser) {
+      VeriHaptics.tick();
+    }
+    setState(() {
+      _index = index;
+      _programmaticPageTarget = index;
+    });
+    _animateToTab(index);
+  }
+
+  /// 把页面平滑地送到 [index]。
+  ///
+  /// 用弹簧驱动，而不是 `PageController.animateToPage`：后者是固定时长的曲线插值，
+  /// 每次调用都从头计时，动画没播完就改目标会「先刹停再重新加速」；弹簧以当前速度
+  /// 接着跑，没有这个问题。另外 `animateToPage` 在滚动位置还没就绪时会一步都不走地
+  /// 直接返回，点击会被悄悄吞掉——这里真遇上拿不到滚动位置的情况就退回一次性跳转，
+  /// 保证点击一定有结果。
+  void _animateToTab(int index) {
+    if (!_pageController.hasClients) {
+      // A bottom-bar tap can arrive in the first frame before PageView attaches
+      // its position. Keep the optimistic navigation state, then retry once the
+      // frame has attached the controller instead of silently dropping the tap.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _programmaticPageTarget != index) {
+          return;
+        }
+        _animateToTab(index);
+      });
+      return;
+    }
+    final position = _pageController.position;
+    if (position is! ScrollPositionWithSingleContext ||
+        !position.hasPixels ||
+        !position.hasViewportDimension) {
+      _pageController.jumpToPage(index);
+      _finishTabSwitch(index);
+      return;
+    }
+    final activity = DrivenScrollActivity.simulation(
+      position,
+      SpringSimulation(
+          _tabSwitchSpring,
+          position.pixels,
+          // 弹簧结束时精确落到目标（`snapToEnd`），页面正好停在一页的边界上。
+          index * position.viewportDimension,
+          _scrollVelocity,
+          snapToEnd: true,
+        )
+        // 默认容差里速度阈值极严（0.02 px/s），弹簧会拖着一条近一秒的亚像素尾巴，
+        // 期间 `DrivenScrollActivity` 一直占着滚动状态、页面区域不收点击。收紧到
+        // 「1px 以内且慢于 80px/s」就收工，剩下的不到 1px 由 `snapToEnd` 直接落位。
+        ..tolerance = const Tolerance(distance: 1, velocity: 80),
+      vsync: position.context.vsync,
+    );
+    position.beginActivity(activity);
+    unawaited(activity.done.whenComplete(() => _finishTabSwitch(index)));
+  }
+
+  /// 一次切页收尾：确认它仍是当前目标，再按页面实际停下的位置对齐底栏。
+  ///
+  /// `DrivenScrollActivity.done` 既在动画自然跑完时完成，也在动画被用户交互
+  /// （在页面区域点击或拖动）打断时完成。这里若无条件写 `_index = index`，
+  /// 动画被打断后页面停在半路、底栏却已经钉在目标上；只要页面最终落点取整后
+  /// 与上一次上报的页码相同，`onPageChanged` 就不会再触发，错位会一直保留。
+  /// 因此收尾一律以滚动位置为准，目标只有在页面真正停到它上面时才算达成。
+  void _finishTabSwitch(int index) {
+    // `hasClients` 之外还要看 `mounted`：子树被拆掉后 `_pageController`
+    // 会直接断言失败。
+    if (!mounted || !_pageController.hasClients) {
+      return;
+    }
+    // 已被更晚的一次点击接管，交给那一次收尾。
+    if (_programmaticPageTarget != index) {
+      return;
+    }
+    final settled = (_pageController.page ?? index.toDouble()).round();
+    setState(() {
+      _index = settled;
+      _programmaticPageTarget = null;
+    });
+  }
+
+  void _handlePageChanged(int value) {
+    final target = _programmaticPageTarget;
+    if (target != null) {
+      if (value == target) {
+        _programmaticPageTarget = null;
+      }
+      return;
+    }
+    if (_index != value) {
+      // 手势翻页落定：与点击底栏同样给一次选择刻度。
+      VeriHaptics.tick();
+      setState(() => _index = value);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final navigationStyle = _navigationStyle;
+    final pages = <Widget>[
+      const HomePage(),
+      const AssetsPage(),
+      const ReportsPage(),
+      const ProfilePage(),
+    ];
+    // 目的地定义与样式选择页预览共用，避免两处各维护一套图标和标签。
+    final destinations = veriRootNavigationDestinations(l10n);
+
+    // 记账按钮与导航栏解耦，但不能落在栏的占用范围里：内容延伸到栏背后时
+    // （样式声明 extendBody），按钮要抬到「安全区 + occupiedHeight」之上；
+    // 停靠样式由 Scaffold 让位，维持 16dp。
+    final quickEntryBottom =
+        16.0 +
+        (navigationStyle.layout.extendBody
+            ? navigationStyle.layout.occupiedHeight +
+                  MediaQuery.viewPaddingOf(context).bottom
+            : 0);
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          return;
+        }
+        unawaited(_handleRootBack());
+      },
+      child: Scaffold(
+        key: const Key('main_shell_scaffold'),
+        // 停靠底栏不透明且已由 Scaffold 让位，内容不延伸到它背后（否则会被盖住半截）；
+        // 悬浮样式由样式自己在 layout 里声明 extendBody。
+        extendBody: navigationStyle.layout.extendBody,
+        // 四个主页面横向 PageView：左右滑动切换。图表（chart_painters.dart 的
+        // 横向拖动识别器）与交易行 Dismissible 都是更深层的手势消费者，会在竞技场里
+        // 本地胜出，故在图表/可滑删行上拖动仍走各自交互，仅空白区滑动才切页。
+        body: SafeArea(
+          key: const Key('main_shell_body_safe_area'),
+          bottom: false,
+          child: Stack(
+            children: <Widget>[
+              VeriRootNavigationBody(
+                layout: navigationStyle.layout,
+                child: RepaintBoundary(
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: _handlePageChanged,
+                    // 保活四个根页面：离屏即卸载会让每次切回都整页重建，并重跑首页
+                    // 与资产页的 O(账户数×交易数) 聚合。页面本身仍会随 Controller
+                    // 通知重建，数据不会因为保活而过期。
+                    children: <Widget>[
+                      for (final page in pages) _KeepAlivePage(child: page),
+                    ],
+                  ),
+                ),
+              ),
+              // 记账按钮：右下角浮动，压住内容之上；只在首页显示，进出带缩放淡入。
+              // 圆角方形（veriRadiusLg）+ veriRoyal，与最初的设计一致；用自绘
+              // Material+InkWell 而不是 FloatingActionButton，因为后者内部会吞掉
+              // 长按，而长按要走 AI 记账。
+              Positioned(
+                key: const Key('quick_entry_fab_slot'),
+                right: 16,
+                bottom: quickEntryBottom,
+                child: IgnorePointer(
+                  ignoring: _index != 0,
+                  child: AnimatedScale(
+                    key: const Key('quick_entry_scale'),
+                    scale: _index == 0 ? 1 : 0.7,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    child: AnimatedOpacity(
+                      key: const Key('quick_entry_opacity'),
+                      opacity: _index == 0 ? 1 : 0,
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOutCubic,
+                      child: SizedBox(
+                        width: 54,
+                        height: 54,
+                        child: Tooltip(
+                          message: l10n.quickEntry,
+                          child: Material(
+                            key: const Key('quick_entry_fab'),
+                            color: Theme.of(context).colorScheme.primary,
+                            elevation: 5,
+                            shadowColor: Colors.black.withValues(alpha: 0.24),
+                            shape: const CircleBorder(),
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              key: const Key('quick_entry_action'),
+                              // 长按/点击的触感统一由 VeriHaptics 发；关掉 Material
+                              // 自带的长按震动，关闭触感反馈后必须彻底静默。
+                              enableFeedback: false,
+                              onTap: () {
+                                VeriHaptics.tap();
+                                _requestQuickEntry();
+                              },
+                              onLongPress: () {
+                                VeriHaptics.tap();
+                                _requestQuickEntry(longPress: true);
+                              },
+                              child: Icon(
+                                Icons.add_rounded,
+                                size: 26,
+                                color: Theme.of(context).colorScheme.onPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: VeriRootNavigationHost(
+          style: navigationStyle,
+          spec: VeriRootNavigationSpec(
+            currentIndex: _index,
+            destinations: destinations,
+            onSelect: (index) => _goToTab(index, fromUser: true),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleRootBack() async {
+    if (_exiting) {
+      return;
+    }
+    if (_index != 0) {
+      _goToTab(0);
+      return;
+    }
+    final now = DateTime.now();
+    final shouldExit =
+        _lastBackPressedAt != null &&
+        now.difference(_lastBackPressedAt!) < const Duration(seconds: 2);
+    if (shouldExit) {
+      _exiting = true;
+      await _flushWidgetProjectionBeforeExit();
+      if (!mounted) {
+        return;
+      }
+      await SystemNavigator.pop();
+      if (mounted) {
+        // 平台没有真正关闭（异常返回）时恢复可退出状态，避免把用户卡在应用里。
+        _exiting = false;
+      }
+      return;
+    }
+    _lastBackPressedAt = now;
+    unawaited(
+      VeriFeedbackHost.of(context).showMessage(
+        message: AppLocalizations.of(context).pressBackAgainToExit,
+        duration: VeriFeedbackDuration.short,
+        dedupeKey: 'root-exit',
+      ),
+    );
+  }
+
+  /// 退出前把桌面投影冲刷完。
+  ///
+  /// `SystemNavigator.pop()` 会 finish Activity，Flutter 引擎随之下线：挂在
+  /// `hidden` / `paused` 上的异步冲刷会被直接掐断，用户「记完账立刻按返回退出」时
+  /// 桌面快照就停在上一笔，而且不会自愈——直到下次冷启动的强制推送才补上。
+  /// 这里在真正关闭前等一次发布完成。
+  ///
+  /// 退出优先：平台通道异常或迟迟不返回时按超时放过，未完成的发布由下次冷启动补推，
+  /// 绝不因为刷新失败把用户卡在应用里。
+  Future<void> _flushWidgetProjectionBeforeExit() async {
+    final coordinator = WidgetRefreshScope.maybeOf(context);
+    if (coordinator == null) {
+      return;
+    }
+    try {
+      await coordinator.flush().timeout(const Duration(milliseconds: 600));
+    } on TimeoutException {
+      // 见方法注释：超时直接退出。
+    } on Object catch (error, stackTrace) {
+      if (!mounted) {
+        return;
+      }
+      VeriFinScope.of(context).logger?.error(
+        'Widget projection flush on exit failed',
+        source: 'widgets',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// 正在进行的快速记账请求（键盘/编辑页/「记一笔」AI 面板）。
+  ///
+  /// 组件、磁贴与右下角按钮共用这一条单飞通道：重复投递（组件 PendingIntent 被
+  /// 连点、磁贴与组件同时到达、按钮连点）只能复用已打开的那一层，绝不再叠一个
+  /// 一模一样的数字键盘——那会表现成「卡在记账页面、怎么关都还在」。
+  Future<void>? _quickEntryTask;
+
+  /// 打开快速记账（单飞）。[fromPlatform] 为真时先等解锁并切回首页。
+  Future<void> _requestQuickEntry({
+    bool longPress = false,
+    bool fromPlatform = false,
+  }) async {
+    final existing = _quickEntryTask;
+    if (existing != null) {
+      return existing;
+    }
+    final task = _runQuickEntry(
+      longPress: longPress,
+      fromPlatform: fromPlatform,
+    );
+    _quickEntryTask = task;
+    try {
+      await task;
+    } finally {
+      if (identical(_quickEntryTask, task)) {
+        _quickEntryTask = null;
+      }
+    }
+  }
+
+  Future<void> _runQuickEntry({
+    required bool longPress,
+    required bool fromPlatform,
+  }) async {
+    if (fromPlatform) {
+      await AppLockSessionScope.waitUntilUnlocked(context);
+      if (!mounted) {
+        return;
+      }
+      if (_index != 0) {
+        _goToTab(0);
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+      }
+      if (!mounted) {
+        return;
+      }
+    }
+    await _startQuickEntry(context, longPress: longPress);
+  }
+
+  Future<void> _startQuickEntry(
+    BuildContext context, {
+    bool longPress = false,
+  }) async {
+    final controller = VeriFinScope.of(context);
+    // 「点击手动·长按 AI」模式按手势区分；纯手动/纯 AI 模式两种手势一致。
+    final useAi = switch (controller.fabActionMode) {
+      FabActionMode.manual => false,
+      FabActionMode.ai => true,
+      FabActionMode.manualTapAiLongPress => longPress,
+    };
+    if (useAi) {
+      await startAiEntry(context);
+      return;
+    }
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) => EntryDetailPage.manual(
+          initialAccountId: controller.defaultAccountId,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openQuickEntryFromPlatform() =>
+      _requestQuickEntry(fromPlatform: true);
+
+  /// 应用运行中收到分享/外部采集内容（原生 onNewIntent 通知）时拉取并识别。
+  Future<void> _openSharedCaptureFromPlatform() async {
+    await AppLockSessionScope.waitUntilUnlocked(context);
+    if (!mounted) {
+      return;
+    }
+    await startSharedCaptureEntry(context);
+  }
+
+  Future<void> _openWidgetRouteFromPlatform(Map<String, Object?> args) async {
+    await AppLockSessionScope.waitUntilUnlocked(context);
+    if (!mounted) return;
+    final controller = VeriFinScope.of(context);
+    final bookId = args['bookId'] as String?;
+    if (bookId != null && bookId.isNotEmpty) {
+      controller.switchLedgerBook(bookId);
+    }
+    final route = args['route'] as String? ?? 'app';
+    if (route == 'app' || route == 'open') {
+      // Bringing the task forward otherwise exposes a keypad left open by an
+      // earlier plus tap. The data area explicitly opens the app's home page.
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      if (_index != 0) _goToTab(0);
+      return;
+    }
+    if (route == 'entry' || route == 'quick_entry') {
+      await _openQuickEntryFromPlatform();
+      return;
+    }
+    final target = switch (route) {
+      'assets' || 'account' || 'net_worth' => 1,
+      'reports' || 'budget' || 'trend' => 2,
+      'profile' => 3,
+      _ => null,
+    };
+    if (target != null && target != _index) {
+      _goToTab(target);
+    }
+  }
+}
+
+/// 让 PageView 里的根页面保持存活（`addAutomaticKeepAlives` 默认开启）。
+/// 用包装类而不是给四个页面各自加 mixin：页面本身不必改成 StatefulWidget。
+class _KeepAlivePage extends StatefulWidget {
+  const _KeepAlivePage({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}

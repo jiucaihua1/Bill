@@ -1,0 +1,895 @@
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+
+import 'app_theme.dart';
+
+enum VeriFeedbackTone { info, success, warning, error }
+
+enum VeriFeedbackPriority { low, normal, high }
+
+enum VeriFeedbackDuration {
+  short(Duration(seconds: 2)),
+  standard(Duration(seconds: 4)),
+  long(Duration(seconds: 8)),
+  persistent(null);
+
+  const VeriFeedbackDuration(this.value);
+
+  final Duration? value;
+}
+
+enum VeriFeedbackResult {
+  timedOut,
+  dismissed,
+  action,
+  replaced,
+  dropped,
+  cleared,
+}
+
+@immutable
+class VeriFeedbackRequest {
+  const VeriFeedbackRequest({
+    required this.message,
+    this.tone = VeriFeedbackTone.info,
+    this.duration = VeriFeedbackDuration.standard,
+    this.priority = VeriFeedbackPriority.normal,
+    this.actionLabel,
+    this.dedupeKey,
+  }) : assert(message != ''),
+       assert(actionLabel == null || actionLabel != ''),
+       assert(dedupeKey == null || dedupeKey != '');
+
+  final String message;
+  final VeriFeedbackTone tone;
+  final VeriFeedbackDuration duration;
+  final VeriFeedbackPriority priority;
+  final String? actionLabel;
+  final String? dedupeKey;
+}
+
+class VeriFeedbackController {
+  _VeriFeedbackHostState? _host;
+  final List<_BufferedFeedback> _buffer = <_BufferedFeedback>[];
+  var _disposed = false;
+
+  bool get attached => _host != null;
+
+  Future<VeriFeedbackResult> show(VeriFeedbackRequest request) {
+    if (_disposed) {
+      throw StateError('VeriFeedbackController has been disposed');
+    }
+    final host = _host;
+    if (host != null) {
+      return host._enqueue(request);
+    }
+    final dedupeKey = request.dedupeKey;
+    if (dedupeKey != null) {
+      final duplicate = _buffer
+          .where((item) => item.request.dedupeKey == dedupeKey)
+          .firstOrNull;
+      if (duplicate != null) {
+        duplicate
+          ..request = request
+          ..count += 1;
+        return Future<VeriFeedbackResult>.value(VeriFeedbackResult.replaced);
+      }
+    }
+    final completer = Completer<VeriFeedbackResult>();
+    _buffer.add(_BufferedFeedback(request: request, completer: completer));
+    return completer.future;
+  }
+
+  Future<VeriFeedbackResult> showMessage({
+    required String message,
+    VeriFeedbackTone tone = VeriFeedbackTone.info,
+    VeriFeedbackDuration? duration,
+    VeriFeedbackPriority priority = VeriFeedbackPriority.normal,
+    String? actionLabel,
+    String? dedupeKey,
+  }) {
+    return show(
+      VeriFeedbackRequest(
+        message: message,
+        tone: tone,
+        // 错误信息需要更多阅读时间：默认 4 秒常常读不完就消失了。
+        duration: duration ?? _defaultDurationFor(tone),
+        priority: priority,
+        actionLabel: actionLabel,
+        dedupeKey: dedupeKey,
+      ),
+    );
+  }
+
+  static VeriFeedbackDuration _defaultDurationFor(VeriFeedbackTone tone) =>
+      tone == VeriFeedbackTone.error
+      ? VeriFeedbackDuration.long
+      : VeriFeedbackDuration.standard;
+
+  void dismissAll() {
+    _host?._clearAll(VeriFeedbackResult.cleared);
+    for (final buffered in _buffer) {
+      _complete(buffered.completer, VeriFeedbackResult.cleared);
+    }
+    _buffer.clear();
+  }
+
+  void _attach(_VeriFeedbackHostState host) {
+    if (_disposed) return;
+    final existing = _host;
+    if (existing != null && !identical(existing, host)) {
+      throw StateError('VeriFeedbackController already has a host');
+    }
+    _host = host;
+    for (final buffered in _buffer) {
+      host._enqueueWithCompleter(
+        buffered.request,
+        buffered.completer,
+        initialCount: buffered.count,
+        notify: false,
+      );
+    }
+    _buffer.clear();
+  }
+
+  void _detach(_VeriFeedbackHostState host) {
+    if (identical(_host, host)) {
+      _host = null;
+    }
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    final host = _host;
+    _host = null;
+    host?._clearAll(VeriFeedbackResult.cleared, notify: false);
+    for (final buffered in _buffer) {
+      _complete(buffered.completer, VeriFeedbackResult.cleared);
+    }
+    _buffer.clear();
+  }
+}
+
+class VeriFeedbackHost extends StatefulWidget {
+  const VeriFeedbackHost({
+    super.key,
+    required this.controller,
+    required this.child,
+    this.maxVisible = 4,
+    this.queueLimit = 16,
+    this.bottomMargin = 100,
+  }) : assert(maxVisible > 0),
+       assert(queueLimit > 0),
+       assert(bottomMargin >= 0);
+
+  final VeriFeedbackController controller;
+  final Widget child;
+  final int maxVisible;
+  final int queueLimit;
+
+  /// Extra space above the system bottom inset.
+  final double bottomMargin;
+
+  static VeriFeedbackController of(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<_VeriFeedbackScope>();
+    assert(scope != null, 'No VeriFeedbackHost found in context');
+    return scope!.controller;
+  }
+
+  @override
+  State<VeriFeedbackHost> createState() => _VeriFeedbackHostState();
+}
+
+class _VeriFeedbackHostState extends State<VeriFeedbackHost>
+    with WidgetsBindingObserver {
+  final List<_FeedbackEntry> _visible = <_FeedbackEntry>[];
+  final List<_FeedbackEntry> _pending = <_FeedbackEntry>[];
+  var _nextId = 0;
+  var _paused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    _paused = lifecycle != null && lifecycle != AppLifecycleState.resumed;
+    widget.controller._attach(this);
+  }
+
+  @override
+  void didUpdateWidget(covariant VeriFeedbackHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller)) {
+      _clearAll(VeriFeedbackResult.cleared, notify: false);
+      oldWidget.controller._detach(this);
+      widget.controller._attach(this);
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final paused = state != AppLifecycleState.resumed;
+    if (_paused != paused && mounted) {
+      setState(() => _paused = paused);
+    }
+  }
+
+  Future<VeriFeedbackResult> _enqueue(VeriFeedbackRequest request) {
+    final completer = Completer<VeriFeedbackResult>();
+    return _enqueueWithCompleter(request, completer);
+  }
+
+  Future<VeriFeedbackResult> _enqueueWithCompleter(
+    VeriFeedbackRequest request,
+    Completer<VeriFeedbackResult> completer, {
+    int initialCount = 1,
+    bool notify = true,
+  }) {
+    final dedupeKey = request.dedupeKey;
+    if (dedupeKey != null) {
+      final duplicate = <_FeedbackEntry>[
+        ..._visible,
+        ..._pending,
+      ].where((entry) => entry.request.dedupeKey == dedupeKey).firstOrNull;
+      if (duplicate != null) {
+        duplicate
+          ..request = request
+          ..count += 1
+          ..revision += 1;
+        if (_pending.contains(duplicate)) {
+          _pending.remove(duplicate);
+          _insertPending(duplicate);
+        }
+        if (notify) setState(() {});
+        _complete(completer, VeriFeedbackResult.replaced);
+        return completer.future;
+      }
+    }
+
+    final entry = _FeedbackEntry(
+      id: _nextId,
+      request: request,
+      completer: completer,
+      count: initialCount,
+    );
+    _nextId += 1;
+    void add() {
+      if (_visible.length < widget.maxVisible) {
+        _visible.add(entry);
+      } else {
+        _addPendingWithLimit(entry);
+      }
+    }
+
+    if (notify) {
+      setState(add);
+    } else {
+      add();
+    }
+    return completer.future;
+  }
+
+  void _addPendingWithLimit(_FeedbackEntry entry) {
+    if (_pending.length < widget.queueLimit) {
+      _insertPending(entry);
+      return;
+    }
+    final lowestPriority = _pending
+        .map((item) => item.request.priority.index)
+        .reduce((a, b) => a < b ? a : b);
+    final dropIndex = _pending.indexWhere(
+      (item) => item.request.priority.index == lowestPriority,
+    );
+    if (entry.request.priority.index >= lowestPriority) {
+      final dropped = _pending.removeAt(dropIndex);
+      _complete(dropped.completer, VeriFeedbackResult.dropped);
+      _insertPending(entry);
+    } else {
+      _complete(entry.completer, VeriFeedbackResult.dropped);
+    }
+  }
+
+  void _insertPending(_FeedbackEntry entry) {
+    final index = _pending.indexWhere(
+      (item) => item.request.priority.index < entry.request.priority.index,
+    );
+    if (index < 0) {
+      _pending.add(entry);
+    } else {
+      _pending.insert(index, entry);
+    }
+  }
+
+  void _finishEntry(int id, VeriFeedbackResult result) {
+    if (!mounted) return;
+    setState(() {
+      final index = _visible.indexWhere((entry) => entry.id == id);
+      if (index < 0) return;
+      final entry = _visible.removeAt(index);
+      _complete(entry.completer, result);
+      if (_pending.isNotEmpty) {
+        _visible.add(_pending.removeAt(0));
+      }
+    });
+  }
+
+  void _clearAll(VeriFeedbackResult result, {bool notify = true}) {
+    void clear() {
+      for (final entry in <_FeedbackEntry>[..._visible, ..._pending]) {
+        _complete(entry.completer, result);
+      }
+      _visible.clear();
+      _pending.clear();
+    }
+
+    if (notify && mounted) {
+      setState(clear);
+    } else {
+      clear();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _clearAll(VeriFeedbackResult.cleared, notify: false);
+    widget.controller._detach(this);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom =
+        MediaQuery.viewPaddingOf(context).bottom + widget.bottomMargin;
+    return _VeriFeedbackScope(
+      controller: widget.controller,
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          widget.child,
+          if (_visible.isNotEmpty || _pending.isNotEmpty)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: bottom,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    if (_pending.isNotEmpty)
+                      Padding(
+                        key: const Key('veri_feedback_pending_slot'),
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: _PendingFeedbackLabel(count: _pending.length),
+                      ),
+                    for (var index = 0; index < _visible.length; index += 1)
+                      _VeriFeedbackCard(
+                        key: ValueKey<int>(_visible[index].id),
+                        id: _visible[index].id,
+                        request: _visible[index].request,
+                        count: _visible[index].count,
+                        revision: _visible[index].revision,
+                        paused: _paused,
+                        bottomSpacing: index == _visible.length - 1 ? 0 : 6,
+                        onFinish: _finishEntry,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VeriFeedbackCard extends StatefulWidget {
+  const _VeriFeedbackCard({
+    super.key,
+    required this.id,
+    required this.request,
+    required this.count,
+    required this.revision,
+    required this.paused,
+    required this.bottomSpacing,
+    required this.onFinish,
+  });
+
+  final int id;
+  final VeriFeedbackRequest request;
+  final int count;
+  final int revision;
+  final bool paused;
+  final double bottomSpacing;
+  final void Function(int id, VeriFeedbackResult result) onFinish;
+
+  @override
+  State<_VeriFeedbackCard> createState() => _VeriFeedbackCardState();
+}
+
+class _VeriFeedbackCardState extends State<_VeriFeedbackCard>
+    with TickerProviderStateMixin {
+  late final AnimationController _entryController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+    reverseDuration: const Duration(milliseconds: 180),
+  )..addStatusListener(_handleEntryStatus);
+  AnimationController? _lifetimeController;
+  var _hovered = false;
+  var _dismissing = false;
+  VeriFeedbackResult? _result;
+
+  @override
+  void initState() {
+    super.initState();
+    _configureLifetime();
+    _entryController.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant _VeriFeedbackCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.revision != widget.revision ||
+        oldWidget.request.duration != widget.request.duration) {
+      _dismissing = false;
+      _result = null;
+      _configureLifetime();
+      _entryController.forward();
+    } else if (oldWidget.paused != widget.paused) {
+      _syncLifetime();
+    }
+  }
+
+  void _configureLifetime() {
+    _lifetimeController
+      ?..removeStatusListener(_handleLifetimeStatus)
+      ..dispose();
+    final duration = widget.request.duration.value;
+    _lifetimeController = duration == null
+        ? null
+        : (AnimationController(vsync: this, duration: duration)
+            ..addStatusListener(_handleLifetimeStatus));
+    _syncLifetime(reset: true);
+  }
+
+  void _syncLifetime({bool reset = false}) {
+    final controller = _lifetimeController;
+    if (controller == null) return;
+    if (reset) controller.value = 0;
+    if (widget.paused || _hovered || _dismissing) {
+      controller.stop();
+    } else if (controller.status != AnimationStatus.completed) {
+      controller.forward();
+    }
+  }
+
+  void _handleLifetimeStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      _dismiss(VeriFeedbackResult.timedOut);
+    }
+  }
+
+  void _handleEntryStatus(AnimationStatus status) {
+    if (status == AnimationStatus.dismissed && _dismissing && mounted) {
+      widget.onFinish(widget.id, _result ?? VeriFeedbackResult.dismissed);
+    }
+  }
+
+  void _dismiss(VeriFeedbackResult result) {
+    if (_dismissing) return;
+    _dismissing = true;
+    _result = result;
+    _lifetimeController?.stop();
+    _entryController.reverse();
+  }
+
+  void _pauseLifetime(PointerEnterEvent _) {
+    _hovered = true;
+    _syncLifetime();
+  }
+
+  void _resumeLifetime(PointerExitEvent _) {
+    _hovered = false;
+    _syncLifetime();
+  }
+
+  @override
+  void dispose() {
+    _lifetimeController
+      ?..removeStatusListener(_handleLifetimeStatus)
+      ..dispose();
+    _entryController
+      ..removeStatusListener(_handleEntryStatus)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entrance = CurvedAnimation(
+      parent: _entryController,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    return SizeTransition(
+      key: Key('veri_feedback_size_${widget.id}'),
+      sizeFactor: entrance,
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: widget.bottomSpacing),
+        child: MouseRegion(
+          onEnter: _pauseLifetime,
+          onExit: _resumeLifetime,
+          child: FadeTransition(
+            opacity: entrance,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.16),
+                end: Offset.zero,
+              ).animate(entrance),
+              child: _buildCard(context),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final request = widget.request;
+    final isDark = theme.brightness == Brightness.dark;
+    final foreground = theme.colorScheme.onSurface;
+    final toneColor = _toneColor(
+      request.tone,
+      theme.brightness,
+      theme.colorScheme.primary,
+    );
+    final hasProgress = _lifetimeController != null;
+    final hasAction = request.actionLabel != null;
+    final messageStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: foreground.withValues(alpha: 0.94),
+      fontWeight: FontWeight.w700,
+    );
+    final countStyle = theme.textTheme.bodySmall?.copyWith(
+      color: foreground.withValues(alpha: 0.50),
+      fontWeight: FontWeight.w700,
+    );
+    final actionStyle = theme.textTheme.titleSmall?.copyWith(
+      color: toneColor,
+      fontWeight: FontWeight.w700,
+    );
+    final width = _feedbackCardWidth(
+      context: context,
+      request: request,
+      count: widget.count,
+      messageStyle: messageStyle,
+      countStyle: countStyle,
+      actionStyle: actionStyle,
+    );
+    final tokens = VeriStyleTokens.of(context);
+    final surface = tokens.raisedSurfaceColor;
+    final outline = tokens.borderColor;
+    final track = foreground.withValues(alpha: isDark ? 0.13 : 0.09);
+
+    // 屏幕阅读器需要在提示出现时主动播报（liveRegion），否则视障用户完全感知不到。
+    return Semantics(
+      liveRegion: true,
+      container: true,
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.bottomCenter,
+        child: SizedBox(
+          width: width,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(tokens.innerRadius),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.26 : 0.10),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Material(
+              key: Key('veri_feedback_card_${widget.id}'),
+              color: surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(tokens.innerRadius),
+                side: BorderSide(color: outline),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: hasProgress ? 44 : 48,
+                    ),
+                    child: Padding(
+                      padding: hasProgress
+                          ? const EdgeInsets.fromLTRB(10, 8, 6, 6)
+                          : const EdgeInsets.fromLTRB(10, 8, 6, 8),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: <Widget>[
+                          Container(
+                            key: Key('veri_feedback_icon_${widget.id}'),
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: toneColor.withValues(
+                                alpha: isDark ? 0.22 : 0.12,
+                              ),
+                              borderRadius: BorderRadius.circular(veriRadiusSm),
+                            ),
+                            alignment: Alignment.center,
+                            child: Icon(
+                              _toneIcon(request.tone),
+                              color: toneColor,
+                              size: 16,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            fit: FlexFit.loose,
+                            child: Text.rich(
+                              TextSpan(
+                                text: request.message,
+                                children: <InlineSpan>[
+                                  if (widget.count > 1)
+                                    TextSpan(
+                                      text: '  ×${widget.count}',
+                                      style: countStyle,
+                                    ),
+                                ],
+                              ),
+                              key: Key('veri_feedback_message_${widget.id}'),
+                              // 错误正文可能包含具体原因，截到 3 行会把关键信息藏掉。
+                              maxLines: request.tone == VeriFeedbackTone.error
+                                  ? 6
+                                  : 3,
+                              overflow: TextOverflow.ellipsis,
+                              softWrap: true,
+                              style: messageStyle,
+                            ),
+                          ),
+                          if (hasAction) ...<Widget>[
+                            const SizedBox(width: 4),
+                            SizedBox(
+                              height: 32,
+                              child: InkWell(
+                                key: Key('veri_feedback_action_${widget.id}'),
+                                borderRadius: BorderRadius.circular(
+                                  veriRadiusSm,
+                                ),
+                                onTap: () =>
+                                    _dismiss(VeriFeedbackResult.action),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      request.actionLabel!,
+                                      key: Key(
+                                        'veri_feedback_action_label_${widget.id}',
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: actionStyle,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                          SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: InkWell(
+                              key: Key('veri_feedback_close_${widget.id}'),
+                              customBorder: const CircleBorder(),
+                              onTap: () =>
+                                  _dismiss(VeriFeedbackResult.dismissed),
+                              child: Center(
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  key: Key(
+                                    'veri_feedback_close_icon_${widget.id}',
+                                  ),
+                                  size: 14,
+                                  color: foreground.withValues(alpha: 0.46),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (hasProgress)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(veriRadiusSm),
+                        child: ColoredBox(
+                          color: track,
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: 2,
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: AnimatedBuilder(
+                                animation: _lifetimeController!,
+                                builder: (context, _) {
+                                  return FractionallySizedBox(
+                                    key: Key(
+                                      'veri_feedback_progress_${widget.id}',
+                                    ),
+                                    widthFactor:
+                                        (1 - _lifetimeController!.value).clamp(
+                                          0,
+                                          1,
+                                        ),
+                                    heightFactor: 1,
+                                    child: ColoredBox(color: toneColor),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  double _feedbackCardWidth({
+    required BuildContext context,
+    required VeriFeedbackRequest request,
+    required int count,
+    required TextStyle? messageStyle,
+    required TextStyle? countStyle,
+    required TextStyle? actionStyle,
+  }) {
+    final textDirection = Directionality.of(context);
+    final textScaler = MediaQuery.textScalerOf(context);
+    final messagePainter = TextPainter(
+      text: TextSpan(
+        text: request.message,
+        style: messageStyle,
+        children: <InlineSpan>[
+          if (count > 1) TextSpan(text: '  ×$count', style: countStyle),
+        ],
+      ),
+      maxLines: 1,
+      textDirection: textDirection,
+      textScaler: textScaler,
+    )..layout();
+    final actionPainter = TextPainter(
+      text: TextSpan(text: request.actionLabel, style: actionStyle),
+      maxLines: 1,
+      textDirection: textDirection,
+      textScaler: textScaler,
+    )..layout();
+
+    // 卡片宽度由实际字形测量决定：短提示贴合正文，长提示到屏幕安全边距为止。
+    const horizontalChrome = 10.0 + 28.0 + 8.0 + 32.0 + 6.0;
+    final actionWidth = request.actionLabel == null
+        ? 0.0
+        : 4.0 + actionPainter.width + 16.0;
+    // 向上取整，避免字形测量与布局的亚像素差把单行文案挤成省略号。
+    final naturalWidth = (messagePainter.width + horizontalChrome + actionWidth)
+        .ceilToDouble();
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final maxWidth = math.min(360.0, math.max(0.0, viewportWidth - 28.0));
+
+    messagePainter.dispose();
+    actionPainter.dispose();
+    return math.min(naturalWidth, maxWidth);
+  }
+}
+
+class _PendingFeedbackLabel extends StatelessWidget {
+  const _PendingFeedbackLabel({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      key: const Key('veri_feedback_pending_count'),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: (isDark ? Colors.white : veriInk).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(veriRadiusSm),
+      ),
+      child: Text(
+        '+$count',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.58),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _VeriFeedbackScope extends InheritedWidget {
+  const _VeriFeedbackScope({required this.controller, required super.child});
+
+  final VeriFeedbackController controller;
+
+  @override
+  bool updateShouldNotify(_VeriFeedbackScope oldWidget) {
+    return !identical(controller, oldWidget.controller);
+  }
+}
+
+class _FeedbackEntry {
+  _FeedbackEntry({
+    required this.id,
+    required this.request,
+    required this.completer,
+    this.count = 1,
+  });
+
+  final int id;
+  VeriFeedbackRequest request;
+  final Completer<VeriFeedbackResult> completer;
+  int count;
+  int revision = 0;
+}
+
+class _BufferedFeedback {
+  _BufferedFeedback({required this.request, required this.completer});
+
+  VeriFeedbackRequest request;
+  final Completer<VeriFeedbackResult> completer;
+  int count = 1;
+}
+
+void _complete(
+  Completer<VeriFeedbackResult> completer,
+  VeriFeedbackResult result,
+) {
+  if (!completer.isCompleted) {
+    completer.complete(result);
+  }
+}
+
+Color _toneColor(VeriFeedbackTone tone, Brightness brightness, Color accent) {
+  return switch (tone) {
+    VeriFeedbackTone.info => accent,
+    VeriFeedbackTone.success => veriSemanticFor(brightness, veriIncome),
+    VeriFeedbackTone.warning => veriSemanticFor(brightness, veriWarning),
+    VeriFeedbackTone.error => veriSemanticFor(brightness, veriExpense),
+  };
+}
+
+IconData _toneIcon(VeriFeedbackTone tone) {
+  return switch (tone) {
+    VeriFeedbackTone.info => Icons.info_rounded,
+    VeriFeedbackTone.success => Icons.check_rounded,
+    VeriFeedbackTone.warning => Icons.priority_high_rounded,
+    VeriFeedbackTone.error => Icons.close_rounded,
+  };
+}

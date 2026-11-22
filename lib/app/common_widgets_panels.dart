@@ -1,0 +1,686 @@
+part of 'common_widgets.dart';
+
+// 面板域：资产分组卡、日历预览、工具入口、区块标签。
+
+const String hiddenAssetAmount = '••••';
+
+String formatAssetAmount(
+  double? amount,
+  String currencyCode, {
+  required bool hidden,
+}) {
+  if (hidden) return hiddenAssetAmount;
+  return amount == null ? '—' : formatUserMoney(amount, currencyCode);
+}
+
+class AccountSectionCard extends StatelessWidget {
+  const AccountSectionCard({
+    super.key,
+    required this.title,
+    required this.accounts,
+    required this.balances,
+    this.totalText,
+    this.hideAmounts = false,
+    this.collapsed = false,
+    this.sectionDragIndex,
+    this.sectionDragImmediate = false,
+    this.onToggleCollapsed,
+    this.onReorderAccounts,
+    this.onAccountTap,
+  });
+
+  final String title;
+  final List<Account> accounts;
+  final Map<Account, double> balances;
+  final String? totalText;
+  final bool hideAmounts;
+  final bool collapsed;
+  final int? sectionDragIndex;
+  final bool sectionDragImmediate;
+  final VoidCallback? onToggleCollapsed;
+  final ReorderCallback? onReorderAccounts;
+  final ValueChanged<Account>? onAccountTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = accounts.fold<double>(
+      0,
+      (sum, account) =>
+          account.includeInAssets ? sum + (balances[account] ?? 0) : sum,
+    );
+    final currencies = accounts
+        .where((account) => account.includeInAssets)
+        .map((account) => account.currencyCode)
+        .toSet();
+    final resolvedTotalText =
+        totalText ??
+        (currencies.length == 1
+            ? formatUserMoney(total, currencies.single)
+            : currencies.isEmpty
+            ? formatUserMoney(0, defaultCurrencyCode)
+            : '—');
+
+    return VeriCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          InkWell(
+            borderRadius: BorderRadius.circular(veriRadiusSm),
+            onTap: onToggleCollapsed == null
+                ? null
+                : () {
+                    VeriHaptics.tap();
+                    onToggleCollapsed?.call();
+                  },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  if (sectionDragIndex != null) ...<Widget>[
+                    const SizedBox(width: 6),
+                    _buildSectionDragHandle(context),
+                  ],
+                  const SizedBox(width: 4),
+                  Text(
+                    hideAmounts ? hiddenAssetAmount : resolvedTotalText,
+                    key: Key('account_group_total_$title'),
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.58),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  AnimatedRotation(
+                    turns: collapsed ? 0 : 0.5,
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    child: Icon(
+                      Icons.expand_more,
+                      size: 18,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.42),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SizeTransition(
+                sizeFactor: animation,
+                axis: Axis.vertical,
+                alignment: Alignment.topCenter,
+                child: child,
+              ),
+            ),
+            child: collapsed
+                ? const SizedBox.shrink(key: ValueKey<String>('collapsed'))
+                : Column(
+                    key: const ValueKey<String>('expanded'),
+                    children: <Widget>[
+                      const SizedBox(height: 10),
+                      ReorderableListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        buildDefaultDragHandles: false,
+                        proxyDecorator: (child, _, _) => Material(
+                          color: Colors.transparent,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(veriRadiusSm),
+                              boxShadow: <BoxShadow>[
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.12),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: child,
+                          ),
+                        ),
+                        itemCount: accounts.length,
+                        // 一次拖动只给两次触感：抓住、落下。`onReorderEnd` 还会在
+                        // 动画收尾时再触发一次，叠起来就是「连震三下」。
+                        onReorderStart: (_) => VeriHaptics.tap(),
+                        onReorderItem: (oldIndex, newIndex) {
+                          VeriHaptics.tap();
+                          (onReorderAccounts ?? (_, _) {})(oldIndex, newIndex);
+                        },
+                        itemBuilder: (context, index) {
+                          final account = accounts[index];
+                          final row = _AccountRow(
+                            key: ValueKey<String>('account_${account.id}'),
+                            account: account,
+                            balance: balances[account] ?? 0,
+                            hideAmount: hideAmounts,
+                            onTap: onAccountTap == null
+                                ? null
+                                : () => onAccountTap!(account),
+                          );
+                          if (onReorderAccounts == null) {
+                            return row;
+                          }
+                          return ReorderableDelayedDragStartListener(
+                            key: ValueKey<String>('account_drag_${account.id}'),
+                            index: index,
+                            child: row,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionDragHandle(BuildContext context) {
+    final handle = Padding(
+      padding: const EdgeInsets.all(8),
+      child: Icon(
+        Icons.drag_indicator,
+        size: 18,
+        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.34),
+      ),
+    );
+    if (sectionDragImmediate) {
+      return ReorderableDragStartListener(
+        index: sectionDragIndex!,
+        child: handle,
+      );
+    }
+    return ReorderableDelayedDragStartListener(
+      index: sectionDragIndex!,
+      child: handle,
+    );
+  }
+}
+
+/// 资产列表中的余额颜色：不计入资产的账户用弱化色，零余额用主题中性色，
+/// 负余额红色，正余额青绿色。
+Color accountBalanceColor(
+  BuildContext context,
+  Account account,
+  double balance,
+) {
+  if (!account.includeInAssets) {
+    return Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.42);
+  }
+  if (isZeroCurrencyAmount(balance, account.currencyCode)) {
+    return Theme.of(context).colorScheme.onSurface;
+  }
+  return balance < 0
+      ? veriSemantic(context, veriExpense)
+      : veriSemantic(context, veriIncome);
+}
+
+class _AccountRow extends StatelessWidget {
+  const _AccountRow({
+    super.key,
+    required this.account,
+    required this.balance,
+    required this.hideAmount,
+    required this.onTap,
+  });
+
+  final Account account;
+  final double balance;
+  final bool hideAmount;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(veriRadiusSm),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: <Widget>[
+              AccountIconBox(
+                iconCode: effectiveAccountIconCode(
+                  account.iconCode,
+                  account.name,
+                ),
+                size: 34,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text.rich(
+                      TextSpan(
+                        text: account.name,
+                        children: <TextSpan>[
+                          if (account.cardLast4.isNotEmpty &&
+                              account.type.supportsCardLast4)
+                            TextSpan(
+                              text: ' (${account.cardLast4})',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.42),
+                                    fontSize:
+                                        (Theme.of(
+                                              context,
+                                            ).textTheme.titleMedium?.fontSize ??
+                                            16) *
+                                        0.82,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (account.type.supportsCredit &&
+                        account.creditLimit != null)
+                      Text(
+                        '${AppLocalizations.of(context).creditAvailableLabel} '
+                        '${formatAssetAmount(availableCredit(account.creditLimit, balance) ?? 0, account.currencyCode, hidden: hideAmount)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.55),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                formatAssetAmount(
+                  balance,
+                  account.currencyCode,
+                  hidden: hideAmount,
+                ),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: hideAmount
+                      ? Theme.of(context).colorScheme.onSurfaceVariant
+                      : accountBalanceColor(context, account, balance),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CalendarPreview extends StatefulWidget {
+  const CalendarPreview({
+    super.key,
+    required this.entries,
+    required this.currencyCode,
+    this.onDayTap,
+  });
+
+  final List<LedgerEntry> entries;
+  final String currencyCode;
+  final ValueChanged<DateTime>? onDayTap;
+
+  @override
+  State<CalendarPreview> createState() => _CalendarPreviewState();
+}
+
+class _CalendarPreviewState extends State<CalendarPreview> {
+  late DateTime _visibleMonth = DateTime(
+    DateTime.now().year,
+    DateTime.now().month,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final now = DateTime.now();
+    final isCurrentMonth =
+        _visibleMonth.year == now.year && _visibleMonth.month == now.month;
+    final days = DateUtils.getDaysInMonth(
+      _visibleMonth.year,
+      _visibleMonth.month,
+    );
+    final leadingBlanks =
+        DateTime(_visibleMonth.year, _visibleMonth.month).weekday - 1;
+    // 先按天分桶一次，避免每格各扫一遍全部交易。
+    final incomeByDay = <int, double>{};
+    final expenseByDay = <int, double>{};
+    for (final entry in widget.entries) {
+      final at = entry.occurredAt;
+      if (at.year != _visibleMonth.year || at.month != _visibleMonth.month) {
+        continue;
+      }
+      switch (entry.type) {
+        case EntryType.income:
+          incomeByDay[at.day] = (incomeByDay[at.day] ?? 0) + entry.baseAmount;
+        case EntryType.expense:
+          expenseByDay[at.day] =
+              (expenseByDay[at.day] ?? 0) + entry.netBaseAmount;
+        case EntryType.transfer:
+        case EntryType.refund:
+          break;
+      }
+    }
+
+    return VeriCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Expanded(
+                child: SectionTitle(
+                  title: AppLocalizations.of(context).calendarTitle,
+                ),
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  if (!isCurrentMonth)
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(44, 36),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () => setState(() {
+                        _visibleMonth = DateTime(now.year, now.month);
+                      }),
+                      child: Text(l10n.thisMonth),
+                    ),
+                  IconButton(
+                    constraints: const BoxConstraints.tightFor(
+                      width: 32,
+                      height: 32,
+                    ),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    tooltip: l10n.calendarPrevMonth,
+                    onPressed: () {
+                      VeriHaptics.tick();
+                      setState(() {
+                        _visibleMonth = DateTime(
+                          _visibleMonth.year,
+                          _visibleMonth.month - 1,
+                        );
+                      });
+                    },
+                    icon: const Icon(Icons.chevron_left, size: 20),
+                  ),
+                  Container(
+                    constraints: const BoxConstraints(minWidth: 64),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: VeriStyleTokens.of(context).surfaceAltColor,
+                      borderRadius: BorderRadius.circular(999),
+                      border: VeriStyleTokens.of(context).pillHasBorder
+                          ? Border.all(
+                              color: VeriStyleTokens.of(context).borderColor,
+                            )
+                          : null,
+                    ),
+                    child: Text(
+                      l10n.yearMonth(_visibleMonth),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    constraints: const BoxConstraints.tightFor(
+                      width: 32,
+                      height: 32,
+                    ),
+                    padding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                    tooltip: l10n.calendarNextMonth,
+                    onPressed: () {
+                      VeriHaptics.tick();
+                      setState(() {
+                        _visibleMonth = DateTime(
+                          _visibleMonth.year,
+                          _visibleMonth.month + 1,
+                        );
+                      });
+                    },
+                    icon: const Icon(Icons.chevron_right, size: 20),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              _WeekdayLabel(AppLocalizations.of(context).weekdayMon),
+              _WeekdayLabel(AppLocalizations.of(context).weekdayTue),
+              _WeekdayLabel(AppLocalizations.of(context).weekdayWed),
+              _WeekdayLabel(AppLocalizations.of(context).weekdayThu),
+              _WeekdayLabel(AppLocalizations.of(context).weekdayFri),
+              _WeekdayLabel(AppLocalizations.of(context).weekdaySat),
+              _WeekdayLabel(AppLocalizations.of(context).weekdaySun),
+            ],
+          ),
+          const SizedBox(height: 6),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 5,
+              crossAxisSpacing: 4,
+              // 日期格的三行文案高度都写死过，字号放大时必须一起放大，否则裁切。
+              mainAxisExtent: MediaQuery.textScalerOf(context).scale(50),
+            ),
+            itemCount: leadingBlanks + days,
+            itemBuilder: (context, index) {
+              if (index < leadingBlanks) {
+                return const SizedBox.shrink();
+              }
+              final day = index - leadingBlanks + 1;
+              final income = incomeByDay[day] ?? 0;
+              final expense = expenseByDay[day] ?? 0;
+              final date = DateTime(
+                _visibleMonth.year,
+                _visibleMonth.month,
+                day,
+              );
+
+              return InkWell(
+                borderRadius: BorderRadius.circular(veriRadiusSm),
+                onTap: widget.onDayTap == null
+                    ? null
+                    : () {
+                        VeriHaptics.tick();
+                        widget.onDayTap!(date);
+                      },
+                child: Container(
+                  alignment: Alignment.topCenter,
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  decoration: BoxDecoration(
+                    color:
+                        day == now.day &&
+                            _visibleMonth.year == now.year &&
+                            _visibleMonth.month == now.month
+                        ? Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.12)
+                        : Colors.transparent,
+                    border: Border.all(
+                      color:
+                          day == now.day &&
+                              _visibleMonth.year == now.year &&
+                              _visibleMonth.month == now.month
+                          ? Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.16)
+                          : Colors.transparent,
+                    ),
+                    borderRadius: BorderRadius.circular(veriRadiusSm),
+                  ),
+                  child: Column(
+                    children: <Widget>[
+                      SizedBox(
+                        height: MediaQuery.textScalerOf(context).scale(16),
+                        child: Text(
+                          '$day',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color:
+                                    day == now.day &&
+                                        _visibleMonth.year == now.year &&
+                                        _visibleMonth.month == now.month
+                                    ? Theme.of(context).colorScheme.primary
+                                    : null,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                      SizedBox(
+                        height: MediaQuery.textScalerOf(context).scale(12),
+                        child: expense <= 0
+                            ? const SizedBox.shrink()
+                            : Text(
+                                '-${formatCompactAmount(AppLocalizations.of(context), expense)}',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
+                                      color: veriSemantic(context, veriExpense),
+                                      fontSize: 9,
+                                    ),
+                              ),
+                      ),
+                      SizedBox(
+                        height: MediaQuery.textScalerOf(context).scale(12),
+                        child: income <= 0
+                            ? const SizedBox.shrink()
+                            : Text(
+                                '+${formatCompactAmount(AppLocalizations.of(context), income)}',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(
+                                      color: veriSemantic(context, veriIncome),
+                                      fontSize: 9,
+                                    ),
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          // 前置间距是专为单位留的，必须跟着单位一起收掉：只让 MoneyUnitLabel 自己
+          // 变空会把这 6dp 留在卡片底部，看起来像空了一块。
+          if (!textCurrencyUnitHidden) ...<Widget>[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: MoneyUnitLabel(currencyCode: widget.currencyCode),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _WeekdayLabel extends StatelessWidget {
+  const _WeekdayLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.42),
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class ToolEntry extends StatelessWidget {
+  const ToolEntry({super.key, required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        Icon(icon, color: veriSemantic(context, veriBlue), size: 24),
+        const SizedBox(height: 6),
+        Text(label, style: Theme.of(context).textTheme.labelLarge),
+      ],
+    );
+  }
+}
+
+/// 分组小标题（设置页 / 账户详情页等分区卡片上方的灰色标签）。
+class SectionLabel extends StatelessWidget {
+  const SectionLabel(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 4, 6, 8),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}

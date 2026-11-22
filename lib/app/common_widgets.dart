@@ -1,0 +1,35 @@
+/// 通用组件库（跨页面复用，组件清单见 docs/design/components.md）。
+/// 组件按域放在 part 文件里，新增组件进对应域、勿再堆回本文件；
+/// 调用方一律 `import 'common_widgets.dart'`，导入路径不变。
+library;
+
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:animated_toggle_switch/animated_toggle_switch.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import '../l10n/app_localizations.dart';
+import 'account_icon_assets.dart';
+export 'account_icon_assets.dart' show effectiveAccountIconCode;
+import 'amount_format.dart';
+import 'app_theme.dart';
+import 'auto_save.dart';
+import 'category_icon_presets.dart';
+import 'category_icon_theme.dart';
+import 'category_tree.dart';
+import 'credit_card.dart';
+import 'currency_math.dart';
+import 'haptics.dart';
+import 'icon_catalog.dart';
+import 'model_lookup.dart';
+import 'ledger_math.dart';
+import 'models.dart';
+
+part 'common_widgets_display.dart';
+part 'common_widgets_forms.dart';
+part 'common_widgets_heatmap.dart';
+part 'common_widgets_panels.dart';
+part 'common_widgets_scaffold.dart';
+part 'common_widgets_transactions.dart';

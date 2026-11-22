@@ -1,0 +1,1133 @@
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:verifin/app/app_theme.dart';
+import 'package:verifin/app/chart_painters.dart';
+import 'package:verifin/app/common_widgets.dart';
+import 'package:verifin/app/models.dart';
+import 'package:verifin/app/veri_fin_scope.dart';
+import 'package:verifin/local_storage/local_storage.dart';
+import 'package:verifin/main.dart';
+import 'package:verifin/pages/account_detail_page.dart';
+
+import 'support/test_harness.dart';
+
+void main() {
+  useTestDatabases();
+
+  testWidgets('账户图标选择器支持分组浏览、搜索和选择', (WidgetTester tester) async {
+    await pumpApp(tester);
+
+    await tapBottomTab(tester, 1);
+    await tester.tap(find.byTooltip('资产操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加账户'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('account_icon_select_field')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('选择账户图标'), findsOneWidget);
+    expect(find.byKey(const Key('account_icon_search_field')), findsOneWidget);
+    expect(find.text('通用图标'), findsAtLeastNWidgets(1));
+    expect(find.byKey(const Key('account_icon_group_payment')), findsOneWidget);
+    expect(
+      find.byKey(const Key('account_icon_group_investment')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('account_icon_group_card')), findsOneWidget);
+    expect(find.byKey(const Key('account_icon_group_digital')), findsOneWidget);
+    expect(find.byKey(const Key('account_icon_group_bank')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('account_icon_group_investment')));
+    await tester.pumpAndSettle();
+    expect(find.text('余额宝'), findsOneWidget);
+    expect(find.text('Interactive Brokers'), findsOneWidget);
+    expect(find.byKey(const Key('account_icon_option_wallet')), findsNothing);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('account_icon_group_bank')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('account_icon_group_bank')));
+    await tester.pumpAndSettle();
+    expect(find.text('上海银行'), findsOneWidget);
+    expect(find.byKey(const Key('account_icon_option_wallet')), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const Key('account_icon_search_field')),
+      'not-a-real-icon',
+    );
+    await tester.pump();
+    expect(find.text('没有找到图标'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('account_icon_search_field')),
+      'ICBC',
+    );
+    await tester.pump();
+    expect(find.text('工商银行'), findsOneWidget);
+    expect(find.text('中国民生银行'), findsNothing);
+    await tester.tap(
+      find.byKey(const Key('account_icon_search_result_asset:bank_015')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('工商银行'), findsOneWidget);
+  });
+
+  testWidgets('suggests bank icon from account name', (
+    WidgetTester tester,
+  ) async {
+    await pumpApp(tester);
+
+    await tapBottomTab(tester, 1);
+    await tester.tap(find.byTooltip('资产操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加账户'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, '中信银行储蓄卡');
+    await tester.pumpAndSettle();
+
+    expect(find.text('中信银行'), findsOneWidget);
+  });
+
+  testWidgets('账户详情的图标设置行预览当前品牌图标', (tester) async {
+    final controller = await makeController();
+    final account = Account(
+      id: 'brand-icon-account',
+      bookId: controller.activeBook.id,
+      name: '招商银行',
+      type: AccountType.debitCard,
+      groupId: null,
+      initialBalance: 0,
+      iconCode: 'asset:bank_021',
+      note: '',
+      includeInAssets: true,
+      hidden: false,
+      currencyCode: controller.activeBook.baseCurrencyCode,
+    );
+    expect(await controller.addAccountDraft(account), isTrue);
+    await tester.binding.setSurfaceSize(const Size(460, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      VeriFinScope(
+        controller: controller,
+        child: zhMaterialApp(home: AccountDetailPage(account: account)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is AccountIconBox &&
+            widget.iconCode == 'asset:bank_021' &&
+            widget.size == 28,
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('添加账户修改后返回可选择不保存', (tester) async {
+    final controller = await pumpApp(tester);
+
+    await tapBottomTab(tester, 1);
+    await tester.tap(find.byTooltip('资产操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加账户'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, '临时账户');
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    expect(find.text('保存修改？'), findsOneWidget);
+    expect(controller.accounts, isEmpty);
+
+    await tester.tap(find.text('不保存'));
+    await tester.pumpAndSettle();
+    expect(find.text('临时账户'), findsNothing);
+    expect(controller.accounts, isEmpty);
+  });
+
+  testWidgets('新建账户切换类型后可恢复暂时隐藏的卡号草稿', (tester) async {
+    await pumpApp(tester);
+    await tapBottomTab(tester, 1);
+    await tester.tap(find.byTooltip('资产操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加账户'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('add_account_type_choice')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('信用卡').last);
+    await tester.pumpAndSettle();
+    final cardNumber = find.widgetWithText(TextFormField, '完整卡号（选填）');
+    await tester.enterText(cardNumber, '6222333344445678');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('add_account_type_choice')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('现金').last);
+    await tester.pumpAndSettle();
+    expect(cardNumber, findsNothing);
+
+    await tester.tap(find.byKey(const Key('add_account_type_choice')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('信用卡').last);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextFormField>(cardNumber).controller?.text,
+      '6222333344445678',
+    );
+  });
+
+  testWidgets('新建账户的初始余额走数字键盘且支持负数', (tester) async {
+    final controller = await pumpApp(tester);
+    await tapBottomTab(tester, 1);
+    await tester.tap(find.byTooltip('资产操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加账户'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).first, '招行信用卡');
+    await tester.pump();
+
+    // 初始余额不再是系统键盘输入框，点按后弹出统一数字键盘。
+    await tester.tap(find.byKey(const Key('add_account_balance')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('number_key_1')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('number_key_-')));
+    await tester.tap(find.byKey(const Key('number_key_5')));
+    await tester.tap(find.byKey(const Key('number_key_0')));
+    await tester.tap(find.byKey(const Key('number_key_0')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('number_pad_ok')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('-500'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('保存'));
+    await tester.pumpAndSettle();
+
+    expect(controller.accounts.single.name, '招行信用卡');
+    expect(controller.accounts.single.initialBalance, -500);
+  });
+
+  testWidgets('账户详情可把余额调整为负数并提示欠款', (tester) async {
+    final controller = await makeController();
+    final account = Account(
+      id: 'balance-edit-account',
+      bookId: controller.activeBook.id,
+      name: '招行信用卡',
+      type: AccountType.creditCard,
+      groupId: null,
+      initialBalance: 0,
+      iconCode: 'wallet',
+      note: '',
+      includeInAssets: true,
+      hidden: false,
+      currencyCode: controller.activeBook.baseCurrencyCode,
+    );
+    expect(await controller.addAccountDraft(account), isTrue);
+    await tester.binding.setSurfaceSize(const Size(460, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      VeriFinScope(
+        controller: controller,
+        child: zhMaterialApp(home: AccountDetailPage(account: account)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 余额为 0 时面板也从空开始，可直接输入首位负号。
+    await tester.tap(find.byTooltip('调整余额'));
+    await tester.pumpAndSettle();
+    expect(find.text('请输入金额'), findsOneWidget);
+    for (final key in <String>['-', '5', '00']) {
+      await tester.tap(find.byKey(Key('number_key_$key')));
+      await tester.pump();
+    }
+    await tester.tap(find.byKey(const Key('number_pad_ok')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('-500'), findsWidgets);
+    expect(find.textContaining('负余额'), findsOneWidget);
+
+    await tester.tap(find.text('确认'));
+    await tester.pumpAndSettle();
+
+    expect(controller.accountBalance(account), -500);
+  });
+
+  testWidgets('资产背景入口位于资产操作菜单的显示设置中', (WidgetTester tester) async {
+    await pumpApp(tester);
+
+    await tapBottomTab(tester, 1);
+    await tester.tap(find.byTooltip('资产操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('资产显示设置'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('资产显示设置'), findsOneWidget);
+    expect(find.byIcon(Icons.save_outlined), findsNothing);
+    await tester.tap(find.text('资产卡片背景'));
+    await tester.pumpAndSettle();
+    expect(find.text('资产卡片背景'), findsWidgets);
+    expect(find.text('使用线上图片'), findsOneWidget);
+    expect(find.text('选择本地图片'), findsOneWidget);
+  });
+
+  testWidgets('资产背景在线预设选择即保存', (tester) async {
+    final controller = await pumpApp(tester);
+    await tapBottomTab(tester, 1);
+    await tester.tap(find.byTooltip('资产操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('资产显示设置'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('资产卡片背景'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('使用线上图片'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('蓝色城市'), findsOneWidget);
+    expect(find.text('极光夜色'), findsOneWidget);
+    expect(find.text('金融办公'), findsOneWidget);
+    expect(find.text('深蓝渐层'), findsOneWidget);
+    await tester.tap(find.text('蓝色城市'));
+    await tester.pumpAndSettle();
+
+    expect(controller.assetCoverUrl, isNotEmpty);
+    expect(find.byIcon(Icons.save_outlined), findsNothing);
+  });
+
+  testWidgets('starts with no default accounts', (WidgetTester tester) async {
+    await pumpApp(tester);
+
+    await tapBottomTab(tester, 1);
+
+    expect(find.text('支付宝'), findsNothing);
+    expect(find.text('微信'), findsNothing);
+    expect(find.text('花呗'), findsNothing);
+  });
+
+  testWidgets('混合币种资产缺汇率时隐藏总额，补齐后按本位币显示', (WidgetTester tester) async {
+    final controller = await pumpApp(tester);
+    final bookId = controller.activeBook.id;
+    controller.addAccount(
+      Account(
+        id: 'cny-assets-account',
+        bookId: bookId,
+        name: '人民币现金',
+        type: AccountType.cash,
+        groupId: null,
+        initialBalance: 100,
+        iconCode: 'cash',
+        note: '',
+        includeInAssets: true,
+        hidden: false,
+        currencyCode: 'CNY',
+      ),
+    );
+    controller.addAccount(
+      Account(
+        id: 'usd-assets-account',
+        bookId: bookId,
+        name: '美元现金',
+        type: AccountType.cash,
+        groupId: null,
+        initialBalance: 10,
+        iconCode: 'cash',
+        note: '',
+        includeInAssets: true,
+        hidden: false,
+        currencyCode: 'USD',
+      ),
+    );
+    await tester.pump();
+    await tapBottomTab(tester, 1);
+
+    expect(find.text('有 1 个账户待设置汇率'), findsOneWidget);
+    expect(find.text('还没有可用于折算的历史汇率，设置今天或更早的汇率后显示资产走势。'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('美元现金'),
+      260,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('10 \$'), findsOneWidget);
+    expect(find.text('172 ¥'), findsNothing);
+
+    expect(
+      await controller.saveExchangeRateDraft(
+        currencyCode: 'USD',
+        effectiveDate: DateTime(2020),
+        rateToBase: 7.2,
+      ),
+      isTrue,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('有 1 个账户待设置汇率'), findsNothing);
+    expect(find.text('还没有可用于折算的历史汇率，设置今天或更早的汇率后显示资产走势。'), findsNothing);
+    expect(find.text('172 ¥'), findsNWidgets(3));
+    expect(find.text('10 \$'), findsOneWidget);
+    expect(find.text('资产估值最旧汇率：2020年1月 · 可能已过期'), findsOneWidget);
+  });
+
+  testWidgets('零余额外币账户不要求汇率，历史资产走势仍显示', (WidgetTester tester) async {
+    final controller = await pumpApp(tester);
+    final bookId = controller.activeBook.id;
+    controller
+      ..addAccount(
+        Account(
+          id: 'cny-zero-rate-account',
+          bookId: bookId,
+          name: '人民币现金',
+          type: AccountType.cash,
+          groupId: null,
+          initialBalance: 100,
+          iconCode: 'cash',
+          note: '',
+          includeInAssets: true,
+          hidden: false,
+          currencyCode: 'CNY',
+        ),
+      )
+      ..addAccount(
+        Account(
+          id: 'usd-zero-balance-account',
+          bookId: bookId,
+          name: '美元现金',
+          type: AccountType.cash,
+          groupId: null,
+          initialBalance: 0,
+          iconCode: 'cash',
+          note: '',
+          includeInAssets: true,
+          hidden: false,
+          currencyCode: 'USD',
+        ),
+      );
+    await tester.pump();
+    await tapBottomTab(tester, 1);
+
+    expect(find.text('还没有可用于折算的历史汇率，设置今天或更早的汇率后显示资产走势。'), findsNothing);
+    expect(find.byType(InteractiveTrendChart), findsOneWidget);
+  });
+
+  testWidgets('非零外币账户设置当前汇率后显示可估值的历史走势', (WidgetTester tester) async {
+    final controller = await pumpApp(tester);
+    final bookId = controller.activeBook.id;
+    controller
+      ..addAccount(
+        Account(
+          id: 'cny-history-account',
+          bookId: bookId,
+          name: '人民币现金',
+          type: AccountType.cash,
+          groupId: null,
+          initialBalance: 100,
+          iconCode: 'cash',
+          note: '',
+          includeInAssets: true,
+          hidden: false,
+          currencyCode: 'CNY',
+        ),
+      )
+      ..addAccount(
+        Account(
+          id: 'usd-history-account',
+          bookId: bookId,
+          name: '美元现金',
+          type: AccountType.cash,
+          groupId: null,
+          initialBalance: 8,
+          iconCode: 'cash',
+          note: '',
+          includeInAssets: true,
+          hidden: false,
+          currencyCode: 'USD',
+        ),
+      );
+    await tester.pump();
+    await tapBottomTab(tester, 1);
+    expect(find.text('还没有可用于折算的历史汇率，设置今天或更早的汇率后显示资产走势。'), findsOneWidget);
+
+    expect(
+      await controller.saveExchangeRateDraft(
+        currencyCode: 'USD',
+        effectiveDate: DateTime.now(),
+        rateToBase: 7.2,
+      ),
+      isTrue,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('还没有可用于折算的历史汇率，设置今天或更早的汇率后显示资产走势。'), findsNothing);
+    expect(find.byType(InteractiveTrendChart), findsOneWidget);
+    final chart = tester.widget<LineChart>(find.byType(LineChart));
+    expect(chart.data.lineBarsData.single.dotData.show, isTrue);
+    expect(
+      chart.data.lineBarsData.single.spots
+          .where((spot) => !spot.isNull())
+          .length,
+      greaterThan(0),
+    );
+    if (DateTime.now().month > 1) {
+      expect(find.textContaining('部分月份缺少 USD 汇率'), findsOneWidget);
+    }
+  });
+
+  testWidgets('历史走势全部缺率时给出可操作的汇率入口', (WidgetTester tester) async {
+    final controller = await pumpApp(tester);
+    final bookId = controller.activeBook.id;
+    controller.addAccount(
+      Account(
+        id: 'usd-no-rate-account',
+        bookId: bookId,
+        name: '美元现金',
+        type: AccountType.cash,
+        groupId: null,
+        initialBalance: 8,
+        iconCode: 'cash',
+        note: '',
+        includeInAssets: true,
+        hidden: false,
+        currencyCode: 'USD',
+      ),
+    );
+    await tester.pump();
+    await tapBottomTab(tester, 1);
+
+    expect(find.byType(InteractiveTrendChart), findsNothing);
+    expect(find.text('设置汇率'), findsOneWidget);
+    await tester.tap(find.text('设置汇率'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('货币与汇率'), findsOneWidget);
+  });
+
+  testWidgets('账户报告页在多币种下不在页头声明单一单位', (WidgetTester tester) async {
+    final controller = await makeController();
+    final bookId = controller.activeBook.id;
+    final account = Account(
+      id: 'usd-report-account',
+      bookId: bookId,
+      name: '美元现金',
+      type: AccountType.cash,
+      groupId: null,
+      initialBalance: 10,
+      iconCode: 'cash',
+      note: '',
+      includeInAssets: true,
+      hidden: false,
+      currencyCode: 'USD',
+    );
+    controller
+      ..addAccount(account)
+      ..addEntry(
+        LedgerEntry(
+          id: 'usd-report-entry',
+          bookId: bookId,
+          type: EntryType.expense,
+          amount: 10,
+          currencyCode: 'USD',
+          accountAmount: 10,
+          baseAmount: 72,
+          categoryId: controller.categoriesForType(EntryType.expense).first.id,
+          accountId: account.id,
+          note: '',
+          occurredAt: DateTime.now(),
+        ),
+      );
+
+    await tester.pumpWidget(
+      VeriFinScope(
+        controller: controller,
+        child: zhMaterialApp(home: AccountReportPage(account: account)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('单位：'), findsNothing);
+    expect(find.textContaining('10 \$'), findsWidgets);
+    expect(find.textContaining('72 ¥'), findsWidgets);
+  });
+
+  testWidgets('shows empty state on account groups page', (
+    WidgetTester tester,
+  ) async {
+    await pumpApp(tester);
+
+    await tapBottomTab(tester, 1);
+    await tester.tap(find.byTooltip('资产操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('管理分组'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('还没有账户分组'), findsOneWidget);
+    expect(find.text('点击右上角加号创建分组，用来整理不同账户。'), findsOneWidget);
+  });
+
+  testWidgets('shows accounts by type in the assets page by default', (
+    WidgetTester tester,
+  ) async {
+    await pumpApp(tester);
+    await addTestAccount(tester, '现金账户');
+
+    expect(find.text('网络支付'), findsOneWidget);
+    expect(find.text('现金账户'), findsOneWidget);
+  });
+
+  testWidgets('asset section total ignores accounts excluded from assets', (
+    WidgetTester tester,
+  ) async {
+    const included = Account(
+      id: 'included-account',
+      bookId: defaultLedgerBookId,
+      name: '计入账户',
+      type: AccountType.cash,
+      groupId: null,
+      initialBalance: 0,
+      iconCode: 'cash',
+      note: '',
+      includeInAssets: true,
+      hidden: false,
+    );
+    const excluded = Account(
+      id: 'excluded-account',
+      bookId: defaultLedgerBookId,
+      name: '不计入账户',
+      type: AccountType.cash,
+      groupId: null,
+      initialBalance: 0,
+      iconCode: 'cash',
+      note: '',
+      includeInAssets: false,
+      hidden: false,
+    );
+
+    await tester.pumpWidget(
+      zhMaterialApp(
+        theme: buildVeriFinTheme(Brightness.light),
+        home: Scaffold(
+          body: AccountSectionCard(
+            title: '现金',
+            accounts: const <Account>[included, excluded],
+            balances: const <Account, double>{included: 100, excluded: 500},
+          ),
+        ),
+      ),
+    );
+
+    final totalText = tester.widget<Text>(
+      find.byKey(const Key('account_group_total_现金')),
+    );
+    expect(totalText.data, '100');
+    expect(find.text('600'), findsNothing);
+  });
+
+  testWidgets('account balance colors use a distinct neutral color for zero', (
+    WidgetTester tester,
+  ) async {
+    const account = Account(
+      id: 'balance-color-account',
+      bookId: defaultLedgerBookId,
+      name: '余额颜色账户',
+      type: AccountType.cash,
+      groupId: null,
+      initialBalance: 0,
+      iconCode: 'cash',
+      note: '',
+      includeInAssets: true,
+      hidden: false,
+    );
+    const excludedAccount = Account(
+      id: 'excluded-balance-color-account',
+      bookId: defaultLedgerBookId,
+      name: '不计入资产账户',
+      type: AccountType.cash,
+      groupId: null,
+      initialBalance: 0,
+      iconCode: 'cash',
+      note: '',
+      includeInAssets: false,
+      hidden: false,
+    );
+    final theme = buildVeriFinTheme(Brightness.light);
+    late Color zeroColor;
+    late Color nearZeroColor;
+    late Color positiveColor;
+    late Color negativeColor;
+    late Color excludedColor;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: theme,
+        home: Builder(
+          builder: (context) {
+            zeroColor = accountBalanceColor(context, account, 0);
+            nearZeroColor = accountBalanceColor(context, account, -1e-12);
+            positiveColor = accountBalanceColor(context, account, 1);
+            negativeColor = accountBalanceColor(context, account, -1);
+            excludedColor = accountBalanceColor(context, excludedAccount, 0);
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final tokens = theme.extension<VeriStyleTokens>()!;
+    expect(zeroColor, theme.colorScheme.onSurface);
+    expect(nearZeroColor, theme.colorScheme.onSurface);
+    expect(positiveColor, tokens.incomeColor);
+    expect(negativeColor, tokens.expenseColor);
+    expect(excludedColor, theme.colorScheme.onSurface.withValues(alpha: 0.42));
+    expect(zeroColor, isNot(excludedColor));
+  });
+
+  testWidgets('account row shows card last four digits', (
+    WidgetTester tester,
+  ) async {
+    const account = Account(
+      id: 'card-account',
+      bookId: defaultLedgerBookId,
+      name: '中信信用卡',
+      type: AccountType.creditCard,
+      groupId: null,
+      initialBalance: 0,
+      iconCode: 'credit',
+      note: '',
+      includeInAssets: true,
+      hidden: false,
+      cardLast4: '8321',
+    );
+
+    await tester.pumpWidget(
+      zhMaterialApp(
+        theme: buildVeriFinTheme(Brightness.light),
+        home: Scaffold(
+          body: AccountSectionCard(
+            title: '信用卡',
+            accounts: const <Account>[account],
+            balances: const <Account, double>{account: -120},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.textContaining('8321'), findsOneWidget);
+  });
+
+  testWidgets('CardNumberFields 受控：开关反映 follows，打开时同步后四位', (
+    WidgetTester tester,
+  ) async {
+    final numberController = TextEditingController(text: '6222000000001234');
+    final last4Controller = TextEditingController(text: '9999');
+    var follows = false;
+
+    await tester.pumpWidget(
+      zhMaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => CardNumberFields(
+              numberController: numberController,
+              last4Controller: last4Controller,
+              follows: follows,
+              onFollowsChanged: (value) => setState(() => follows = value),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // 初始 follows=false：开关关、后四位保留手填值。
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+    expect(last4Controller.text, '9999');
+
+    // 打开跟随：开关回传 true、后四位同步为完整卡号末四位。
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    expect(follows, isTrue);
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+    expect(last4Controller.text, '1234');
+
+    numberController.dispose();
+    last4Controller.dispose();
+  });
+
+  testWidgets('账户类型锚点菜单切换期间保留隐藏草稿，保存时再清理', (tester) async {
+    final controller = await makeController();
+    addTearDown(controller.dispose);
+    final account = Account(
+      id: 'type-draft-account',
+      bookId: controller.activeBook.id,
+      name: '测试信用卡',
+      type: AccountType.creditCard,
+      groupId: null,
+      initialBalance: 0,
+      iconCode: 'credit',
+      note: '',
+      includeInAssets: true,
+      hidden: false,
+      cardNumber: '6222333344445678',
+      cardLast4: '5678',
+      creditLimit: 10000,
+      statementDay: 5,
+      dueDay: 25,
+    );
+    controller.addAccount(account);
+    await tester.binding.setSurfaceSize(const Size(460, 2600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      VeriFinScope(
+        controller: controller,
+        child: zhMaterialApp(home: AccountDetailPage(account: account)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('类型'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('现金').last);
+    await tester.pumpAndSettle();
+    expect(
+      controller.accounts.firstWhere((item) => item.id == account.id).type,
+      AccountType.cash,
+    );
+    await tester.tap(find.text('类型'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('信用卡').last);
+    await tester.pumpAndSettle();
+    expect(find.text('6222333344445678'), findsOneWidget);
+
+    await tester.tap(find.text('类型'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('现金').last);
+    await tester.pumpAndSettle();
+
+    final saved = controller.accounts.firstWhere(
+      (item) => item.id == account.id,
+    );
+    expect(saved.type, AccountType.cash);
+    expect(saved.cardNumber, isEmpty);
+    expect(saved.cardLast4, isEmpty);
+    expect(saved.creditLimit, isNull);
+    expect(saved.statementDay, isNull);
+    expect(saved.dueDay, isNull);
+  });
+
+  testWidgets('资产视图切换即保存，普通折叠状态持久化', (WidgetTester tester) async {
+    final store = LocalKeyValueStore();
+    final seed = await makeController(store);
+    seed.addAccount(
+      Account(
+        id: 'asset-view-alipay',
+        bookId: seed.activeBook.id,
+        name: '支付宝账户',
+        type: AccountType.onlinePayment,
+        groupId: null,
+        initialBalance: 0,
+        iconCode: 'wallet',
+        note: '',
+        includeInAssets: true,
+        hidden: false,
+      ),
+    );
+    seed.dispose();
+
+    final controller = await pumpApp(tester, store);
+    await tapBottomTab(tester, 1);
+
+    await tester.tap(find.byTooltip('资产操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('资产显示设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('类型视图'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('分类视图'));
+    await tester.pumpAndSettle();
+
+    // 设置页切换视图即写入 Controller。
+    expect(controller.assetAccountViewMode, AssetAccountViewMode.group);
+    await tester.tap(find.byIcon(Icons.arrow_back));
+    await tester.pumpAndSettle();
+
+    expect(find.text('未分组'), findsOneWidget);
+    expect(find.text('支付宝账户'), findsOneWidget);
+
+    await tester.tap(find.text('未分组'));
+    await tester.pumpAndSettle();
+    expect(find.text('支付宝账户'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpApp(tester, store);
+    await tapBottomTab(tester, 1);
+
+    expect(find.text('未分组'), findsOneWidget);
+    expect(find.text('支付宝账户'), findsNothing);
+  });
+
+  testWidgets('资产显示设置返回直接保留已保存的改动', (tester) async {
+    final controller = await pumpApp(tester);
+    await tapBottomTab(tester, 1);
+    await tester.tap(find.byTooltip('资产操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('资产显示设置'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('类型视图'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('分类视图'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('保存修改？'), findsNothing);
+    expect(controller.assetAccountViewMode, AssetAccountViewMode.group);
+    expect(find.text('资产显示设置'), findsNothing);
+  });
+
+  testWidgets('isolates accounts between ledger books', (
+    WidgetTester tester,
+  ) async {
+    await pumpApp(tester);
+    await addTestAccount(tester, '默认账本账户');
+
+    await tapBottomTab(tester, 3);
+    await tester.tap(find.text('日常账本'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.add));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('ledger_book_name_field')),
+      '旅行账本',
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('ledger_book_save_button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+
+    await tapBottomTab(tester, 1);
+
+    expect(find.text('默认账本账户'), findsNothing);
+  });
+
+  test(
+    'persists asset account view mode collapse and manual ordering',
+    () async {
+      final store = LocalKeyValueStore();
+      final source = await makeController(store);
+      final first = Account(
+        id: 'order-a',
+        bookId: source.activeBook.id,
+        name: 'A 账户',
+        type: AccountType.cash,
+        groupId: null,
+        initialBalance: 0,
+        iconCode: 'cash',
+        note: '',
+        includeInAssets: true,
+        hidden: false,
+      );
+      final second = Account(
+        id: 'order-b',
+        bookId: source.activeBook.id,
+        name: 'B 账户',
+        type: AccountType.cash,
+        groupId: null,
+        initialBalance: 0,
+        iconCode: 'cash',
+        note: '',
+        includeInAssets: true,
+        hidden: false,
+      );
+      source
+        ..addAccount(first)
+        ..addAccount(second)
+        ..toggleAssetSectionCollapsed(
+          mode: AssetAccountViewMode.type,
+          sectionId: AccountType.cash.name,
+        );
+      final sorted = source.sortedAccountsForAssetSection(
+        mode: AssetAccountViewMode.type,
+        sectionId: AccountType.cash.name,
+        accounts: source.accounts,
+      );
+      source
+        ..reorderAssetAccounts(
+          mode: AssetAccountViewMode.type,
+          sectionId: AccountType.cash.name,
+          accounts: sorted,
+          oldIndex: 0,
+          newIndex: 1,
+        )
+        ..dispose();
+
+      final target = await makeController(store);
+      final targetSorted = target.sortedAccountsForAssetSection(
+        mode: AssetAccountViewMode.type,
+        sectionId: AccountType.cash.name,
+        accounts: target.accounts,
+      );
+
+      expect(target.assetAccountViewMode, AssetAccountViewMode.type);
+      expect(
+        target.isAssetSectionCollapsed(
+          mode: AssetAccountViewMode.type,
+          sectionId: AccountType.cash.name,
+        ),
+        isTrue,
+      );
+      expect(targetSorted.map((account) => account.id), <String>[
+        'order-b',
+        'order-a',
+      ]);
+
+      target.dispose();
+    },
+  );
+
+  test('persists manual asset section ordering', () async {
+    final store = LocalKeyValueStore();
+    final source = await makeController(store);
+    const sections = <String>['onlinePayment', 'creditCard', 'debitCard'];
+    source
+      ..reorderAssetSections<String>(
+        mode: AssetAccountViewMode.type,
+        sections: sections,
+        idOf: (section) => section,
+        oldIndex: 0,
+        newIndex: 2,
+      )
+      ..dispose();
+
+    final target = await makeController(store);
+    final sorted = target.sortedAssetSections<String>(
+      mode: AssetAccountViewMode.type,
+      sections: sections,
+      idOf: (section) => section,
+    );
+
+    expect(sorted, <String>['creditCard', 'debitCard', 'onlinePayment']);
+
+    target.dispose();
+  });
+
+  testWidgets('资产分区排序拖动结束即写入 Controller', (WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(460, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final controller = await makeController();
+    final bookId = controller.activeBook.id;
+    controller
+      ..addAccount(
+        Account(
+          id: 'a-cash',
+          bookId: bookId,
+          name: '现金',
+          type: AccountType.cash,
+          groupId: null,
+          initialBalance: 10,
+          iconCode: 'wallet',
+          note: '',
+          includeInAssets: true,
+          hidden: false,
+        ),
+      )
+      ..addAccount(
+        Account(
+          id: 'a-credit',
+          bookId: bookId,
+          name: '信用卡',
+          type: AccountType.creditCard,
+          groupId: null,
+          initialBalance: 0,
+          iconCode: 'card',
+          note: '',
+          includeInAssets: true,
+          hidden: false,
+        ),
+      );
+    await tester.pumpWidget(VeriFinApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    await tapBottomTab(tester, 1);
+    await tester.tap(find.byTooltip('资产操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('资产显示设置'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('拖动分区手柄或长按账户调整顺序'), findsOneWidget);
+    final before = controller.sortedAssetSections<String>(
+      mode: AssetAccountViewMode.type,
+      sections: const <String>['creditCard', 'cash'],
+      idOf: (section) => section,
+    );
+    expect(before, const <String>['creditCard', 'cash']);
+
+    final handles = find.byIcon(Icons.drag_indicator);
+    final firstHandle = tester.getCenter(handles.at(0));
+    final secondHandle = tester.getCenter(handles.at(1));
+    await tester.timedDragFrom(
+      firstHandle,
+      Offset(0, secondHandle.dy - firstHandle.dy + 40),
+      const Duration(milliseconds: 600),
+    );
+    await tester.pumpAndSettle();
+
+    // 拖动结束即自动保存。
+    expect(
+      controller.sortedAssetSections<String>(
+        mode: AssetAccountViewMode.type,
+        sections: const <String>['creditCard', 'cash'],
+        idOf: (section) => section,
+      ),
+      const <String>['cash', 'creditCard'],
+    );
+  });
+
+  testWidgets('资产页不再提供会即时落库的内联排序', (WidgetTester tester) async {
+    final controller = await makeController();
+    final bookId = controller.activeBook.id;
+    controller
+      ..addAccount(
+        Account(
+          id: 'a-online',
+          bookId: bookId,
+          name: '网络支付',
+          type: AccountType.onlinePayment,
+          groupId: null,
+          initialBalance: 10,
+          iconCode: 'wallet',
+          note: '',
+          includeInAssets: true,
+          hidden: false,
+        ),
+      )
+      ..addAccount(
+        Account(
+          id: 'a-credit',
+          bookId: bookId,
+          name: '信用卡',
+          type: AccountType.creditCard,
+          groupId: null,
+          initialBalance: 0,
+          iconCode: 'card',
+          note: '',
+          includeInAssets: true,
+          hidden: false,
+        ),
+      );
+    await tester.pumpWidget(VeriFinApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    await tapBottomTab(tester, 1);
+
+    expect(find.text('排序'), findsNothing);
+    await tester.tap(find.byTooltip('资产操作'));
+    await tester.pumpAndSettle();
+    expect(find.text('排序分组'), findsNothing);
+    expect(find.text('资产显示设置'), findsOneWidget);
+  });
+}

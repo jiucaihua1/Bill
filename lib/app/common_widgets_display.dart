@@ -1,0 +1,616 @@
+part of 'common_widgets.dart';
+
+// 图标与小型展示控件：账户/分类图标盒、筛选丸、详情行、汇总指标等。
+
+class AccountIconBox extends StatelessWidget {
+  const AccountIconBox({super.key, required this.iconCode, this.size = 28});
+
+  final String iconCode;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolved = accountIconAssetPath(iconCode);
+    final isGeneric =
+        resolved == null || genericAccountIconAssetPaths.containsKey(iconCode);
+    final assetPath = resolved ?? genericAccountIconAssetPaths['wallet']!;
+    final radius = (size * 0.30).clamp(6.0, 12.0).toDouble();
+    final tokens = VeriStyleTokens.of(context);
+    return Container(
+      width: size,
+      height: size,
+      padding: EdgeInsets.all((size * 0.14).clamp(3, 6).toDouble()),
+      decoration: BoxDecoration(
+        color: isGeneric ? tokens.surfaceAltColor : Colors.white,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: isGeneric
+              ? tokens.borderColor
+              : Colors.black.withValues(alpha: 0.08),
+        ),
+      ),
+      child: SvgPicture.asset(
+        assetPath,
+        fit: BoxFit.contain,
+        colorFilter: isGeneric
+            ? ColorFilter.mode(
+                Theme.of(context).colorScheme.primary,
+                BlendMode.srcIn,
+              )
+            : null,
+      ),
+    );
+  }
+}
+
+class FilterPill extends StatelessWidget {
+  const FilterPill({
+    super.key,
+    required this.label,
+    this.icon,
+    this.onTap,
+    this.showChevron = true,
+    this.flexibleLabel = false,
+  });
+
+  final String label;
+  final IconData? icon;
+  final VoidCallback? onTap;
+  final bool showChevron;
+  final bool flexibleLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = VeriStyleTokens.of(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 36),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+          decoration: BoxDecoration(
+            color: tokens.cardColor,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: tokens.borderColor),
+            boxShadow: tokens.cardShadow,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              if (icon != null) ...<Widget>[
+                Icon(icon, size: 16),
+                const SizedBox(width: 5),
+              ],
+              if (flexibleLabel)
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.78),
+                    ),
+                  ),
+                )
+              else
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.78),
+                  ),
+                ),
+              if (showChevron) ...<Widget>[
+                const SizedBox(width: 4),
+                const Icon(Icons.keyboard_arrow_down, size: 16),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class DetailInfoRow extends StatelessWidget {
+  const DetailInfoRow({
+    super.key,
+    required this.label,
+    required this.value,
+    this.placeholder = false,
+    this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final bool placeholder;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: textColor.withValues(alpha: 0.36),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      value,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: textColor.withValues(
+                          alpha: placeholder ? 0.32 : 0.88,
+                        ),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (onTap != null)
+                Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: textColor.withValues(alpha: 0.30),
+                ),
+            ],
+          ),
+        ),
+        Divider(color: textColor.withValues(alpha: 0.07)),
+      ],
+    );
+    if (onTap == null) {
+      return content;
+    }
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: content,
+    );
+  }
+}
+
+/// Currency-aware editable amount row shared by transaction, refund and
+/// recurring editors. A null amount is rendered as an explicit missing state.
+class CurrencyAmountField extends StatelessWidget {
+  const CurrencyAmountField({
+    super.key,
+    required this.label,
+    required this.currencyCode,
+    required this.amount,
+    required this.missingText,
+    this.onTap,
+    this.forceUnit = true,
+  });
+
+  final String label;
+  final String currencyCode;
+  final double? amount;
+  final String missingText;
+  final VoidCallback? onTap;
+
+  /// 是否强制显示单位，默认 true。
+  ///
+  /// **默认值不要改成跟随隐藏闸门**：记账页 / 交易详情页 / 周期规则页允许用币种选择器
+  /// 临时选一个账本里还没有的币种，那一刻账本按已落库数据仍算单币种、闸门是关的，但同一
+  /// 控件已经同时出现两个币种的金额，单位必须保留。退款表单两端金额被锁死为原支出币种，
+  /// 不可能出现第二个币种，属例外（显式传 false）。
+  final bool forceUnit;
+
+  @override
+  Widget build(BuildContext context) {
+    return DetailInfoRow(
+      label: label,
+      value: amount == null
+          ? missingText
+          : formatUserMoney(amount!, currencyCode, forceUnit: forceUnit),
+      placeholder: amount == null,
+      onTap: onTap,
+    );
+  }
+}
+
+/// 页面 / 卡片副标题里的「单位：x」。
+///
+/// [prefix] 是副标题里与单位无关的上下文（书名、账户类型、日期范围、统计区间）。
+/// 单位隐藏时：有 [prefix] 就只返回 [prefix]（不能把书名一起丢掉）；没有 [prefix] 的
+/// 副标题整条返回 null，**调用方必须整段省略**，不要渲染只剩分隔符或空白的残句。
+String? currencyUnitSubtitle(
+  AppLocalizations l10n,
+  String? prefix,
+  String currencyCode,
+) {
+  final hasPrefix = prefix != null && prefix.isNotEmpty;
+  final unit = optionalCurrencyUnit(currencyCode);
+  if (unit == null) return hasPrefix ? prefix : null;
+  final label = l10n.moneyUnitLabel(unit);
+  return hasPrefix ? '$prefix · $label' : label;
+}
+
+/// 聚合卡片/页面使用的轻量金额单位提示，避免在每个数字旁重复堆叠货币标识。
+class MoneyUnitLabel extends StatelessWidget {
+  const MoneyUnitLabel({
+    super.key,
+    required this.currencyCode,
+    this.color,
+    this.display,
+  });
+
+  final String currencyCode;
+  final Color? color;
+  final MoneyCodeDisplay? display;
+
+  @override
+  Widget build(BuildContext context) {
+    // 单币种账本按偏好隐藏单位时整块不渲染：聚合卡片里的数字本身已经不带单位，
+    // 只在卡片角落留一句「单位：¥」是纯噪声（空态卡片里连数字都没有，更明显）。
+    final unit = display == null
+        ? optionalCurrencyUnit(currencyCode)
+        : display == MoneyCodeDisplay.none
+        ? null
+        : displayCurrencyUnit(currencyCode);
+    if (unit == null) return const SizedBox.shrink();
+    final foreground =
+        color ??
+        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.46);
+    return Text(
+      AppLocalizations.of(context).moneyUnitLabel(unit),
+      key: Key('money_unit_$currencyCode'),
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        color: foreground,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+}
+
+class SummaryMetric extends StatelessWidget {
+  const SummaryMetric({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.color,
+    this.detail,
+  });
+
+  final String label;
+  final String value;
+  final Color color;
+  final String? detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = Theme.of(context).colorScheme.onSurface;
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: textColor.withValues(alpha: 0.68),
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: color,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          if (detail != null) ...<Widget>[
+            const SizedBox(height: 4),
+            Text(
+              detail!,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: textColor.withValues(alpha: 0.62),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class VeriIconBox extends StatelessWidget {
+  const VeriIconBox({
+    super.key,
+    required this.icon,
+    this.color,
+    this.size = 30,
+  });
+
+  final IconData icon;
+  final Color? color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveColor = color ?? Theme.of(context).colorScheme.primary;
+    final radius = (size * 0.30).clamp(7.0, 14.0).toDouble();
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: effectiveColor.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: Icon(icon, size: size * 0.54, color: effectiveColor),
+    );
+  }
+}
+
+/// 分类图标盒：使用与内联图标相同的主题，并带分类底色。
+class CategoryIconBox extends StatelessWidget {
+  const CategoryIconBox({
+    super.key,
+    required this.iconCode,
+    this.categoryName,
+    this.color,
+    this.size = 30,
+  });
+
+  final String iconCode;
+  final String? categoryName;
+  final Color? color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveColor = color ?? Theme.of(context).colorScheme.primary;
+    final preset =
+        CategoryIconThemeScope.maybeOf(context)?.preset ??
+        CategoryIconPreset.builtin;
+    final radius = (size * 0.30).clamp(7.0, 14.0).toDouble();
+    final isColoredSvg =
+        preset == CategoryIconPreset.colored && !isEmojiIconCode(iconCode);
+    final boxColor = isColoredSvg
+        ? VeriStyleTokens.of(context).surfaceAltColor
+        : effectiveColor.withValues(alpha: 0.13);
+    final glyphRatio = switch (preset) {
+      _ when isEmojiIconCode(iconCode) => 0.56,
+      CategoryIconPreset.emoji => 0.56,
+      CategoryIconPreset.line || CategoryIconPreset.colored => 0.58,
+      CategoryIconPreset.builtin => 0.54,
+    };
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: boxColor,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: CategoryGlyph(
+        iconCode: iconCode,
+        categoryName: categoryName,
+        size: size * glyphRatio,
+        color: effectiveColor,
+      ),
+    );
+  }
+}
+
+/// 分类图标的裸字形，可显示内置图标、预设矢量/Emoji 或自定义 emoji。
+/// 用于 Chip avatar、内联小图标等不需要色块背景的场景。
+class CategoryGlyph extends StatelessWidget {
+  const CategoryGlyph({
+    super.key,
+    required this.iconCode,
+    this.categoryName,
+    this.size = 18,
+    this.color,
+  });
+
+  final String iconCode;
+  final String? categoryName;
+  final double size;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isEmojiIconCode(iconCode)) {
+      return Text(
+        emojiOfIconCode(iconCode),
+        style: TextStyle(fontSize: size, height: 1),
+      );
+    }
+    final themes = CategoryIconThemeScope.maybeOf(context);
+    final preset = themes?.preset ?? CategoryIconPreset.builtin;
+    final builtin = Icon(iconForCode(iconCode), size: size, color: color);
+
+    switch (preset) {
+      case CategoryIconPreset.builtin:
+        return builtin;
+      case CategoryIconPreset.emoji:
+        final key = resolveCategoryPresetKey(
+          iconCode: iconCode,
+          categoryName: categoryName,
+        );
+        return Text(
+          categoryPresetEmoji(key),
+          style: TextStyle(fontSize: size, height: 1),
+        );
+      case CategoryIconPreset.line:
+      case CategoryIconPreset.colored:
+        final key = resolveCategoryPresetKey(
+          iconCode: iconCode,
+          categoryName: categoryName,
+        );
+        final asset = categoryPresetSvgAsset(preset, key);
+        if (asset == null) return builtin;
+        return SvgPicture.asset(
+          asset,
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+          excludeFromSemantics: true,
+          colorFilter: preset == CategoryIconPreset.line && color != null
+              ? ColorFilter.mode(color!, BlendMode.srcIn)
+              : null,
+        );
+    }
+  }
+}
+
+class VeriSectionAction extends StatelessWidget {
+  const VeriSectionAction({
+    super.key,
+    required this.icon,
+    this.onPressed,
+    this.tooltip,
+  });
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton.filledTonal(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        fixedSize: const Size(44, 44),
+        minimumSize: const Size(44, 44),
+        padding: EdgeInsets.zero,
+        backgroundColor: veriSemantic(
+          context,
+          veriBlue,
+        ).withValues(alpha: 0.10),
+        foregroundColor: Theme.of(context).colorScheme.primary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(veriRadiusSm),
+        ),
+      ),
+      icon: Icon(icon, size: 18),
+    );
+  }
+}
+
+/// 前后翻页 + 中间标签的通用期间切换器（预算页按月、收支统计页按周/月/季/年、
+/// 看板按月或按年）。
+///
+/// [onPrevious] / [onNext] 传 `null` 表示已到可选范围边界：箭头保持可见但禁用，
+/// 比「点上去没反应」更容易理解（看板不允许翻到未来，也不越过早于首笔记账的时间）。
+/// [onLabelTap] 非空时中间标签变成可点入口（带下拉箭头提示），用于打开更细的
+/// 时间选择弹层。
+class MonthSwitcher extends StatelessWidget {
+  const MonthSwitcher({
+    super.key,
+    required this.label,
+    this.onPrevious,
+    this.onNext,
+    this.onLabelTap,
+    this.labelKey,
+    this.labelTooltip,
+    this.previousTooltip,
+    this.nextTooltip,
+  });
+
+  final String label;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+  final VoidCallback? onLabelTap;
+
+  /// 可点标签的稳定 key，供测试与无障碍按 key 定位入口。
+  final Key? labelKey;
+
+  final String? labelTooltip;
+  final String? previousTooltip;
+  final String? nextTooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final labelText = Text(
+      label,
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+    );
+    Widget labelSlot = labelText;
+    if (onLabelTap != null) {
+      final content = Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            labelText,
+            const SizedBox(width: 2),
+            Icon(
+              Icons.expand_more,
+              size: 18,
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.60),
+            ),
+          ],
+        ),
+      );
+      labelSlot = InkWell(
+        key: labelKey,
+        borderRadius: BorderRadius.circular(veriRadiusSm),
+        onTap: onLabelTap,
+        child: labelTooltip == null
+            ? content
+            : Tooltip(message: labelTooltip!, child: content),
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        IconButton(
+          tooltip: previousTooltip ?? l10n.calendarPrevMonth,
+          // 期间步进是典型的选择变化；到边界时按钮为 null，不发声。
+          onPressed: onPrevious == null
+              ? null
+              : () {
+                  VeriHaptics.tick();
+                  onPrevious!();
+                },
+          icon: const Icon(Icons.chevron_left),
+        ),
+        labelSlot,
+        IconButton(
+          tooltip: nextTooltip ?? l10n.calendarNextMonth,
+          onPressed: onNext == null
+              ? null
+              : () {
+                  VeriHaptics.tick();
+                  onNext!();
+                },
+          icon: const Icon(Icons.chevron_right),
+        ),
+      ],
+    );
+  }
+}

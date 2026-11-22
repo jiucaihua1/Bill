@@ -1,0 +1,455 @@
+part of 'assets_pages.dart';
+
+class AddAccountPage extends StatefulWidget {
+  const AddAccountPage({super.key});
+
+  @override
+  State<AddAccountPage> createState() => _AddAccountPageState();
+}
+
+class _AddAccountPageState extends State<AddAccountPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _cardLast4Controller = TextEditingController();
+  final _cardNumberController = TextEditingController();
+  final _noteController = TextEditingController();
+  AccountType _type = AccountType.onlinePayment;
+  String _iconCode = 'wallet';
+  String _groupId = 'ungrouped';
+  String? _currencyCode;
+  bool _iconManuallySelected = false;
+  // 「后四位跟随完整卡号」开关，新账户默认打开。
+  bool _cardLast4Follows = true;
+  // 信用类账户的额度 / 账单日 / 还款日：新建时就能填，省去建完再去详情页补一次。
+  // 初始余额同样走统一数字键盘（可为负），不再用系统键盘输入。
+  double? _balance;
+  double? _creditLimit;
+  int? _statementDay;
+  int? _dueDay;
+  bool _saved = false;
+  final EditorExitController _exitController = EditorExitController();
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(_handleNameChanged);
+    _cardLast4Controller.addListener(_handleDraftChanged);
+    _cardNumberController.addListener(_handleDraftChanged);
+    _noteController.addListener(_handleDraftChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _currencyCode ??= VeriFinScope.of(context).activeBook.baseCurrencyCode;
+  }
+
+  @override
+  void dispose() {
+    _nameController.removeListener(_handleNameChanged);
+    _cardLast4Controller.removeListener(_handleDraftChanged);
+    _cardNumberController.removeListener(_handleDraftChanged);
+    _noteController.removeListener(_handleDraftChanged);
+    _nameController.dispose();
+    _cardLast4Controller.dispose();
+    _cardNumberController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = VeriFinScope.of(context);
+    final groups = controller.accountGroups;
+    final currencyCode =
+        _currencyCode ?? controller.activeBook.baseCurrencyCode;
+    final currency = CurrencyCatalog.require(currencyCode);
+
+    return UnsavedChangesGuard(
+      isDirty: _isDirty,
+      onSave: _save,
+      exitController: _exitController,
+      child: Scaffold(
+        body: SafeArea(
+          child: VeriPage(
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
+                children: <Widget>[
+                  VeriHeader(
+                    title: AppLocalizations.of(context).accountAdd,
+                    showBack: true,
+                    actions: <Widget>[
+                      SaveHeaderAction(
+                        onPressed: _isDirty ? _saveAndExit : null,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  AnchoredMenuChoice<AccountType>(
+                    key: const Key('add_account_type_choice'),
+                    values: AccountType.values,
+                    selected: _type,
+                    idOf: (value) => 'add_account_type_${value.name}',
+                    labelOf: (value) =>
+                        value.label(AppLocalizations.of(context)),
+                    subtitleOf: (value) =>
+                        value.capabilityHint(AppLocalizations.of(context)),
+                    onSelected: (value) => setState(() => _type = value),
+                    semanticLabel: AppLocalizations.of(
+                      context,
+                    ).accountTypePickerTitle,
+                    builder: (context, openMenu, menuOpen) => SelectField(
+                      label: AppLocalizations.of(context).accountTypeLabel,
+                      value: _type.label(AppLocalizations.of(context)),
+                      icon: Icons.category_outlined,
+                      onTap: openMenu,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(context).accountNameLabel,
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return AppLocalizations.of(context).accountNameRequired;
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  if (_type.supportsCardLast4) ...<Widget>[
+                    CardNumberFields(
+                      numberController: _cardNumberController,
+                      last4Controller: _cardLast4Controller,
+                      follows: _cardLast4Follows,
+                      onFollowsChanged: (value) =>
+                          setState(() => _cardLast4Follows = value),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  if (_type.supportsCredit) ...<Widget>[
+                    SelectField(
+                      key: const Key('add_account_credit_limit'),
+                      label: AppLocalizations.of(context).creditLimitLabel,
+                      value: _creditLimit == null
+                          ? AppLocalizations.of(context).notSet
+                          : formatUserMoney(
+                              _creditLimit!,
+                              _currencyCode ?? defaultCurrencyCode,
+                            ),
+                      icon: Icons.speed_outlined,
+                      onTap: _pickCreditLimit,
+                    ),
+                    const SizedBox(height: 10),
+                    SelectField(
+                      key: const Key('add_account_statement_day'),
+                      label: AppLocalizations.of(context).statementDay,
+                      value: _statementDay == null
+                          ? AppLocalizations.of(context).notSet
+                          : AppLocalizations.of(
+                              context,
+                            ).monthlyDayLabel(_statementDay!),
+                      icon: Icons.event_repeat_outlined,
+                      onTap: () => _pickBillingDay(isDue: false),
+                    ),
+                    const SizedBox(height: 10),
+                    SelectField(
+                      key: const Key('add_account_due_day'),
+                      label: AppLocalizations.of(context).dueDay,
+                      value: _dueDay == null
+                          ? AppLocalizations.of(context).notSet
+                          : AppLocalizations.of(
+                              context,
+                            ).monthlyDayLabel(_dueDay!),
+                      icon: Icons.event_available_outlined,
+                      onTap: () => _pickBillingDay(isDue: true),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  SelectField(
+                    key: const Key('account_currency_select_field'),
+                    label: AppLocalizations.of(context).commonCurrency,
+                    value:
+                        '${currency.code} · ${currency.nameForLocale(Localizations.localeOf(context).toLanguageTag())}',
+                    icon: Icons.currency_exchange,
+                    onTap: _pickCurrency,
+                  ),
+                  const SizedBox(height: 10),
+                  SelectField(
+                    key: const Key('add_account_balance'),
+                    label: AppLocalizations.of(
+                      context,
+                    ).accountBalanceCurrencyLabel(currencyCode),
+                    value: _balance == null
+                        ? AppLocalizations.of(context).notSet
+                        : formatUserMoney(_balance!, currencyCode),
+                    icon: Icons.account_balance_wallet_outlined,
+                    onTap: _pickBalance,
+                  ),
+                  const SizedBox(height: 10),
+                  SelectField(
+                    key: const Key('account_icon_select_field'),
+                    label: AppLocalizations.of(context).accountIconLabel,
+                    value: iconLabelForCode(
+                      AppLocalizations.of(context),
+                      _iconCode,
+                    ),
+                    leading: AccountIconBox(iconCode: _iconCode, size: 28),
+                    onTap: _pickAccountIcon,
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _noteController,
+                    maxLines: 1,
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(context).accountNoteLabel,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SelectField(
+                    label: AppLocalizations.of(context).accountGroupLabel,
+                    value: _groupLabel(groups),
+                    icon: Icons.folder_outlined,
+                    onTap: () => _pickAccountGroup(groups),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickAccountIcon() async {
+    final selected = await showAccountIconSheet(
+      context: context,
+      selected: _iconCode,
+    );
+    if (mounted && selected != null) {
+      setState(() {
+        _iconCode = selected;
+        _iconManuallySelected = true;
+      });
+    }
+  }
+
+  Future<void> _pickCurrency() async {
+    var controller = VeriFinScope.of(context);
+    if (controller.activeBook.currencySetupStatus ==
+        CurrencySetupStatus.legacyUnconfirmed) {
+      final confirmed = await confirmLegacyLedgerCurrency(
+        context: context,
+        book: controller.activeBook,
+      );
+      if (!mounted || !confirmed) return;
+      controller = VeriFinScope.of(context);
+      setState(() => _currencyCode = controller.activeBook.baseCurrencyCode);
+    }
+    final selected = await showCurrencyPickerSheet(
+      context: context,
+      title: AppLocalizations.of(context).selectAccountCurrency,
+      selectedCode: _currencyCode,
+      preferredCodes: controller.accounts.map(
+        (account) => account.currencyCode,
+      ),
+    );
+    if (selected != null && mounted) {
+      setState(() => _currencyCode = selected.code);
+    }
+  }
+
+  void _handleNameChanged() {
+    if (!_iconManuallySelected) {
+      final suggested = suggestedAccountIconCode(_nameController.text);
+      if (suggested != null) {
+        _iconCode = suggested;
+      }
+    }
+    _handleDraftChanged();
+  }
+
+  void _handleDraftChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _pickAccountGroup(List<AccountGroup> groups) async {
+    final values = <String>['ungrouped', ...groups.map((group) => group.id)];
+    final selected = await showOptionSheet<String>(
+      context: context,
+      title: AppLocalizations.of(context).accountGroupPickerTitle,
+      values: values,
+      selected: _groupId,
+      labelOf: (value) {
+        if (value == 'ungrouped') {
+          return AppLocalizations.of(context).assetsUngrouped;
+        }
+        return groups
+            .firstWhere(
+              (group) => group.id == value,
+              orElse: () => AccountGroup(
+                id: 'ungrouped',
+                bookId: defaultLedgerBookId,
+                name: AppLocalizations.of(context).assetsUngrouped,
+                sortOrder: 999,
+              ),
+            )
+            .name;
+      },
+    );
+    if (selected != null) {
+      setState(() => _groupId = selected);
+    }
+  }
+
+  String _groupLabel(List<AccountGroup> groups) {
+    if (_groupId == 'ungrouped') {
+      return AppLocalizations.of(context).assetsUngrouped;
+    }
+    return groups
+        .firstWhere(
+          (group) => group.id == _groupId,
+          orElse: () => AccountGroup(
+            id: 'ungrouped',
+            bookId: defaultLedgerBookId,
+            name: AppLocalizations.of(context).assetsUngrouped,
+            sortOrder: 999,
+          ),
+        )
+        .name;
+  }
+
+  bool get _isDirty {
+    final balanceChanged = _balance != null && _balance != 0;
+    return !_saved &&
+        (_nameController.text.trim().isNotEmpty ||
+            balanceChanged ||
+            _type != AccountType.onlinePayment ||
+            _iconCode != 'wallet' ||
+            _groupId != 'ungrouped' ||
+            _currencyCode !=
+                VeriFinScope.of(context).activeBook.baseCurrencyCode ||
+            _noteController.text.trim().isNotEmpty ||
+            (_type.supportsCardLast4 &&
+                (_cardNumberController.text.trim().isNotEmpty ||
+                    cardLast4Of(_cardLast4Controller.text).isNotEmpty ||
+                    !_cardLast4Follows)) ||
+            (_type.supportsCredit &&
+                (_creditLimit != null ||
+                    _statementDay != null ||
+                    _dueDay != null)));
+  }
+
+  Future<void> _pickCreditLimit() async {
+    final code = _currencyCode ?? defaultCurrencyCode;
+    final value = await showNumberPadSheet(
+      context,
+      title: AppLocalizations.of(context).creditLimitEditTitle,
+      initialAmount: _creditLimit,
+      allowZero: true,
+      currencyCode: code,
+      maxFractionDigits: CurrencyCatalog.require(code).minorUnit,
+    );
+    if (value == null || !mounted) {
+      return;
+    }
+    setState(() => _creditLimit = value <= 0 ? null : value);
+  }
+
+  /// 初始余额：信用卡 / 贷款类账户本来就可能是负数，因此开放首位负号并允许 0。
+  Future<void> _pickBalance() async {
+    final code =
+        _currencyCode ?? VeriFinScope.of(context).activeBook.baseCurrencyCode;
+    final value = await showNumberPadSheet(
+      context,
+      title: AppLocalizations.of(context).accountBalanceCurrencyLabel(code),
+      initialAmount: _balance,
+      allowNegative: true,
+      allowZero: true,
+      currencyCode: code,
+    );
+    if (value == null || !mounted) {
+      return;
+    }
+    setState(() => _balance = value);
+  }
+
+  /// 选择账单日 / 还款日（1–28 或不设置）。
+  Future<void> _pickBillingDay({required bool isDue}) async {
+    const clearValue = 0;
+    final current = (isDue ? _dueDay : _statementDay) ?? clearValue;
+    final selected = await showOptionSheet<int>(
+      context: context,
+      title: isDue
+          ? AppLocalizations.of(context).pickDueDay
+          : AppLocalizations.of(context).pickStatementDay,
+      values: <int>[clearValue, for (var day = 1; day <= 28; day++) day],
+      selected: current,
+      labelOf: (value) => value == clearValue
+          ? AppLocalizations.of(context).clearOption
+          : AppLocalizations.of(context).monthlyDayLabel(value),
+    );
+    if (selected == null || !mounted) {
+      return;
+    }
+    setState(() {
+      if (isDue) {
+        _dueDay = selected == clearValue ? null : selected;
+      } else {
+        _statementDay = selected == clearValue ? null : selected;
+      }
+    });
+  }
+
+  Future<void> _saveAndExit() async {
+    if (await _save() && mounted) {
+      setState(() => _saved = true);
+      _exitController.exit();
+    }
+  }
+
+  Future<bool> _save() async {
+    if (!_formKey.currentState!.validate()) {
+      VeriHaptics.emphasis();
+      return false;
+    }
+    final controller = VeriFinScope.of(context);
+    final saved = await controller.addAccountDraft(
+      Account(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        bookId: controller.activeBook.id,
+        name: _nameController.text.trim(),
+        type: _type,
+        groupId: _groupId,
+        initialBalance: _balance ?? 0,
+        currencyCode: _currencyCode ?? controller.activeBook.baseCurrencyCode,
+        iconCode: _iconCode,
+        note: _noteController.text.trim(),
+        includeInAssets: true,
+        hidden: false,
+        cardLast4: _type.supportsCardLast4
+            ? cardLast4Of(_cardLast4Controller.text)
+            : '',
+        cardNumber: _type.supportsCardLast4
+            ? _cardNumberController.text.trim()
+            : '',
+        cardLast4Follows: _type.supportsCardLast4 ? _cardLast4Follows : true,
+        creditLimit: _type.supportsCredit ? _creditLimit : null,
+        statementDay: _type.supportsCredit ? _statementDay : null,
+        dueDay: _type.supportsCredit ? _dueDay : null,
+      ),
+    );
+    if (saved) {
+      VeriHaptics.commit();
+    } else {
+      VeriHaptics.emphasis();
+    }
+    return saved;
+  }
+}

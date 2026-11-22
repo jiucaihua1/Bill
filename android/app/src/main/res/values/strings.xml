@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 桌面小组件：**桌面上显示的文字**只在这里维护（values 与 values-en 各一份），
+     应用内文案在 lib/l10n/app_*.arb。模板规范名两处都有，由
+     test/widget_string_parity_test.dart 强制一致；这里每个条目都必须被原生代码或
+     清单引用，否则同一文件的「无死资源」用例会失败。 -->
+<resources>
+    <!-- 模板规范名：同时是选择器里显示的组件名（Manifest receiver label）。 -->
+    <string name="widget_template_quick_entry">快速记账</string>
+    <string name="widget_template_budget">预算进度</string>
+    <string name="widget_template_trend">收支趋势</string>
+    <string name="widget_template_net_worth">净资产</string>
+    <string name="widget_template_dual_metric">双栏收支</string>
+    <!-- 选择器与系统小组件设置页的说明。 -->
+    <string name="quick_entry_widget_description">今日支出概览与快速记账入口</string>
+    <string name="budget_widget_description">本期可用预算概览</string>
+    <string name="net_worth_widget_description">全部账户资产总额</string>
+    <string name="trend_widget_description">近 30 日支出趋势</string>
+    <string name="dual_metric_widget_description">2×1 双栏收支与资产指标卡</string>
+    <!-- 快速记账磁贴标签与组件内的「记一笔」按钮。 -->
+    <string name="quick_entry_tile_label">快速记账</string>
+    <string name="quick_entry_button">记一笔</string>
+    <!-- 组件正文的指标行（每个模板恰好一行）。 -->
+    <string name="widget_today_expense">今日支出</string>
+    <string name="widget_budget_remaining">剩余预算</string>
+    <string name="widget_trend_period_expense">近 30 日支出</string>
+    <string name="widget_net_worth">净资产</string>
+    <!-- 双栏小部件可选指标名称。 -->
+    <string name="widget_metric_week_expense">本周支出</string>
+    <string name="widget_metric_month_expense">本月支出</string>
+    <string name="widget_metric_today_income">今日收入</string>
+    <string name="widget_metric_week_income">本周收入</string>
+    <string name="widget_metric_month_income">本月收入</string>
+    <string name="widget_metric_month_net">本月结余</string>
+    <!-- 组件在未配置 / 拿不到数据时显示的唯一一行（不展示任何金额）。 -->
+    <string name="widget_setup_required">点击进入配置</string>
+    <string name="widget_data_unavailable">打开应用同步数据</string>
+</resources>

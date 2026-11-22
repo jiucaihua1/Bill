@@ -1,0 +1,2079 @@
+{
+  "@@locale": "en",
+  "sameFileSkipped": "Skipped {count} transactions already imported from this file into this book.",
+  "@sameFileSkipped": {"placeholders": {"count": {"type": "int"}}},
+  "appTitle": "Veri Fin",
+  "statRangeLabel": "Range",
+  "backupInvalidFile": "The backup file is invalid or corrupted.",
+  "fileEmptyError": "The file is empty.",
+  "dbErrorTitle": "Couldn't open your data",
+  "dbErrorBody": "Your data is most likely still safe on this device. Please do not clear the app's data or uninstall the app.",
+  "dbErrorHint": "If you just installed an older version, please reinstall the latest version and try again. If the problem persists, take a screenshot of this page to report it.",
+  "dbErrorDetail": "Error details",
+  "startupPreparingTitle": "Preparing your ledger",
+  "startupPreparingBody": "Loading your data for the first time can take a moment.",
+  "startupStagePreferences": "Reading local settings",
+  "startupStageDatabase": "Opening the ledger database",
+  "startupStageController": "Loading ledger data",
+  "startupStageRecurring": "Posting due recurring entries",
+  "startupStageWarmUp": "Preparing interface resources",
+  "startupStageReady": "Almost ready",
+  "startupElapsed": "Waiting {seconds}s",
+  "@startupElapsed": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "startupSlowTitle": "Startup is slower than usual",
+  "startupSlowBody": "Still working on: {stage}. Your ledger data will not be changed. You can keep waiting or retry.",
+  "@startupSlowBody": {
+    "placeholders": {
+      "stage": {
+        "type": "String"
+      }
+    }
+  },
+  "startupFailedTitle": "Startup didn't finish",
+  "startupFailedBody": "The \"{stage}\" step didn't finish. Your ledger data is still on this device — please do not clear the app's data or uninstall it.",
+  "@startupFailedBody": {
+    "placeholders": {
+      "stage": {
+        "type": "String"
+      }
+    }
+  },
+  "startupRetry": "Retry",
+  "startupCopyDiagnostics": "Copy diagnostics",
+  "startupDiagnosticsCopied": "Copied",
+  "tabHome": "Home",
+  "tabAssets": "Assets",
+  "tabReports": "Reports",
+  "periodPickWeekTitle": "Pick a date to view its week",
+  "calendarPrevWeek": "Previous week",
+  "calendarNextWeek": "Next week",
+  "panelWeekSummaryLabel": "Weekly summary",
+  "panelWeekSummaryDesc": "Income, spending, balance and entry counts for the selected week",
+  "reportTabWeekly": "Weekly",
+  "reportTabMonthly": "Monthly",
+  "reportTabYearly": "Yearly",
+  "tabProfile": "Me",
+  "navigationStyleLabel": "Navigation bar style",
+  "navigationStylePickerHint": "The four destinations stay the same in every style",
+  "navigationStyleInUse": "In use",
+  "navigationStyleDockedName": "Docked bar",
+  "navigationStyleDockedDesc": "Full-width opaque bar pinned to the bottom; icons sweep as you switch",
+  "navigationStyleLiquidGlassName": "Liquid glass",
+  "navigationStyleLiquidGlassDesc": "Floating capsule with live backdrop blur and refraction",
+  "quickEntry": "Quick Entry",
+  "pressBackAgainToExit": "Press back again to exit",
+  "settingsLanguage": "Language",
+  "languagePickerTitle": "Select language",
+  "localeFollowSystem": "Follow system",
+  "commonCancel": "Cancel",
+  "commonConfirm": "Confirm",
+  "commonEdit": "Edit",
+  "commonDelete": "Delete",
+  "commonBack": "Back",
+  "commonProcessing": "Processing…",
+  "badgeRefunded": "Received",
+  "badgeReimbursable": "Reimbursable",
+  "reimbursementFilterName": "Reimbursement",
+  "reimbursementFilterTitle": "Reimbursement status",
+  "reimbursementStatusAll": "All",
+  "reimbursementNotReimbursable": "Not reimbursable",
+  "reimbursementReimbursed": "Received",
+  "excludedFromBudget": "Excluded from budget",
+  "excludedFromBudgetHint": "Marking changes no amount: this expense still counts toward account balances and income/expense stats, it just stops using up your budget.",
+  "budgetScopeFilterName": "Budget",
+  "budgetScopeFilterTitle": "Budget inclusion",
+  "budgetScopeAll": "All",
+  "budgetScopeIncluded": "In budget",
+  "calendarTitle": "Calendar",
+  "calendarPrevMonth": "Previous month",
+  "calendarNextMonth": "Next month",
+  "calendarPrevYear": "Previous year",
+  "calendarNextYear": "Next year",
+  "periodPickMonthTitle": "Pick a month",
+  "periodPickYearTitle": "Pick a year",
+  "weekdayMon": "Mon",
+  "weekdayTue": "Tue",
+  "weekdayWed": "Wed",
+  "weekdayThu": "Thu",
+  "weekdayFri": "Fri",
+  "weekdaySat": "Sat",
+  "weekdaySun": "Sun",
+  "entryAddTags": "Add tags",
+  "iconGroupGeneric": "General icons",
+  "accountIconPickerTitle": "Choose account icon",
+  "accountIconSearchHint": "Search icons, banks, or payment platforms",
+  "accountIconSearchEmpty": "No icon found",
+  "accountIconSearchEmptyDesc": "Try a full name, common abbreviation, or acronym.",
+  "accountHandleTitle": "Manage this account?",
+  "accountHandleMessage": "Account \"{name}\" already has {count} related transactions. You can hide the account, or delete it together with those transactions.",
+  "accountHide": "Hide account",
+  "accountDeleteWithEntries": "Delete account & transactions",
+  "accountDeleteTitle": "Delete this account?",
+  "accountDeleteMessage": "Account \"{name}\" cannot be restored once deleted.",
+  "accountRecurringRulesDisabled": "Disabled {count} recurring rule(s) that used this account and cleared their account; please review them",
+  "tagCreateTitle": "New tag",
+  "tagNameLabel": "Tag name",
+  "entryTypeExpense": "Expense",
+  "entryTypeIncome": "Income",
+  "entryTypeTransfer": "Transfer",
+  "entryTypeDebt": "Debt",
+  "entryDebtBorrow": "Borrow",
+  "entryDebtLend": "Lend",
+  "entryAddDebtAccount": "Add debt account",
+  "entryDebtAccountName": "Counterparty name",
+  "entrySwapTransferAccounts": "Swap transfer accounts",
+  "entryTypeRefund": "Refund",
+  "themeSystem": "Follow system",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "accountTypeOnlinePayment": "Online payment",
+  "accountTypeCreditAccount": "Credit account",
+  "accountTypeCreditCard": "Credit card",
+  "accountTypeDebitCard": "Debit card",
+  "accountTypeInvestment": "Investment",
+  "accountTypeCash": "Cash",
+  "accountTypeReceivable": "Receivable",
+  "accountTypePayable": "Payable",
+  "accountTypeBasicHint": "Basic balance account",
+  "accountTypeCardHint": "Supports card number and last four digits",
+  "accountTypeCreditHint": "Supports credit limit, billing dates, and repayment",
+  "accountTypeCardCreditHint": "Supports card number, credit limit, billing dates, and repayment",
+  "assetViewGroup": "Group view",
+  "assetViewType": "Type view",
+  "assetViewToggleToType": "Switch to type view",
+  "assetViewToggleToGroup": "Switch to group view",
+  "recurringDaily": "Daily",
+  "recurringWeekly": "Weekly",
+  "recurringMonthly": "Monthly",
+  "recurringYearly": "Yearly",
+  "genderUnset": "Not set",
+  "genderMale": "Male",
+  "genderFemale": "Female",
+  "panelTrendLabel": "Spending trend",
+  "panelTrendDesc": "Customizable data and trend chart",
+  "trendCustomizeTitle": "Customize trend card",
+  "trendCustomizeEntry": "Customize",
+  "trendCustomizeDisplayData": "Displayed data",
+  "trendCustomizeChart": "Chart",
+  "trendCustomizeTitleField": "Card title",
+  "trendCustomizeTitleHint": "Leave empty to show \"Overview\"",
+  "trendDefaultTitle": "Overview",
+  "trendSlotBig": "Headline number",
+  "trendShowSlot": "Show {slot}",
+  "@trendShowSlot": {
+    "placeholders": {
+      "slot": { "type": "String" }
+    }
+  },
+  "trendSlotPill": "Balance chip",
+  "trendSlotCard1": "Tile 1",
+  "trendSlotCard2": "Tile 2",
+  "trendSlotCard3": "Tile 3",
+  "trendSlotChart": "Chart data",
+  "trendResetTitle": "Reset trend card?",
+  "trendResetMessage": "Restores the card title and all displayed data to defaults.",
+  "trendResetConfirm": "Reset",
+  "pickMetricTitle": "Pick data",
+  "pickChartSeriesTitle": "Pick chart data",
+  "metricSeriesNet": "Balance",
+  "metricGroupMonth": "This month",
+  "metricGroupToday": "Today",
+  "metricGroupWeek": "This week",
+  "metricGroupYear": "This year",
+  "metricGroupTotal": "Total",
+  "metricGroupAssets": "Assets",
+  "metricGroupReimburse": "Reimbursement",
+  "metricMonthExpense": "This month spending",
+  "metricMonthIncome": "This month income",
+  "metricMonthNet": "This month balance",
+  "metricIncome": "Income",
+  "metricExpense": "Spending",
+  "metricNet": "Balance",
+  "metricDailyAvgExpense": "Daily avg spending",
+  "metricDailyAvgIncome": "Daily avg income",
+  "metricTodayExpense": "Today spending",
+  "metricTodayIncome": "Today income",
+  "metricTodayNet": "Today balance",
+  "metricWeekExpense": "This week spending",
+  "metricWeekIncome": "This week income",
+  "metricWeekNet": "This week balance",
+  "metricYearExpense": "This year spending",
+  "metricYearIncome": "This year income",
+  "metricTotalExpense": "Total spending",
+  "metricTotalIncome": "Total income",
+  "metricTotalNet": "Total balance",
+  "metricTotalAssets": "Total assets",
+  "metricTotalLiabilities": "Liabilities",
+  "metricNetAssets": "Net assets",
+  "metricReimbursablePending": "Reimbursable",
+  "metricReimbursed": "Received",
+  "panelRecentLabel": "Recent transactions",
+  "panelRecentDesc": "Shows the 5 most recent transactions",
+  "panelBudgetLabel": "Monthly budget",
+  "panelBudgetDesc": "This month's budget progress and category overspend alerts",
+  "panelCalendarDesc": "View daily income and spending on a calendar",
+  "panelSummaryLabel": "This month",
+  "panelSummaryDesc": "Income, spending and balance for this month",
+  "panelRecentDailyLabel": "Daily activity",
+  "panelThisWeekLabel": "This week",
+  "panelRecentDailyDesc": "Daily activity, totals and averages for the selected week",
+  "recentTotalExpense": "Total spending",
+  "recentDailyAvgExpense": "Daily avg spending",
+  "recentTotalIncome": "Total income",
+  "recentDailyAvgIncome": "Daily avg income",
+  "recentStatLine": "{label}: {amount}",
+  "panelAssetSummaryLabel": "Assets",
+  "panelAssetSummaryDesc": "Current account shares for positive or negative assets, shown in the current week",
+  "assetPositive": "Positive assets",
+  "panelCategoryStatsLabel": "Category breakdown",
+  "panelCategoryStatsDesc": "Income or spending share by top-level category, with top 5 or all",
+  "categoryStatsModeLabel": "Category display range",
+  "categoryStatsModeTop5": "Top 5",
+  "categoryStatsModeAll": "All",
+  "panelRankingLabel": "Categories & tags",
+  "panelRankingDesc": "Rank by top category, subcategory or tag; tap a row to drill down",
+  "panelYearSummaryLabel": "This year",
+  "panelYearSummaryPeriodLabel": "Income & spending",
+  "panelYearSummaryDesc": "Income, spending and balance for this year",
+  "metricYearIncome": "This year income",
+  "metricYearExpense": "This year spending",
+  "metricYearNet": "This year balance",
+  "panelYearTrendLabel": "Income & spending",
+  "panelYearTrendDesc": "Income against spending for each month this year",
+  "panelYearHeatmapLabel": "Daily heatmap",
+  "panelYearHeatmapDesc": "Spending or income intensity for every day of the year",
+  "assetNegative": "Negative assets",
+  "assetSummaryAmount": "Amount",
+  "assetSummaryShare": "Share",
+  "assetSummaryShowAll": "Show all ({count})",
+  "assetSummaryCollapse": "Show less",
+  "incomeAmountLabel": "Income {amount}",
+  "panelBudgetExecutionLabel": "Budget execution",
+  "panelBudgetExecutionDesc": "This month's budget, spending and category budget execution",
+  "panelDailyTrendLabel": "Daily trend",
+  "panelDailyTrendDesc": "Daily income or spending for the selected month",
+  "panelCountLabel": "{count} {page} panels",
+  "panelPageTitle": "{page} panels",
+  "panelSortHint": "Drag the handles to reorder",
+  "panelToggleHint": "Toggle and reorder",
+  "panelSortDone": "Done sorting",
+  "panelSortStart": "Reorder panels",
+  "panelResetTitle": "Restore default {page} panels?",
+  "panelResetMessage": "Restores the default order and enables all panels.",
+  "panelResetConfirm": "Restore defaults",
+  "panelKeepOneMessage": "Keep at least one {page} panel enabled",
+  "iconLabelCategory": "Category",
+  "iconLabelDining": "Dining",
+  "iconLabelTransport": "Transport",
+  "iconLabelShopping": "Shopping",
+  "iconLabelHousing": "Housing",
+  "iconLabelEntertainment": "Entertainment",
+  "iconLabelMedical": "Medical",
+  "iconLabelSalary": "Income",
+  "iconLabelInterest": "Interest",
+  "iconLabelBonus": "Bonus",
+  "iconLabelWork": "Work",
+  "iconLabelTransferOut": "Transfer out",
+  "iconLabelTransferIn": "Transfer in",
+  "iconLabelRepayment": "Repayment",
+  "iconLabelAdjust": "Adjust",
+  "iconLabelCredit": "Credit",
+  "iconLabelBank": "Bank",
+  "iconLabelCash": "Cash",
+  "iconLabelInvestment": "Investment",
+  "iconLabelSavings": "Savings",
+  "iconLabelCard": "Card",
+  "iconLabelWallet": "Wallet",
+  "iconGroupCredit": "Credit accounts",
+  "iconGroupPayment": "Payment platforms",
+  "iconGroupInvestment": "Investments",
+  "iconGroupCard": "Card networks",
+  "iconGroupDigital": "Cross-border & digital",
+  "iconGroupBank": "Banks",
+  "balanceAdjustNote": "Balance adjustment",
+  "commonNone": "None",
+  "commonDone": "Done",
+  "homeNoEntriesTitle": "No transactions yet",
+  "homeNoEntriesDesc": "Tap the plus button to record your first entry.",
+  "dateMonthDay": "{date}",
+  "@dateMonthDay": {
+    "placeholders": {
+      "date": {
+        "type": "DateTime",
+        "format": "MMM d",
+        "isCustomDateFormat": "true"
+      }
+    }
+  },
+  "dateYearMonthDay": "{date}",
+  "@dateYearMonthDay": {
+    "placeholders": {
+      "date": {
+        "type": "DateTime",
+        "format": "MMM d, yyyy",
+        "isCustomDateFormat": "true"
+      }
+    }
+  },
+  "monthBudgetTitle": "{month} budget",
+  "@monthBudgetTitle": {
+    "placeholders": {
+      "month": {
+        "type": "DateTime",
+        "format": "MMM",
+        "isCustomDateFormat": "true"
+      }
+    }
+  },
+  "budgetRemaining": "Remaining",
+  "budgetDailyRemaining": "Daily remaining",
+  "budgetTotalLabel": "Budget {amount}",
+  "incomeExpenseTitle": "Income & expense",
+  "homeNoStatsTitle": "No data",
+  "homeNoStatsDesc": "No records for this month.",
+  "statTypeTitle": "Statistic type",
+  "previousSevenDays": "Previous 7 days",
+  "nextSevenDays": "Next 7 days",
+  "statLastSevenDays": "7 days",
+  "metricRecentExpense": "Spending · last 7 days",
+  "metricRecentIncome": "Income · last 7 days",
+  "metricRecentNet": "Net · last 7 days",
+  "lastSevenDaysSeries": "Last 7 days · {series}",
+  "personalEditionName": "Daily Ledger · Personal Edition",
+  "statPeriodWeek": "Week",
+  "statPeriodMonth": "Month",
+  "statPeriodQuarter": "Quarter",
+  "statPeriodYear": "Year",
+  "statQuarterRange": "{year} Q{quarter}",
+  "@statQuarterRange": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      },
+      "quarter": {
+        "type": "int"
+      }
+    }
+  },
+  "budgetCatOver": "{category} over by {amount}",
+  "budgetCatUsed": "{category} used {percent}%",
+  "entriesCount": "{count} entries",
+  "categoryAll": "All categories",
+  "tagPickerTitle": "Select tags",
+  "coverBlueCity": "Blue city",
+  "coverAurora": "Aurora night",
+  "coverFinanceOffice": "Finance office",
+  "coverDeepBlue": "Deep blue",
+  "assetsUngrouped": "Ungrouped",
+  "netAssets": "Net worth",
+  "assetsActions": "Asset actions",
+  "hideAssetAmounts": "Hide asset amounts",
+  "showAssetAmounts": "Show asset amounts",
+  "totalAssetsLabel": "Total assets",
+  "totalLiabilitiesLabel": "Debt",
+  "assetsAmount": "Total assets {amount}",
+  "liabilitiesAmount": "Debt {amount}",
+  "assetCreditDebt": "Credit balances owed",
+  "assetDebtEmptyTitle": "No debt to show",
+  "assetDebtEmptyDesc": "Borrowing, lending, and credit balances owed will appear here.",
+  "netAssetsAmount": "Net worth {amount}",
+  "monthNumber": "M{month}",
+  "assetsEmptyTitle": "No accounts yet",
+  "assetsEmptyDesc": "Add an account from the top right; you can then view assets by type or group here.",
+  "assetsEmptyAddAction": "Add your first account",
+  "hiddenAccountsCount": "{count} hidden accounts",
+  "assetsCoverTitle": "Asset card background",
+  "assetDisplaySettingsTitle": "Asset display settings",
+  "assetViewModeLabel": "Account grouping",
+  "assetOrderHint": "Drag section handles or long-press accounts to reorder",
+  "coverUseOnline": "Use online image",
+  "coverEnterUrl": "Enter image URL",
+  "coverPickLocal": "Choose local image",
+  "coverClear": "Clear background image",
+  "coverCustomTitle": "Custom image",
+  "coverUrlLabel": "Image URL",
+  "coverCropTitle": "Crop background",
+  "coverGenerating": "Generating background…",
+  "accountAdd": "Add account",
+  "groupManage": "Manage groups",
+  "sortLabel": "Sort",
+  "hiddenAccountsTitle": "Hidden accounts",
+  "hiddenAccountsEmptyTitle": "No hidden accounts",
+  "hiddenAccountsEmptyDesc": "Hidden accounts appear here.",
+  "accountGroupsTitle": "Account groups",
+  "groupAdd": "New group",
+  "groupsEmptyTitle": "No account groups yet",
+  "groupsEmptyDesc": "Tap the plus at top right to create groups for organizing accounts.",
+  "accountsCount": "{count} accounts",
+  "commonRename": "Rename",
+  "commonIcon": "Icon",
+  "groupRenameTitle": "Rename group",
+  "groupNameLabel": "Group name",
+  "groupDeleteTitle": "Delete group",
+  "groupDeleteMessage": "Delete the group “{name}”?",
+  "groupDeleteInUseMessage": "Deleting “{name}” will move its {count} accounts to Ungrouped. Accounts and transactions will not be deleted.",
+  "accountIconLabel": "Account icon",
+  "accountTypeLabel": "Account type",
+  "accountNameLabel": "Account name",
+  "accountNameRequired": "Account name is required",
+  "cardLast4Label": "Last 4 digits",
+  "cardLast4Invalid": "Enter 1-4 digits",
+  "cardLabel": "Card number",
+  "cardNumberLabel": "Full card number (optional)",
+  "cardNumberTitle": "Full card number",
+  "cardLast4Follow": "Follow number",
+  "copiedToClipboard": "Copied to clipboard",
+  "accountSectionBasic": "Basic info",
+  "accountSectionCard": "Card details",
+  "accountSectionCredit": "Credit",
+  "accountSectionDisplay": "Display & bookkeeping",
+  "accountSectionDanger": "Danger zone",
+  "accountBalanceLabel": "Account balance",
+  "accountNoteLabel": "Account note",
+  "accountGroupLabel": "Account group",
+  "accountTypePickerTitle": "Choose account type",
+  "accountGroupPickerTitle": "Choose account group",
+  "balanceAdjustTooltip": "Adjust balance",
+  "currentBalance": "Current balance",
+  "balanceTrend": "Balance trend",
+  "dayShort": "Day",
+  "monthShort": "Month",
+  "balanceAmount": "Balance {amount}",
+  "viewReport": "View report",
+  "addEntryTooltip": "Add entry",
+  "noEntriesTitle": "No transactions",
+  "accountNoEntriesDesc": "This account has no transactions yet.",
+  "accountEntriesTitle": "{name} transactions",
+  "allEntries": "All transactions",
+  "includeInAssets": "Count in assets",
+  "commonType": "Type",
+  "commonName": "Name",
+  "notSet": "Not set",
+  "clearOption": "Don't set",
+  "statementDay": "Statement day",
+  "dueDay": "Due day",
+  "creditLimitLabel": "Credit limit",
+  "creditLimitEditTitle": "Set credit limit",
+  "creditUsedLabel": "Used",
+  "creditAvailableLabel": "Available",
+  "currentBillLabel": "This cycle",
+  "creditRepayTitle": "Repayment",
+  "creditRepayAction": "Repay",
+  "creditRepayAmountLabel": "Repayment amount",
+  "creditRepayFromAccount": "Payment account",
+  "creditRepayNoAccountLabel": "No account (paid by others)",
+  "creditRepayNoAccountHint": "Paid by someone else; no account deducted",
+  "creditRepayDefaultNote": "Repayment",
+  "creditRepaySuccess": "Repayment recorded",
+  "monthlyDayLabel": "Day {day} of each month",
+  "commonCurrency": "Currency",
+  "commonNote": "Note",
+  "commonNoneShort": "None",
+  "commonGroup": "Group",
+  "accountDelete": "Delete account",
+  "deletableLabel": "Deletable",
+  "hasEntriesLabel": "Has transactions",
+  "balanceEditConfirmTitle": "Confirm balance change?",
+  "balanceEditNegativeHint": "A negative balance means money owed — credit cards and loans usually sit below zero.",
+  "balanceEditConfirmMessage": "This sets the balance of \"{name}\" to {amount}.",
+  "balanceEditRecord": "Record as entry",
+  "balanceEditRecordDesc": "Creates a balance-adjustment entry; if unchecked, the initial balance is changed directly without affecting statistics.",
+  "accountNameEditTitle": "Edit account name",
+  "pickDueDay": "Choose due day",
+  "pickStatementDay": "Choose statement day",
+  "accountNoteEditTitle": "Edit account note",
+  "accountReportTitle": "Account report",
+  "thisMonth": "This month",
+  "dueToday": "due today",
+  "dueInDays": "{days} days left",
+  "monthlyRepayLine": "Repay on day {day} of each month",
+  "attachTakePhoto": "Take photo",
+  "attachFromGallery": "Choose from gallery",
+  "attachTitle": "Attachments",
+  "attachCount": "{count} images",
+  "attachUnsupported": "Adding attachments isn't supported on this platform",
+  "attachDeleteTooltip": "Remove this image",
+  "entryDetailSubtitle": "Entry detail",
+  "entryMoreInfo": "More details",
+  "entrySaveAndContinue": "Save & add",
+  "entrySaveReasonAmount": "Enter an amount first",
+  "entrySaveReasonAccount": "Add an account first, or choose \"No account\"",
+  "entrySaveReasonTransferAccount": "Choose a destination account (must differ from the source)",
+  "entrySaveReasonTransferAmount": "Enter both the source and destination amounts",
+  "refundSaveReasonOverCap": "Refund can't exceed the refundable amount",
+  "entryTagCount": "Tags {count}",
+  "@entryTagCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "entryAttachmentCount": "Attachments {count}",
+  "@entryAttachmentCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "entryCategoryBranchTitle": "Choose a {category} category",
+  "@entryCategoryBranchTitle": {
+    "placeholders": {
+      "category": {"type": "String"}
+    }
+  },
+  "commonCategory": "Category",
+  "allLabel": "All",
+  "transferOutAccount": "From account",
+  "transferInAccount": "To account",
+  "pleaseSelect": "Select",
+  "feeLabel": "Fee",
+  "feeNoneTapToFill": "None (tap to set)",
+  "accountLabel": "Account",
+  "noAccountLabel": "No account",
+  "noAccountHint": "Record just an amount; it won't affect any account balance",
+  "noUsableAccountTitle": "No available account",
+  "noUsableAccountDesc": "Add an account to start recording; if you already have hidden accounts, unhide one on the Assets page.",
+  "noteHint": "Tap to add a note",
+  "commonSave": "Save",
+  "unsavedChangesTitle": "Save changes?",
+  "unsavedChangesMessage": "This page has unsaved changes.",
+  "discardChanges": "Don't save",
+  "autoSaveFailedMessage": "Your latest changes haven't been saved. Retry, or discard them and leave.",
+  "autoSaveRetry": "Retry",
+  "autoSaveDiscardAndLeave": "Discard changes and leave",
+  "amountEditTitle": "Edit amount",
+  "transferFeeTitle": "Transfer fee",
+  "pickTransferOutAccount": "Choose source account",
+  "pickAccountTitle": "Choose account",
+  "pickTransferInAccount": "Choose destination account",
+  "timeAll": "All time",
+  "timeYear": "This year",
+  "timeQuarter": "This quarter",
+  "timeWeek": "This week",
+  "timeLast12Months": "Last 12 months",
+  "timeLast30Days": "Last 30 days",
+  "timeLast6Weeks": "Last 6 weeks",
+  "sortDateDesc": "Date, newest first",
+  "sortDateAsc": "Date, oldest first",
+  "sortAmountDesc": "Amount, high to low",
+  "sortAmountAsc": "Amount, low to high",
+  "selectedCount": "{count} selected",
+  "dayEntriesTitle": "Day's transactions",
+  "entriesListTitle": "Transactions",
+  "exitMultiSelect": "Exit multi-select",
+  "multiSelect": "Multi-select",
+  "entriesCountFull": "{count} transactions",
+  "netLabel": "Net",
+  "noMatchTitle": "No matching transactions",
+  "noMatchDesc": "Try a different keyword, account, or category.",
+  "emptyEntriesDesc": "Saved transactions appear here by date.",
+  "filterTimeTitle": "Filter by time",
+  "sortTitle": "Sort order",
+  "filterAccountTitle": "Filter by account",
+  "allAccounts": "All accounts",
+  "filterCategoryTitle": "Filter by category",
+  "filterTagTitle": "Filter by tag",
+  "allTags": "All tags",
+  "noTagFilter": "No tags",
+  "hasTagFilter": "Has tags",
+  "tagFilterQuickSection": "Quick filters",
+  "tagFilterTagSection": "Tags",
+  "unknownTag": "Unknown tag",
+  "tagLabel": "Tag",
+  "deleteEntriesTitle": "Delete {count} transactions?",
+  "deleteEntriesMessage": "This cannot be undone; related attachments are removed too.",
+  "changeCategoryTitle": "Change category (same-type entries only)",
+  "changedCategoryCount": "Changed category of {count} transactions",
+  "changeAccountTitle": "Change account",
+  "changedAccountCount": "Changed account of {count} transactions",
+  "batchAccountChangeUnsafe": "Batch account changes require transactions with the same existing account currency and an actual account amount. Edit cross-currency, no-account, or conflicting transfers individually.",
+  "yearLabel": "{year}",
+  "quarterLabel": "Q{quarter}",
+  "weekNumber": "W{week}",
+  "yearWeek": "{year} W{week}",
+  "prevRange": "Previous",
+  "nextRange": "Next",
+  "searchHint": "Search notes, categories, accounts, or amounts",
+  "clearFilters": "Clear filters",
+  "prevDay": "Previous day",
+  "nextDay": "Next day",
+  "entryMissing": "Transaction not found",
+  "deleteEntryTooltip": "Delete transaction",
+  "amountLabel": "Amount",
+  "dateLabel": "Date",
+  "timeLabel": "Time",
+  "markReimbursable": "Mark reimbursable",
+  "reimbursableHint": "Marking moves no money; a refund offsets the net amount once it arrives.",
+  "refundRecordsTitle": "Refunds",
+  "refundAdd": "Add refund",
+  "refundEditTitle": "Edit refund",
+  "refundStatusSettled": "Received",
+  "refundStatusPending": "Pending",
+  "refundToAccountLabel": "Destination account",
+  "refundArrivalDateLabel": "Arrival date",
+  "refundInitiatedDateLabel": "Initiated date",
+  "refundAmountShort": "Refund amount",
+  "refundIsSettledLabel": "Received (money is back)",
+  "refundMarkSettled": "Mark as received",
+  "refundEmpty": "No refunds yet — add one below",
+  "refundDeleteConfirm": "Delete this refund? The original expense's net will be restored.",
+  "refundRemainingLabel": "Refundable: {amount}",
+  "refundNetLabel": "Net expense {amount}",
+  "refundPendingTotal": "Pending {amount}",
+  "pendingRefundsTitle": "Pending refunds",
+  "pendingRefundsSubtitle": "Refunds requested but not yet received",
+  "pendingRefundsEmpty": "No pending refunds",
+  "pendingRefundsCount": "{count} on the way",
+  "pickTypeTitle": "Choose type",
+  "noteEditTitle": "Edit note",
+  "noAccountTransferCurrencyChangeTitle": "Destination currency changes from {from} to {to}",
+  "@noAccountTransferCurrencyChangeTitle": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "noAccountTransferNoRateTitle": "Missing {from} → {to} rate",
+  "@noAccountTransferNoRateTitle": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "noAccountTransferConvert": "Convert to {amount}",
+  "@noAccountTransferConvert": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "noAccountTransferReinterpret": "Keep the number and reinterpret it as {currency}",
+  "@noAccountTransferReinterpret": {
+    "placeholders": {
+      "currency": {
+        "type": "String"
+      }
+    }
+  },
+  "deleteEntryTitle": "Delete this transaction?",
+  "deleteEntryMessage": "This cannot be undone; the locally saved record will be removed.",
+  "todayLabel": "Today",
+  "yesterdayLabel": "Yesterday",
+  "selectAll": "Select all",
+  "changeCategoryShort": "Category",
+  "changeAccountShort": "Account",
+  "budgetSettingsTitle": "Budget settings",
+  "yearMonth": "{month}",
+  "@yearMonth": {
+    "placeholders": {
+      "month": {
+        "type": "DateTime",
+        "format": "MMM y",
+        "isCustomDateFormat": "true"
+      }
+    }
+  },
+  "yearNumber": "{year}",
+  "@yearNumber": {
+    "placeholders": {
+      "year": {
+        "type": "DateTime",
+        "format": "y",
+        "isCustomDateFormat": "true"
+      }
+    }
+  },
+  "budgetUsed": "Used",
+  "budgetOverspentThisMonth": "Over budget this month",
+  "budgetAvailableThisMonth": "Available this month",
+  "budgetMonthExpense": "This month's spending",
+  "budgetOverspentThisPeriod": "Over budget this period",
+  "budgetAvailableThisPeriod": "Available this period",
+  "budgetPeriodExpense": "This period's spending",
+  "budgetCycleStartDayTitle": "Budget cycle start day",
+  "budgetCycleStartDayOption": "Day {day} of each month",
+  "@budgetCycleStartDayOption": {
+    "placeholders": {
+      "day": {
+        "type": "int"
+      }
+    }
+  },
+  "budgetCycleNaturalMonth": "Day 1 (calendar month)",
+  "budgetCycleRange": "{start} – {end}",
+  "@budgetCycleRange": {
+    "description": "Date range label of a custom budget cycle (e.g. Jul 22 – Aug 21)",
+    "placeholders": {
+      "start": {
+        "type": "DateTime",
+        "format": "MMMd"
+      },
+      "end": {
+        "type": "DateTime",
+        "format": "MMMd"
+      }
+    }
+  },
+  "periodExpenseCategories": "This period's expense categories",
+  "periodEnded": "Period ended",
+  "periodTotalDays": "{days} days this period",
+  "@periodTotalDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "lastPeriodExpense": "Last period's spending",
+  "budgetUsageLinePeriod": "Budget usage {percent}%, {delta} vs last period",
+  "@budgetUsageLinePeriod": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      },
+      "delta": {
+        "type": "String"
+      }
+    }
+  },
+  "deltaFlatVsLastPeriod": "Same as last period",
+  "deltaMoreVsLastPeriod": "{amount} more than last period",
+  "@deltaMoreVsLastPeriod": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "deltaLessVsLastPeriod": "{amount} less than last period",
+  "@deltaLessVsLastPeriod": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "budgetOverAmountLabel": "Over budget",
+  "budgetRemainingQuota": "Remaining",
+  "budgetAmountLabel": "Budget amount",
+  "categoryBudgetTitle": "Category budgets",
+  "monthExpenseCategories": "This month's expense categories",
+  "noExpenseCategories": "No expense categories yet",
+  "setMonthBudgetTitle": "Set this month's budget",
+  "dailyBudgetTitle": "Daily budget",
+  "dailyBudgetNotSet": "No daily limit set — tap to configure",
+  "dailyBudgetLimitLabel": "Daily limit {amount}",
+  "@dailyBudgetLimitLabel": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "dailyBudgetTodaySpent": "Spent today",
+  "dailyBudgetTodayLeft": "Left today",
+  "dailyBudgetTodayOver": "Over today",
+  "setDailyBudgetTitle": "Set daily budget",
+  "budgetHistoryTitle": "Budget history",
+  "last12MonthsSub": "Last 12 months",
+  "monthSummary": "Monthly summary",
+  "last6MonthsTrend": "6-month trend",
+  "budgetLegend": "Budget",
+  "expenseAmountLabel": "Spent {amount}",
+  "historyCompare": "History comparison",
+  "lastMonthExpense": "Last month's spending",
+  "noExpenseYet": "No spending",
+  "compareBaseline": "Comparison baseline",
+  "budgetUsageLine": "Budget usage {percent}%, {delta} vs last month",
+  "notSetBudget": "No budget set",
+  "overBy": "Over by {amount}",
+  "remainingAmount": "{amount} left",
+  "budgetHistoryLine": "Budget {budget} · Spent {expense} · {percent}% used",
+  "categoryBudgetOk": "Category budgets on track",
+  "categoryOverspent": "{category} over budget",
+  "categoryNearBudget": "{category} near budget",
+  "categoryBudgetOkDesc": "{count} category budgets set; none is close to overspending.",
+  "categoryOverspentDesc": "Over by {amount}; {percent}% used this month.",
+  "categoryNearDesc": "{amount} left; {percent}% used this month.",
+  "catNoBudgetLine": "No budget · spent {amount} this month",
+  "catRemainLine": "{amount} left · {percent}% used",
+  "catOverLine": "Over by {amount} · {percent}% used",
+  "lastMonthNone": "No spending last month",
+  "lastMonthAmount": "Last month {amount}",
+  "setLabel": "Set",
+  "monthEnded": "Month ended",
+  "remainingDaysInclToday": "{days} days left incl. today",
+  "monthTotalDays": "{days} days this month",
+  "budgetTipNoneTitle": "No budget yet",
+  "budgetTipNoneDesc": "Once you set this month's budget, progress, remaining quota, and daily allowance show here and on Home.",
+  "budgetTipOverTitle": "Budget exceeded",
+  "budgetTipOverDesc": "Spending exceeds the budget by {amount}; further spending still counts toward this month.",
+  "budgetTipNearTitle": "Budget nearly used up",
+  "budgetTipNearDesc": "{percent}% of this month's budget used; {amount} left.",
+  "budgetTipOkTitle": "Budget on track",
+  "budgetTipOkDesc": "At the current pace, about {amount} per day is available for the rest of the month.",
+  "budgetTipEndedTitle": "Month settled",
+  "budgetTipEndedDesc": "This month has ended; switch months to review or adjust budgets.",
+  "deltaFlatVsLastMonth": "Same as last month",
+  "deltaMoreVsLastMonth": "{amount} more than last month",
+  "deltaLessVsLastMonth": "{amount} less than last month",
+  "usageFlat": "flat",
+  "usageUp": "up {points} pts",
+  "usageDown": "down {points} pts",
+  "okLabel": "OK",
+  "rankGroupCategory": "Category",
+  "rankGroupSubCategory": "Subcategory",
+  "rankGroupTag": "Tag",
+  "rankGroupingLabel": "Ranking dimension",
+  "tagRankOverlapNote": "An entry can carry multiple tags, so the percentages may add up to more than 100%",
+  "subCategoryOf": "Subcategories of \"{name}\"",
+  "@subCategoryOf": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "noDimData": "No {dim} data",
+  "noDimDesc": "No {dim} records in this time range.",
+  "chartTrendSemantics": "Line chart with {count} data points; tap or swipe to read each value.",
+  "@chartTrendSemantics": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "chartBarSemantics": "Bar chart with {count} items; tap or swipe to read each value.",
+  "@chartBarSemantics": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "reportsSubtitle": "Budget & stats",
+  "thisYearLabel": "This year",
+  "overBudgetLabel": "Over budget",
+  "remainingBudgetLabel": "Remaining budget",
+  "expenseOnlyNote": "Expenses only",
+  "usedPercent": "{percent}% used",
+  "monthBudgetLabel": "This month's budget",
+  "countItems": "{count}",
+  "overCountLabel": "{count} over budget",
+  "normalLabel": "OK",
+  "othersLabel": "Others",
+  "bookkeepingDays": "Days tracked",
+  "bookkeepingYears": "Years tracked",
+  "reminderPickTime": "Choose reminder time",
+  "reminderTitle": "Daily reminder",
+  "reminderDaily": "Daily reminder",
+  "reminderTimeLabel": "Reminder time",
+  "reminderDescSupported": "When enabled, a local notification arrives daily at the set time to remind you to record the day's spending. Some phones (Xiaomi / Huawei / OPPO / vivo, etc.) restrict background apps; if it never arrives, allow notifications in system settings and add this app to the battery / autostart allowlists. Use \"Send a test notification\" below to check that notifications can appear.",
+  "reminderDescUnsupported": "Local notifications aren't supported on this platform; this setting only works on Android / iOS phones.",
+  "reminderDailyAt": "Daily {time}",
+  "recurringTitle": "Recurring",
+  "recurringSubtitle": "Due entries are recorded automatically when the app opens",
+  "recurringAddTooltip": "New rule",
+  "recurringEmpty": "No recurring rules yet. Tap + at top right to add one,\ne.g. monthly rent or salary.",
+  "nextRun": "Next {date}",
+  "recurringNewTitle": "New recurring rule",
+  "recurringEditTitle": "Edit recurring rule",
+  "recurringDeleteTooltip": "Delete rule",
+  "recurringDeleteTitle": "Delete this recurring rule?",
+  "recurringDeleteMessage": "This rule cannot be restored once deleted.",
+  "tapToFill": "Tap to set",
+  "addAccountFirst": "Add an account first",
+  "frequencyLabel": "Frequency",
+  "startDateLabel": "Start date",
+  "pickFrequencyTitle": "Choose frequency",
+  "skipLabel": "Skip",
+  "startBookkeeping": "Start",
+  "nextStep": "Next",
+  "onboardWelcomeTitle": "Welcome to Veri Fin",
+  "onboardWelcomeDesc": "A completely free, local-first budgeting app where your data stays yours.\n\nYour records live only on this device and are never uploaded; you can export a JSON backup anytime or encrypt and upload it to your own WebDAV.\n\nA few quick steps will get you started.",
+  "onboardAccountTitle": "Create your first account",
+  "onboardAccountDesc": "Accounts are the basis of bookkeeping, e.g. \"Cash\" or \"Salary card\". Just enter a name and current balance — you can also add accounts later on the Assets page.",
+  "onboardAccountNameLabel": "Account name (optional)",
+  "onboardAccountNameHint": "e.g. Cash / Salary card",
+  "onboardBudgetDesc": "With a monthly budget set, Home and Reports show budget progress to help control spending. Leave blank to skip; you can change it anytime from the budget card on Home.",
+  "onboardBudgetLabel": "This month's budget (optional)",
+  "onboardDoneTitle": "All set",
+  "onboardDoneDesc": "Tap the + button at the bottom right of Home to record an entry.\n\nOn the Me page you can manage ledgers, categories, tags and recurring entries, and set reminders and backups. Income and expense stats and every chart live in the Reports tab at the bottom.\n\nHappy budgeting!",
+  "legalUpdated": "Updated: {date}",
+  "privacyAndTerms": "Privacy Policy & Terms",
+  "agreeContinue": "Agree and continue",
+  "disagreeExit": "Disagree and exit",
+  "legalPrivacyPolicy": "Privacy Policy",
+  "legalUserAgreement": "Terms of Service",
+  "profileCenterSubtitle": "Profile",
+  "settingsTooltip": "Settings",
+  "entryCountStat": "Transactions",
+  "bookkeepingMgmt": "Bookkeeping",
+  "ledgerLabel": "Ledgers",
+  "categoryMgmt": "Categories",
+  "tagMgmt": "Tags",
+  "countRules": "{count} rules",
+  "subscriptionExpenses": "Subscriptions",
+  "recognizedFromNotes": "From entry notes",
+  "subscriptionEmptyHint": "Expenses with a subscription or membership in their notes appear here, including JD PLUS and 88VIP.",
+  "dataAndTools": "Data & tools",
+  "notEnabled": "Off",
+  "dataManagement": "Data management",
+  "backupRestoreShort": "Backup / restore",
+  "currentBookLabel": "Current: {name}",
+  "bookAdd": "New ledger",
+  "bookNameLabel": "Ledger name",
+  "defaultBookLabel": "Default ledger",
+  "bookActions": "Ledger actions",
+  "defaultBookUndeletable": "Default ledger can't be deleted",
+  "bookRenameTitle": "Rename ledger",
+  "bookDeleteTitle": "Delete ledger?",
+  "bookDeleteMessage": "Ledger \"{name}\" and its transactions will be deleted. This cannot be undone.",
+  "categoryMgmtSubtitle": "Multi-level categories for entries and statistics",
+  "addTopCategory": "New top-level category",
+  "addCategoryTitle": "New {type} category",
+  "addSubCategoryTitle": "New subcategory under \"{parent}\"",
+  "categoryNameLabel": "Category name",
+  "categoryNameDuplicate": "A category with this name already exists under the same parent",
+  "viewCategoryEntries": "View transactions",
+  "changeIcon": "Change icon",
+  "addSubCategory": "New subcategory",
+  "moveTo": "Move to…",
+  "deleteCategory": "Delete category",
+  "noMoveTarget": "No available destination",
+  "moveCategoryTitle": "Move \"{name}\" to",
+  "topCategory": "Top level",
+  "cannotMoveHere": "Can't move the category here",
+  "mergeCategory": "Merge into another category",
+  "mergeCategoryPickTitle": "Merge \"{name}\" into",
+  "@mergeCategoryPickTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mergeCategoryConfirmTitle": "Merge category?",
+  "mergeCategoryConfirmMessage": "{count} transactions in \"{source}\" will be moved into \"{target}\", then \"{source}\" will be deleted. This can't be undone.",
+  "@mergeCategoryConfirmMessage": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "mergeCategoryConfirmButton": "Merge",
+  "mergedCategoryResult": "Moved {count} transactions into \"{target}\"",
+  "@mergedCategoryResult": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "mergeCategoryFailed": "Can't merge this category",
+  "renameCategoryTitle": "Rename category",
+  "tagNameDuplicate": "A tag with this name already exists",
+  "pickIconTitle": "Choose icon",
+  "iconSectionBuiltin": "Built-in icons",
+  "iconSectionEmoji": "Emoji",
+  "iconEmojiHint": "Type or paste an emoji",
+  "iconEmojiUse": "Use",
+  "systemCategoryUndeletable": "System categories can't be deleted",
+  "categoryInUse": "{count} transactions use this category; it can't be deleted",
+  "categoryUsedByRecurring": "This category is used by {count} recurring rule(s); update or delete them first",
+  "moveSubFirst": "Move or delete its subcategories first",
+  "keepOneCategory": "Keep at least one category",
+  "deleteCategoryTitle": "Delete category?",
+  "deleteCategoryMessage": "Category \"{name}\" cannot be restored once deleted.",
+  "categoryUndeletable": "This category can't be deleted right now",
+  "catSubChildren": "{type} · {children} subcategories · {count} entries",
+  "catSubPlain": "{type} · {count} transactions",
+  "tagMgmtSubtitle": "Add multiple tags to entries",
+  "tagAdd": "New tag",
+  "tagsEmpty": "No tags yet; tap + at top right",
+  "deleteTag": "Delete tag",
+  "tagRenameTitle": "Rename tag",
+  "tagDeleteTitle": "Delete tag?",
+  "tagDeleteInUse": "Tag \"{name}\" is used by {count} transactions; deleting removes it from them.",
+  "tagDeleteMessage": "Tag \"{name}\" cannot be restored once deleted.",
+  "personalInfo": "Personal info",
+  "nicknameLabel": "Nickname",
+  "bioLabel": "Bio",
+  "genderLabel": "Gender",
+  "birthdayLabel": "Birthday",
+  "birthdayClear": "Clear birthday",
+  "cityLabel": "City",
+  "occupationLabel": "Occupation",
+  "pickGenderTitle": "Choose gender",
+  "cropAvatarTitle": "Crop avatar",
+  "avatarGenerating": "Generating avatar…",
+  "settingsTitle": "Settings",
+  "settingsSectionAppearance": "Appearance",
+  "settingsSectionAmountDisplay": "Amount display",
+  "settingsSectionGeneral": "General",
+  "settingsSectionBookkeeping": "Bookkeeping",
+  "settingsSectionAbout": "About",
+  "settingsSectionMore": "More",
+  "creditsTitle": "Credits",
+  "creditsIntro": "Veri Fin stays free and clean thanks to these people.",
+  "creditsSupporterCount": "{count} people",
+  "creditsSupportNote": "No memberships, no locked features — you are supporting the software itself.",
+  "creditsSupportAction": "Support Veri Fin on Afdian",
+  "openLinkFailed": "Could not open the browser. Please try again.",
+  "themeMode": "Theme",
+  "themeColorLabel": "Theme style",
+  "themeColorWarmPaper": "Warm Paper (Default)",
+  "themeColorHyperCrisp": "Hyper Crisp",
+  "themeColorObsidianBento": "Obsidian Bento",
+  "themeColorDefault": "Classic Blue",
+  "themeColorSystem": "System dynamic color",
+  "themeColorCustom": "Custom color",
+  "themeColorPickerTitle": "Adjust theme color",
+  "themeColorEffectivePrimary": "Selected theme color",
+  "themeColorHex": "HEX color",
+  "themeColorHue": "Hue",
+  "themeColorSaturation": "Saturation",
+  "themeColorBrightness": "Brightness",
+  "hapticsLabel": "Haptic feedback",
+  "hapticsSubtitle": "Light vibration for keys, selections and drag sorting",
+  "numberPadLayoutLabel": "Number pad layout",
+  "numberPadLayoutPickerTitle": "Choose number pad layout",
+  "numberPadLayoutStandard": "Standard layout",
+  "numberPadLayoutPhone": "Phone layout",
+  "amountTwoDecimalsLabel": "Currency precision",
+  "@amountTwoDecimalsLabel": {
+    "description": "Settings toggle: use each currency's standard number of decimals"
+  },
+  "amountTwoDecimalsDesc": "Show each currency at its standard precision (CNY 12.00, JPY 12, KWD 12.000); off trims trailing zeros",
+  "@amountTwoDecimalsDesc": {
+    "description": "Subtitle explaining the currency-precision toggle"
+  },
+  "moneyUnitStyleLabel": "Currency unit style",
+  "moneyUnitStyleSymbol": "Symbol after (100 $)",
+  "moneyUnitStyleCode": "Code before (USD 100)",
+  "hideSingleCurrencyUnitLabel": "Hide unit for one currency",
+  "hideSingleCurrencyUnitDesc": "Hide the currency unit when a ledger uses only one currency (amounts, headers, card badges, AI answers)",
+  "runningBalanceLabel": "Show running balance",
+  "runningBalanceDesc": "Show the account balance after each entry in the transaction list",
+  "runningBalancePrefix": "Balance {amount}",
+  "moneyUnitLabel": "Unit: {unit}",
+  "@moneyUnitLabel": {
+    "placeholders": {"unit": {"type": "String"}}
+  },
+  "autoSuggestLabel": "Auto-fill from history",
+  "@autoSuggestLabel": {
+    "description": "Settings toggle: auto-fill new entries from history"
+  },
+  "autoSuggestDesc": "Fill in type, category, tags and note for a new entry based on your past entries",
+  "@autoSuggestDesc": {
+    "description": "Subtitle explaining the auto-suggest toggle"
+  },
+  "appLockLabel": "App lock",
+  "enabledLabel": "On",
+  "checkUpdate": "Check for updates",
+  "githubRepositoryLabel": "GitHub repository",
+  "viewLabel": "View",
+  "themePickerTitle": "Choose theme",
+  "dataMgmtSubtitle": "Back up and restore local data",
+  "exportData": "Export to file",
+  "jsonBackup": "Save to system Downloads",
+  "importData": "Restore from file",
+  "restoreFromFile": "Pick a backup file",
+  "importFromSheets": "Import bills",
+  "dataSectionLocalBackup": "Local backup",
+  "dataSectionMaintenance": "Maintenance",
+  "downloadCsvTemplate": "Download CSV template",
+  "excelHint": "Excel can save as CSV",
+  "importBillFile": "Import bill file",
+  "importBillFileHint": "Alipay / WeChat / Mint",
+  "selectBillSource": "Choose bill source",
+  "selectBillSourceHint": "Pick the platform first, then its exported file — avoids format mis-detection",
+  "selectBillSourceNotice": "Limited by each platform's export fields, some account details (balance, type, card number) may not exactly match the original app. You can review and adjust them on the import preview page.",
+  "platformAlipay": "Alipay",
+  "platformAlipayHint": "Transaction detail CSV",
+  "platformWechat": "WeChat Pay",
+  "platformWechatHint": "Payment bill xlsx",
+  "platformMint": "Mint (Bohe)",
+  "platformMintHint": "Bill CSV",
+  "platformYimuBill": "YiMu · Bills",
+  "platformYimuBillHint": "Bill export (.xls)",
+  "platformYimuTransfer": "YiMu · Transfers",
+  "platformYimuTransferHint": "Transfer export (.xls)",
+  "platformQianji": "Qianji",
+  "platformQianjiHint": "Detail export CSV",
+  "platformSuishouji": "Suishouji",
+  "platformSuishoujiHint": "Bill export (.xlsx)",
+  "platformTally": "Tally",
+  "platformTallyHint": "Backup zip",
+  "platformCsvTemplate": "CSV template",
+  "platformCsvTemplateHint": "Veri Fin CSV template",
+  "importGroupSoftware": "Apps / payment platforms",
+  "importGroupCsv": "CSV file",
+  "billImportGuideTitle": "How to export {source} bills",
+  "@billImportGuideTitle": {
+    "placeholders": {
+      "source": {
+        "type": "String"
+      }
+    }
+  },
+  "alipayImportGuide": "In Alipay: Me → Bills → top-right \"…\" → Issue transaction statement → For personal reconciliation → pick a date range. The CSV arrives by email; download it to your phone, then choose it here.\n\nNon-income/expense rows (repayments, investments, transfers) are skipped automatically to avoid double counting. Menu paths may vary by app version.",
+  "wechatImportGuide": "In WeChat: Me → Services → Wallet → Bills → top-right FAQ → Download bill → For personal reconciliation → pick a date range. The xlsx arrives by email; download it to your phone, then choose it here.\n\nNeutral transactions (withdrawals, investments, repayments) are skipped automatically. Menu paths may vary by app version.",
+  "mintImportGuide": "In Mint (Bohe): Me → ledger/data settings → Export bill (CSV), save it to your phone, then choose it here. Menu paths may vary by app version.",
+  "yimuBillImportGuide": "In YiMu (一木记账): Me → Import/Export → Export data → Export bills, choose Excel (.xls) and save it to your phone, then choose it here.\n\nImports income/expense bills only; categories use the second-level category. For transfers, use the separate \"YiMu · Transfers\" entry. Menu paths may vary by app version.",
+  "yimuTransferImportGuide": "In YiMu (一木记账): Me → Import/Export → Export data → Export transfers, choose Excel (.xls) and save it to your phone, then choose it here.\n\nImports transfer records, keeping both accounts and the fee. For income/expense bills, use the separate \"YiMu · Bills\" entry. Menu paths may vary by app version.",
+  "qianjiImportGuide": "In Qianji (钱迹): Me → Settings → Backup & export → Export bills → choose the \"CSV\" (detail) format with the \"All\" time range. You get a .csv file starting with \"QianJi\"; save it to your phone, then choose it here.\n\nExpense, income, transfer, credit-card repayment, refund and reimbursement are all imported: refunds offset the original expense via their linked bill (net = original − refund); categories restore the two-level hierarchy and tags are imported too. Qianji's debt/loan records (lend, collect, interest, etc.) are skipped. Menu paths may vary by app version.",
+  "suishoujiImportGuide": "In Suishouji (随手记): Me → Data export / Export bills → choose Excel (.xlsx), save it to your phone, then choose it here.\n\nThe single workbook contains expense, income, transfer and refund sheets: first- and second-level categories keep their hierarchy, and accounts keep their source currency. Refunds have no original-expense link in the export, so they are imported as income (account balances stay correct, but the original expense is not offset); \"balance change\" rows become \"balance adjustment\" entries based on their sign. Debt sheets (collect debt, lend, repay debt, borrow) and \"liability change\" are skipped. Member, project and bookkeeper fields are ignored; merchant is merged into the note. Accounts are created as cash accounts; adjust their type in Assets after import. Menu paths may vary by app version.",
+  "tallyImportGuide": "In Tally (记账): Settings → Data backup & restore → Export backup, which produces a .zip file starting with \"Tally\". Save it to your phone, then choose it here.\n\nPick the backup zip rather than the CSV bill export: the backup keeps exact transaction times, and income/expense/transfers, first- and second-level categories, accounts and notes are all imported (categories use the second-level category). Menu paths may vary by app version.",
+  "csvTemplateImportGuide": "Download the CSV template first. For a foreign-currency transaction, provide its currency plus either the base amount or rate; cross-currency transfers also need the actual amount at both ends. Columns from other apps are rejected.",
+  "billImportCommonNote": "Transactions are appended to the current ledger; unmatched accounts and categories are created by name. Nothing is deleted.",
+  "backupDirLabel": "Backup folder",
+  "notChosen": "Not chosen",
+  "backupNow": "Back up now",
+  "clearBackupDir": "Clear backup folder",
+  "clearBackupDirConfirm": "You will need to pick a backup folder again. Backup files already exported are not deleted.",
+  "stopLocalBackup": "Stops local backups",
+  "autoBackup": "Auto backup",
+  "backupFrequencyLabel": "Backup frequency",
+  "backupIntervalLabel": "Backup interval",
+  "everyNHoursLabel": "Every {n} hours",
+  "retentionLabel": "Copies to keep",
+  "latestNCopies": "Latest {n}",
+  "backupEncryption": "Backup encryption",
+  "encryptionKey": "Encryption key",
+  "clearEncryptionKey": "Clear encryption key",
+  "noEncryptHint": "Future backups unencrypted",
+  "webdavSection": "WebDAV cloud backup",
+  "webdavServer": "WebDAV server",
+  "configuredLabel": "Configured",
+  "notConfigured": "Not configured",
+  "uploadToWebdav": "Upload to WebDAV",
+  "uploadNow": "Upload now",
+  "restoreFromWebdav": "Restore from WebDAV",
+  "chooseBackup": "Choose backup",
+  "autoUploadWebdav": "Auto-upload to WebDAV",
+  "clearWebdav": "Clear WebDAV config",
+  "disconnectLabel": "Disconnect",
+  "resetData": "Reset data",
+  "deleteAllLocal": "Deletes all local data",
+  "neverBackedUp": "Never backed up",
+  "lastBackupAt": "Last {time}",
+  "chosenBackupDir": "Backup folder selected: {label}",
+  "backedUpFile": "Backed up: {name}",
+  "backupFailedRetry": "Backup failed; please try again later",
+  "backupVerifyFailed": "Backup verification failed after writing (the file may be corrupted); please retry or choose another folder",
+  "pickBackupFrequency": "Choose auto-backup frequency",
+  "backupIntervalTitle": "How often to back up",
+  "retentionTitle": "How many backups to keep",
+  "encryptedSuffix": " (encrypted)",
+  "exportedTo": "Exported local backup{hint} to the Downloads folder",
+  "exportFailed": "Export failed; please try again later",
+  "enterBackupKeyTitle": "Enter backup key",
+  "enterBackupKeyMessage": "This backup is encrypted; enter the key set when it was exported.",
+  "backupKeyLabel": "Backup key",
+  "changeKeyTitle": "Change encryption key",
+  "setKeyTitle": "Set encryption key",
+  "setKeyMessage": "Exports and backups will be encrypted with this key; the same key is required to import. The key is stored only on this device — if forgotten, it can only be cleared and reset.",
+  "keyMinLabel": "Key (at least 4 characters)",
+  "keyRepeatLabel": "Repeat key",
+  "keyTooShort": "Key must be at least 4 characters",
+  "keyMismatch": "Keys don't match",
+  "keySet": "Backup encryption key set",
+  "clearKeyTitle": "Clear encryption key?",
+  "clearKeyMessage": "New exports and backups will no longer be encrypted. Backups already encrypted with the old key still require it when importing.",
+  "clearLabel": "Clear",
+  "webdavUrlLabel": "Server folder URL",
+  "webdavUserLabel": "Username",
+  "webdavPassLabel": "Password",
+  "testingConnection": "Testing connection…",
+  "connectionOk": "Connection OK",
+  "connectionFailed": "Connection failed: {error}",
+  "testConnection": "Test connection",
+  "fillServerUrl": "Enter the server URL",
+  "webdavSaved": "WebDAV config saved",
+  "fabActionTitle": "Quick-entry button",
+  "fabActionPickerTitle": "Quick-entry button action",
+  "fabModeManual": "Manual entry",
+  "fabModeAi": "AI entry",
+  "fabModeManualTapAiLongPress": "Tap: manual · Long-press: AI",
+  "defaultAccountTitle": "Default account",
+  "defaultAccountPickerTitle": "Default payment account",
+  "defaultAccountNone": "No default",
+  "defaultAccountNoneHint": "No account preselected when adding entries",
+  "setAsDefaultAccount": "Set as default account",
+  "setAsDefaultAccountHint": "Used as the default payment account for entries",
+  "calcIncomplete": "Incomplete expression",
+  "numberPadAmountHint": "Enter amount",
+  "numberPadClear": "Clear",
+  "numberPadMax": "Max {amount}",
+  "aiSettingsTitle": "AI settings",
+  "aiConfigured": "Configured",
+  "aiNotConfigured": "Not set",
+  "aiProviderCurrent": "Current provider",
+  "aiProviderPickerTitle": "Choose AI provider",
+  "aiProviderPickerSubtitle": "The provider's fixed endpoint will be used",
+  "aiProviderChange": "Change",
+  "aiProviderSearchHint": "Search provider, description, or domain",
+  "aiProviderSearchEmpty": "No provider found",
+  "aiProviderSearchEmptyDesc": "Try a vendor name, platform, or domain",
+  "aiProviderGroupAll": "All",
+  "aiProviderGroupChinaOfficial": "China official",
+  "aiProviderGroupGlobalOfficial": "Global official",
+  "aiProviderGroupAggregator": "Aggregators",
+  "aiProviderGroupLocal": "Local",
+  "aiProviderGroupCustom": "Custom",
+  "aiProviderDescDeepSeek": "DeepSeek official OpenAI-compatible endpoint",
+  "aiProviderDescVolcengine": "Volcengine Ark model service",
+  "aiProviderDescKimi": "Moonshot Kimi official endpoint",
+  "aiProviderDescZhipu": "Zhipu GLM official endpoint",
+  "aiProviderDescDashscope": "Alibaba Cloud Bailian compatible endpoint",
+  "aiProviderDescOpenai": "OpenAI official endpoint",
+  "aiProviderDescOpenrouter": "Multi-model routing platform",
+  "aiProviderDescOllama": "Local Ollama service",
+  "aiProviderDescCustom": "Any OpenAI-compatible endpoint",
+  "aiProviderCustomBaseUrlHint": "Enter through /v1, or a full /chat/completions URL",
+  "aiProviderModelListUrlLabel": "Model list URL (optional)",
+  "aiProviderModelListUrlHint": "Leave empty to derive it from the endpoint",
+  "aiProviderApiKeyLabel": "API Key (optional)",
+  "aiProviderModelLabel": "Model",
+  "aiProviderModelHint": "Fetch the model list or enter a model manually",
+  "aiProviderFetchModels": "Fetch model list",
+  "aiProviderFetchingModels": "Fetching model list…",
+  "aiProviderModelPickerTitle": "Choose model",
+  "aiProviderModelSearchHint": "Search model or vendor",
+  "aiProviderModelEmpty": "No models available",
+  "aiProviderModelEmptyDesc": "Try another filter or enter a model ID manually",
+  "aiProviderModelOtherGroup": "Other",
+  "aiProviderModelFetchFailed": "Could not fetch models: {message}",
+  "@aiProviderModelFetchFailed": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "aiProviderModelFetchEmpty": "Connected, but no models were returned",
+  "aiProviderMissingBaseUrl": "Enter the provider endpoint first",
+  "aiChatTitle": "AI Assistant",
+  "aiChatClearHistory": "Clear chat history",
+  "aiChatClearMessage": "This deletes the current conversation and cannot be undone.",
+  "aiChatClearConfirm": "Clear",
+  "aiChatChooseBook": "Choose conversation ledger",
+  "aiChatClearCurrent": "Clear chat",
+  "aiSendQuestion": "Send",
+  "aiStopGenerating": "Stop generating",
+  "aiChatCurrentBook": "Current ledger: {book}",
+  "aiChatUnconfiguredHint": "Configure AI first to start asking about your finances",
+  "aiChatUnconfiguredTitle": "Connect your AI",
+  "aiChatGoConfigure": "Configure AI",
+  "aiChatEmptyTitle": "Ask AI about your finances",
+  "aiChatInputHint": "Ask about your finances…",
+  "aiChatHintTopCategory": "Which categories did I spend the most on this month?",
+  "aiChatHintLargeExpense": "What are my large expenses in the last 3 months?",
+  "aiChatHintMonthSummary": "How's my income and spending this month?",
+  "aiChatNoData": "No data",
+  "aiChatNoMatchingTx": "No matching transactions",
+  "aiImageBlocked": "Image not loaded for privacy",
+  "aiClearConfig": "Clear configuration",
+  "aiClearConfigMessage": "This clears the base URL, API key and model. You'll need to re-enter them to use AI features.",
+  "aiSwitchProviderTitle": "Switch AI provider?",
+  "aiSwitchProviderMessage": "Switching providers clears the current API key and model, and you'll need to enter them again.",
+  "aiConfigCleared": "Configuration cleared",
+  "aiBaseUrlLabel": "Request URL (base)",
+  "aiBaseUrlHint": "e.g. https://api.openai.com/v1",
+  "aiFillAllFields": "Choose a provider and enter a model",
+  "aiToolModeTitle": "Tool calling protocol",
+  "aiToolModeAuto": "Auto (recommended)",
+  "aiToolModeNative": "Native Tool Calls",
+  "aiToolModePrompt": "Compatibility mode",
+  "aiToolModeAutoHint": "Prefer native tools and fall back when unsupported",
+  "aiToolModeNativeHint": "Always use structured Tool Calls",
+  "aiToolModePromptHint": "For models or gateways without native tool support",
+  "aiDetectCapabilities": "Detect capabilities",
+  "aiDetectingCapabilities": "Checking connection, streaming, and Tool Calls…",
+  "aiConnectionReady": "Connection successful",
+  "aiStreamingReady": "Streaming successful",
+  "aiNativeToolsSupported": "Native Tool Calls: supported",
+  "aiNativeToolsUnsupported": "Native Tool Calls: unsupported; compatibility mode will be used",
+  "aiActualProtocolNative": "Active protocol: native Tool Calls",
+  "aiActualProtocolPrompt": "Active protocol: compatibility mode",
+  "aiActualProtocolAuto": "Active protocol: automatic detection",
+  "aiStepRunning": "Running",
+  "aiStepSucceeded": "Done",
+  "aiStepFailed": "Failed",
+  "aiStepRetrying": "Retrying",
+  "aiToolSummary": "Query cash-flow summary",
+  "aiToolCategoryRanking": "Query category ranking",
+  "aiToolTagRanking": "Query tag ranking",
+  "aiToolQueryTransactions": "Query transactions",
+  "aiToolLargestTransactions": "Query large transactions",
+  "aiToolTrend": "Query cash-flow trend",
+  "aiToolCompare": "Query month-over-month comparison",
+  "aiToolAccountsOverview": "Query account balances",
+  "aiToolNetWorth": "Query net worth",
+  "aiToolCreditCardBill": "Query credit card bill",
+  "aiToolBudgetStatus": "Query budget status",
+  "aiToolUnknown": "Call read-only tool",
+  "aiAgentRetryTitle": "Reconnecting",
+  "aiAgentRetryNetwork": "The connection was interrupted; retrying safely",
+  "aiAgentRetryProtocol": "Native Tool Calls are unsupported; switching to compatibility mode",
+  "aiAgentRetryResource": "The service is temporarily busy; retrying",
+  "aiStepKeyword": "Keyword “{keyword}”",
+  "aiStepLimit": "Up to {count} items",
+  "aiStepTransactionsFound": "Found {count} transactions",
+  "aiStepItemsFound": "Received {count} results",
+  "aiStepDataReady": "Data ready",
+  "aiRangeLastMonth": "Last month",
+  "aiRangeThisYear": "This year",
+  "aiRangeLastYear": "Last year",
+  "aiRangeLast7Days": "Last 7 days",
+  "aiRangeLast30Days": "Last 30 days",
+  "aiRangeLast3Months": "Last 3 months",
+  "aiRangeLast6Months": "Last 6 months",
+  "aiRangeLast12Months": "Last 12 months",
+  "aiTypeExpense": "Expense",
+  "aiTypeIncome": "Income",
+  "aiTypeTransfer": "Transfer",
+  "aiRetryAnswer": "Answer again",
+  "aiPrivacyNotice": "AI features send your text and the read-only financial summaries needed to answer your questions to your configured third-party service. The configuration and full ledger remain on this device.",
+  "aiEntryTitle": "AI entry",
+  "aiEntryInputHint": "Describe it in one sentence, e.g. \"taxi 32 yesterday\"",
+  "aiEntryParse": "Parse",
+  "aiEntryParsing": "Parsing…",
+  "aiEntryEmptyInput": "Please enter a description first",
+  "aiEntryNotConfiguredTitle": "AI not configured",
+  "aiEntryNotConfiguredBody": "Please set the request URL, API key and model in Profile → Settings → AI Settings first.",
+  "aiEntryGoToSettings": "Go to settings",
+  "aiEntryReviewHint": "Parsed into a draft by AI — review or edit, then save",
+  "aiEntryNoResult": "AI returned no recognizable result — try rephrasing",
+  "aiEntryNoAmount": "Couldn't recognize an amount — include it, e.g. \"taxi 32\"",
+  "aiWarningCategoryUnmatched": "Category not matched — a default was used, please confirm",
+  "aiWarningAccountUnmatched": "Account not matched — set to no account, please confirm",
+  "aiWarningCurrencyUnmatched": "Currency not recognized — using the account or base currency, please confirm",
+  "screenshotEntryButton": "Scan a screenshot",
+  "screenshotEntryUnsupported": "Image text recognition is not supported on this device",
+  "screenshotEntryNoText": "No text was recognized in the image — try a clearer screenshot",
+  "captureEntryRecognizing": "Reading the bill…",
+  "captureEntryNoTransaction": "No transaction was found — make sure the content is a bill screenshot or bill text",
+  "captureEntryFailedTitle": "Recognition failed",
+  "uploadingWebdav": "Uploading to WebDAV…",
+  "uploadedFile": "Uploaded: {name}",
+  "uploadFailed": "Upload failed: {error}",
+  "readFailed": "Read failed: {error}",
+  "noWebdavBackups": "No backups found on WebDAV",
+  "chooseRestoreBackup": "Choose a backup to restore",
+  "restoreFromThisTitle": "Restore from this backup?",
+  "restoreFromThisMessage": "\"{name}\" will replace the current local data. Consider backing up first.",
+  "restoreLabel": "Restore",
+  "restoredFromWebdav": "Data restored from WebDAV",
+  "restoreFailedFormat": "Restore failed: invalid backup format",
+  "restoreFailedError": "Restore failed: {error}",
+  "clearWebdavTitle": "Clear WebDAV config?",
+  "clearWebdavMessage": "Auto-upload will stop; backups already on the server are not deleted.",
+  "csvTemplateSaved": "CSV template saved to the Downloads folder",
+  "csvTemplateSaveFailed": "Failed to save the template; try again later",
+  "exportTransactionsCsv": "Export transactions CSV",
+  "transactionsCsvExported": "Transactions CSV exported to Downloads",
+  "transactionsCsvExportFailed": "Failed to export transactions CSV; try again later",
+  "chooseFile": "Choose file",
+  "importedEntries": "Imported {count} transactions",
+  "skippedRows": ", {count} rows skipped",
+  "importFailedWithMessage": "Import failed: {message}",
+  "importFailedCheckFile": "Import failed; check the file and retry",
+  "lineError": "Line {line}: {message}",
+  "moreLines": "\n… {count} more rows",
+  "importDoneTitle": "Import finished ({count} succeeded)",
+  "importNothingTitle": "No transactions were imported",
+  "allImported": "All rows imported.",
+  "skippedFollowing": "These rows were skipped:\n{lines}",
+  "gotIt": "Got it",
+  "importPreviewTitle": "Import preview",
+  "importPreviewTargetBook": "Import into \"{book}\"",
+  "@importPreviewTargetBook": {
+    "placeholders": {"book": {"type": "String"}}
+  },
+  "ledgerBookSwitched": "Switched to \"{book}\"",
+  "@ledgerBookSwitched": {
+    "placeholders": {"book": {"type": "String"}}
+  },
+  "importPreviewHint": "Tap to exclude / restore, long-press to edit",
+  "importPreviewSelectedOf": "Importing {selected} / {total}",
+  "@importPreviewSelectedOf": {
+    "placeholders": {
+      "selected": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "importPreviewSkipped": "{count} row(s) couldn't be parsed",
+  "@importPreviewSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importPreviewSkippedTitle": "Skipped rows",
+  "importPreviewSelectAll": "Select all",
+  "importPreviewDeselectAll": "Deselect all",
+  "importPreviewConfirm": "Import ({count})",
+  "@importPreviewConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importPreviewConfirmAccountsOnly": "Import ({count} accounts)",
+  "importPreviewNothingSelected": "Nothing selected to import",
+  "@importPreviewConfirmAccountsOnly": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importPreviewNothingToImport": "No data to import",
+  "importedAccounts": "Imported {count} accounts",
+  "@importedAccounts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importAccountMapping": "Import accounts",
+  "importCategoryMapping": "Import categories",
+  "importTagMapping": "Import tags",
+  "mappingSummary": "{newCount} new · {mappedCount} mapped",
+  "@mappingSummary": {
+    "placeholders": {
+      "newCount": {
+        "type": "int"
+      },
+      "mappedCount": {
+        "type": "int"
+      }
+    }
+  },
+  "mappingRowNew": "Create new",
+  "mappingRowRenamed": "New · renamed to \"{name}\"",
+  "@mappingRowRenamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mappingRowMapped": "Mapped to \"{name}\"",
+  "@mappingRowMapped": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mappingAccountSheetTitle": "Account \"{name}\"",
+  "@mappingAccountSheetTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mappingCategorySheetTitle": "Category \"{name}\"",
+  "@mappingCategorySheetTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mappingTagSheetTitle": "Tag \"{name}\"",
+  "@mappingTagSheetTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "mappingKeepNewAccount": "Create this account",
+  "mappingKeepNewCategory": "Create this category",
+  "mappingKeepNewTag": "Create this tag",
+  "mappingMapToExistingAccount": "Map to existing account",
+  "mappingMapToExistingCategory": "Map to existing category",
+  "mappingMapToExistingTag": "Map to existing tag",
+  "mappingRenameAccount": "Rename new account",
+  "mappingRenameCategory": "Rename new category",
+  "mappingRenameTag": "Rename new tag",
+  "mappingRenameTooltip": "Rename",
+  "mappingNewNameLabel": "New name",
+  "importLocalTitle": "Import local backup?",
+  "importLocalMessage": "Importing replaces current local transactions, accounts, ledgers, budgets, profile and settings. Consider exporting current data first.",
+  "importedLocal": "Local data imported",
+  "resetAllTitle": "Reset all data?",
+  "resetAllMessage": "This deletes local transactions, accounts, ledgers, budgets, profile and theme preference. It cannot be undone.",
+  "continueLabel": "Continue",
+  "resetConfirmTitle": "Confirm reset",
+  "resetConfirmMessage": "Confirming immediately clears all local data and restores defaults. This cannot be undone.",
+  "resetConfirmAction": "Confirm reset",
+  "checkingLabel": "Checking…",
+  "updateCheckFailed": "Update check failed; try again later.",
+  "updateAvailableTitle": "Update available",
+  "updateAvailableMessage": "Current version: v{current}\nLatest version: v{latest}",
+  "@updateAvailableMessage": {
+    "placeholders": {
+      "current": {"type": "String"},
+      "latest": {"type": "String"}
+    }
+  },
+  "updateUpToDate": "You're on the latest version",
+  "updateOpenRelease": "Open",
+  "closeLabel": "Close",
+  "backupFreqManual": "Manual only",
+  "backupFreqOnOpen": "On app open",
+  "backupFreqOnEntry": "After each entry",
+  "backupFreqEveryN": "At intervals",
+  "patternTooShort": "Connect at least {count} dots",
+  "bioUnlockReason": "Verify biometrics to unlock Veri Fin",
+  "verifyFailedRetry": "Verification failed; try again",
+  "enterPassword": "Enter password",
+  "drawPatternUnlock": "Draw your pattern to unlock",
+  "enterPinUnlock": "Enter your 6-digit PIN to unlock",
+  "bioUnlock": "Biometric unlock",
+  "patternMismatch": "Patterns don't match; draw again",
+  "pinMismatch": "PINs don't match; set again",
+  "drawAgainConfirm": "Draw again to confirm",
+  "drawPatternHint": "Draw an unlock pattern (at least 4 dots)",
+  "enterAgainConfirm": "Enter again to confirm",
+  "setPinHint": "Set a 6-digit PIN",
+  "setPatternTitle": "Set pattern",
+  "setPinTitle": "Set PIN",
+  "verifyPasswordTitle": "Verify password",
+  "drawCurrentPattern": "Draw your current unlock pattern",
+  "enterCurrentPin": "Enter your current 6-digit PIN",
+  "appLockSubtitle": "Verified on launch and on return to foreground",
+  "lockMethodAndPassword": "Lock method & password",
+  "appLockHelp": "Supports a 6-digit PIN or a 3×3 pattern. The secret is stored on this device only as a salted hash — never uploaded and unrecoverable; if forgotten, choose \"Forgot password\" on the lock screen to reset all local data and set it again. Biometric unlock uses the system biometrics (fingerprint / face, as supported by the device); this app stores no biometric data, and re-verification is required after system biometrics change.",
+  "appLockForgot": "Forgot password?",
+  "appLockDisableFailed": "Could not turn off the app lock. Please try again.",
+  "bioEnableReason": "Verify biometrics to enable biometric unlock",
+  "bioNotPassed": "Biometric verification failed; not enabled",
+  "closeAppLockTitle": "Turn off app lock",
+  "changeAppLockTitle": "Change app lock",
+  "appLockUpdated": "App lock updated",
+  "pinSubtitle": "6-digit PIN",
+  "patternSubtitle": "3×3 pattern",
+  "lockKindPin": "PIN",
+  "lockKindPattern": "Pattern",
+  "bioSignInTitle": "Biometric unlock",
+  "bioHint": "Verify identity",
+  "widgetGalleryTitle": "Desktop widgets",
+  "widgetGallerySubtitle": "Preview the fixed VeriFin widget templates",
+  "widgetGalleryShort": "Template preview",
+  "widgetHowToAddDesc": "Long-press an empty spot on your home screen → choose Widgets → find Veri Fin → drag the widget you want onto the screen.",
+  "widgetConfigureHint": "After adding it, tap \"Tap to set up\" on the widget to choose a book and an appearance.",
+  "widgetTemplateQuickEntry": "Quick entry",
+  "widgetTemplateBudget": "Budget progress",
+  "widgetTemplateTrend": "Cash flow trend",
+  "widgetTemplateNetWorth": "Net worth",
+  "widgetTemplateDualMetric": "Dual metrics",
+  "widgetTapAction": "Widget tap action",
+  "widgetTapQuickEntry": "Quick entry",
+  "widgetTapHome": "Open home",
+  "widgetTapStats": "Open stats",
+  "widgetLeftMetric": "Left metric",
+  "widgetRightMetric": "Right metric",
+  "widgetConfigTitle": "Configure widget",
+  "widgetSaveConfig": "Save",
+  "widgetBook": "Book",
+  "widgetAppearance": "Appearance",
+  "widgetBookPlaceholder": "Choose a book",
+  "widgetNoLedgerYet": "No book is available yet. Open the Veri Fin app once to create your book, then come back to configure this widget.",
+  "widgetOpenApp": "Open app",
+  "widgetPreview": "Preview",
+  "reminderNotifBody": "Don't forget to record today's spending!",
+  "reminderChannelDesc": "Daily bookkeeping reminder notifications",
+  "reminderTestButton": "Send a test notification",
+  "reminderTestBody": "This is a test notification — if you can see it, notifications work.",
+  "reminderTestSent": "Test notification sent — check your notification shade. If daily reminders never arrive, it's usually background restrictions: allow notifications for this app and add it to battery / autostart allowlists in system settings.",
+  "reminderTestFailed": "The test notification could not be sent. Check notification permission and system background restrictions, then try again.",
+  "cropAdjustHint": "Adjust image position",
+  "cropDone": "Finish cropping",
+  "zoomLabel": "Zoom",
+  "horizontalLabel": "Horizontal",
+  "verticalLabel": "Vertical",
+  "resetLabel": "Reset",
+  "saveFailed": "Save failed, please try again",
+  "appLog": "App logs",
+  "appLogSubtitle": "Records errors and key events; copy and send to the developer when reporting issues",
+  "appLogEmpty": "No log records yet",
+  "appLogCopyAll": "Copy all",
+  "appLogCopied": "Copied to clipboard",
+  "appLogCopyRecord": "Copy this entry",
+  "appLogDetails": "Technical details",
+  "appLogClear": "Clear logs",
+  "appLogClearConfirm": "Clear all logs?",
+  "appLogCount": "{count} records",
+  "@appLogCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "cleartextWarnTitle": "Cleartext transmission risk",
+  "cleartextWarnBody": "This address uses unencrypted http; your key/username and password will be sent in cleartext and could be intercepted by a third party on the same network or link. Continue only if you trust this network (e.g. a local/self-hosted service).",
+  "cleartextWarnContinue": "Save anyway",
+  "reminderPermissionDenied": "Notification permission denied; reminders won't show. Please allow notifications in system settings and try again.",
+  "backingUp": "Backing up…",
+  "backupPhasePreparing": "Preparing data",
+  "backupPhasePacking": "Packing backup",
+  "backupPhaseEncrypting": "Encrypting backup",
+  "backupPhaseWriting": "Writing file",
+  "backupPhaseVerifying": "Verifying backup",
+  "backupPhaseReading": "Reading backup",
+  "backupPhaseDecrypting": "Decrypting backup",
+  "backupPhaseUnpacking": "Unpacking backup",
+  "backupPhaseImporting": "Importing data",
+  "backupPhaseCleaning": "Cleaning up",
+  "backupCancelled": "Cancelled",
+  "attachmentMigrationDone": "Image attachments organized",
+  "attachmentMigrationFailed": "Some attachments could not be organized; will retry on next launch",
+  "aiErrNotConfigured": "AI not configured: please fill in the base URL, API key and model first",
+  "aiErrNotSupported": "AI requests are not supported on this platform",
+  "aiErrTimeout": "Request timed out; check your network or try again later",
+  "aiErrNetwork": "Cannot connect to the server",
+  "aiErrTls": "TLS handshake failed; check whether the base URL uses https",
+  "aiErrBadUrl": "Invalid request URL; check the base URL format",
+  "aiErrAuthFailed": "Invalid API key or unauthorized; check your key",
+  "aiErrNotFound": "Endpoint not found; check the base URL and model name",
+  "aiErrRateLimited": "Too many requests or insufficient quota",
+  "aiErrServer": "The server returned an error",
+  "aiErrBadResponse": "Could not parse the server response",
+  "aiErrResponseTooLarge": "The AI response was too large and has been stopped.",
+  "aiErrModelListUnsupported": "This provider does not expose a model list. Enter a model manually.",
+  "aiErrUpstream": "The server returned an error",
+  "aiErrUnknown": "Request failed",
+  "budgetTitle": "Budget",
+  "budgetInheritChip": "Using default {amount}",
+  "@budgetInheritChip": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "budgetOverrideScopeMonth": "this month",
+  "budgetOverrideScopePeriod": "this period",
+  "budgetOverrideChip": "Custom for {scope} · tap to adjust",
+  "@budgetOverrideChip": {
+    "placeholders": {
+      "scope": {
+        "type": "String"
+      }
+    }
+  },
+  "budgetSetChip": "Tap to set a budget for {scope}",
+  "@budgetSetChip": {
+    "placeholders": {
+      "scope": {
+        "type": "String"
+      }
+    }
+  },
+  "budgetSettingsSectionOverall": "Overall budget & cycle",
+  "budgetSettingsSectionCategory": "Default category budgets",
+  "defaultMonthlyBudgetTitle": "Default monthly budget",
+  "setDefaultMonthlyBudgetTitle": "Set default monthly budget",
+  "defaultCategoryBudgetDesc": "Set once, applied every month; tap a category to set its default",
+  "setDefaultCategoryBudgetTitle": "Set default budget for {category}",
+  "@setDefaultCategoryBudgetTitle": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "budgetClearAction": "Clear budget",
+  "budgetOverrideSheetTitle": "{subject} · {period}",
+  "@budgetOverrideSheetTitle": {
+    "placeholders": {
+      "subject": {
+        "type": "String"
+      },
+      "period": {
+        "type": "String"
+      }
+    }
+  },
+  "budgetOverrideSetAmount": "Set a custom amount for {scope}",
+  "@budgetOverrideSetAmount": {
+    "placeholders": {
+      "scope": {
+        "type": "String"
+      }
+    }
+  },
+  "budgetOverrideAdjustAmount": "Adjust the amount for {scope}",
+  "@budgetOverrideAdjustAmount": {
+    "placeholders": {
+      "scope": {
+        "type": "String"
+      }
+    }
+  },
+  "budgetOverrideRestore": "Restore default (uses {amount})",
+  "@budgetOverrideRestore": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "budgetOverrideClear": "Clear the custom amount for {scope}",
+  "@budgetOverrideClear": {
+    "placeholders": {
+      "scope": {
+        "type": "String"
+      }
+    }
+  },
+  "budgetOverrideAmountTitle": "Set budget for {scope}",
+  "@budgetOverrideAmountTitle": {
+    "placeholders": {
+      "scope": {
+        "type": "String"
+      }
+    }
+  },
+  "budgetCycleNotSet": "Not set",
+  "commonClear": "Clear",
+  "currencySearchHint": "Search by code, name, or symbol",
+  "currencySearchEmpty": "No currency found",
+  "currencySearchEmptyDesc": "Try an ISO code or another currency name.",
+  "currencyPickerMeta": "Symbol {symbol} · {digits} decimal places",
+  "@currencyPickerMeta": {
+    "placeholders": {
+      "symbol": {"type": "String"},
+      "digits": {"type": "int"}
+    }
+  },
+  "ledgerBaseCurrency": "Ledger base currency",
+  "ledgerBaseCurrencyDesc": "Budgets, reports, and total assets use this currency.",
+  "selectBaseCurrency": "Select ledger base currency",
+  "selectAccountCurrency": "Select account currency",
+  "selectRateCurrency": "Select a currency for exchange rates",
+  "ledgerCurrencyLocked": "This ledger contains financial data, so its base currency is locked. Create another ledger to use a different base currency.",
+  "ledgerCurrencyLockedShort": "Locked by financial data",
+  "ledgerCurrencyChangeTitle": "Change base currency?",
+  "ledgerCurrencyChangeMessage": "This empty ledger will use {code} ({name}); its zero-balance accounts will change to the same currency.",
+  "@ledgerCurrencyChangeMessage": {
+    "placeholders": {
+      "code": {"type": "String"},
+      "name": {"type": "String"}
+    }
+  },
+  "legacyCurrencySetupTitle": "Confirm the currency of existing amounts",
+  "legacyCurrencySetupDesc": "This ledger was created before multi-currency support. Confirm what its existing numbers represent before adding foreign-currency accounts or rates.",
+  "legacyCurrencyStart": "Confirm currency",
+  "legacyCurrencyConfirmCurrent": "Existing amounts are {code}",
+  "@legacyCurrencyConfirmCurrent": {
+    "placeholders": {"code": {"type": "String"}}
+  },
+  "legacyCurrencyChooseAnother": "Existing amounts are another currency",
+  "legacyCurrencyConfirmTitle": "Interpret existing amounts as {code}?",
+  "@legacyCurrencyConfirmTitle": {
+    "placeholders": {"code": {"type": "String"}}
+  },
+  "legacyCurrencyConfirmMessage": "This updates {accounts} accounts, {entries} transactions, {rules} recurring rules, and {budgets} budget settings. Every number stays unchanged; only its currency is interpreted as {code}. This cannot be reinterpreted again.",
+  "@legacyCurrencyConfirmMessage": {
+    "placeholders": {
+      "accounts": {"type": "int"},
+      "entries": {"type": "int"},
+      "rules": {"type": "int"},
+      "budgets": {"type": "int"},
+      "code": {"type": "String"}
+    }
+  },
+  "legacyCurrencyApply": "Confirm and apply",
+  "legacyCurrencySaved": "Existing amounts are now interpreted as {code}",
+  "@legacyCurrencySaved": {
+    "placeholders": {"code": {"type": "String"}}
+  },
+  "accountBalanceCurrencyLabel": "Opening balance ({code})",
+  "@accountBalanceCurrencyLabel": {
+    "placeholders": {"code": {"type": "String"}}
+  },
+  "accountCurrencyLocked": "The account currency is locked because it has a balance, credit limit, or transaction history.",
+  "entryCurrencyLockedByRefund": "The original currency is locked because this transaction has refunds. Resolve the linked refunds first.",
+  "entrySaveValidationFailed": "The transaction amounts, currencies, or linked data are incomplete. Review them and try again.",
+  "entrySaveStaleDraft": "This transaction was changed or deleted elsewhere. Go back and reopen it.",
+  "entrySaveInvalidRefund": "The refund data is incomplete. Check the refund amount and receiving account, then try again.",
+  "entrySaveRefundExceedsExpense": "Total refunds cannot exceed the original expense amount.",
+  "entrySaveInvalidAttachments": "The attachment data is invalid. Re-add the attachments and try again.",
+  "entrySaveInvalidRememberedRate": "The exchange rate is invalid. Check it or turn off Remember as rate for this date, then try again.",
+  "entrySaveInvalidScope": "The category or tag does not belong to the current ledger. Select it again.",
+  "importValidationFailed": "The imported amounts, currencies, or links are incomplete. No ledger data was written.",
+  "entryConversionRateTrace": "Using local rates effective {date}{status}",
+  "@entryConversionRateTrace": {
+    "placeholders": {
+      "date": {"type": "String"},
+      "status": {"type": "String"}
+    }
+  },
+  "assetValuationRateTrace": "Oldest asset valuation rate: {date}{status}",
+  "@assetValuationRateTrace": {
+    "placeholders": {
+      "date": {"type": "String"},
+      "status": {"type": "String"}
+    }
+  },
+  "homeRecurringRatePending": "{count} recurring entries are waiting for rates",
+  "@homeRecurringRatePending": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "homeRecurringRatePendingDesc": "Missing {codes}. Tap to resolve.",
+  "@homeRecurringRatePendingDesc": {
+    "placeholders": {"codes": {"type": "String"}}
+  },
+  "balanceAdjustMissingRate": "No valid {code}-to-base exchange rate is available, so the balance adjustment transaction cannot be created.",
+  "@balanceAdjustMissingRate": {
+    "placeholders": {"code": {"type": "String"}}
+  },
+  "currencyRatesTitle": "Currencies & rates",
+  "currencyRatesHelpTitle": "About exchange rates",
+  "currencyRatesOfflineDesc": "Rates are stored on this device and maintained by you. The app never downloads or refreshes them, and changing a rate does not rewrite historical transaction reports.",
+  "exchangeRateCurrencies": "Foreign currency rates",
+  "exchangeRateAdd": "Add exchange rate",
+  "exchangeRateEmpty": "No foreign exchange rates yet",
+  "exchangeRateEmptyDesc": "Add a currency and maintain its rate against the ledger base currency by date.",
+  "exchangeRateEquation": "1 {currency} = {rate} {base}",
+  "@exchangeRateEquation": {
+    "placeholders": {
+      "currency": {"type": "String"},
+      "rate": {"type": "String"},
+      "base": {"type": "String"}
+    }
+  },
+  "exchangeRateNotSet": "No rate set",
+  "creditRepayMissingRateHint": "No exchange rate set — tap “Transferred out” above to enter the amount actually debited, or maintain the rate first.",
+  "exchangeRateDateAndStatus": "{date} · {status}",
+  "@exchangeRateDateAndStatus": {
+    "placeholders": {
+      "date": {"type": "String"},
+      "status": {"type": "String"}
+    }
+  },
+  "exchangeRateStale": "May be outdated",
+  "exchangeRateNotEffective": "Not yet effective",
+  "exchangeRateFutureCount": "Plus {count} future rate(s)",
+  "@exchangeRateFutureCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exchangeRateSourceManual": "Manual",
+  "exchangeRateSourceImported": "Imported",
+  "exchangeRateHistory": "{currency} rate history",
+  "@exchangeRateHistory": {
+    "placeholders": {"currency": {"type": "String"}}
+  },
+  "exchangeRateAgainst": "Against {base}",
+  "@exchangeRateAgainst": {
+    "placeholders": {"base": {"type": "String"}}
+  },
+  "exchangeRateHistoryEmpty": "No rate history yet",
+  "exchangeRateHistoryEmptyDesc": "Use the add button to create the first effective rate.",
+  "exchangeRateDeleteTitle": "Delete this exchange rate?",
+  "exchangeRateDeleteMessage": "Saved transactions will not change, but asset valuation or pending recurring transactions may later be missing a rate.",
+  "exchangeRateEffectiveDate": "Select effective date",
+  "exchangeRateInputTitle": "How many {base} equal 1 {currency}?",
+  "@exchangeRateInputTitle": {
+    "placeholders": {
+      "currency": {"type": "String"},
+      "base": {"type": "String"}
+    }
+  },
+  "exchangeRateSaved": "Exchange rate saved",
+  "entryCurrencyLabel": "Transaction currency",
+  "entryCurrencyPickTitle": "Choose transaction currency",
+  "entryOriginalAmountLabel": "Original amount",
+  "entryAccountAmountExpense": "Actual account charge",
+  "entryAccountAmountIncome": "Actual account credit",
+  "entryLedgerAmountLabel": "Recorded in ledger",
+  "entryTransferOutAmount": "Amount sent",
+  "entryTransferInAmount": "Amount received",
+  "entryRateLabel": "Conversion rate",
+  "entryRateEquation": "1 {source} = {rate} {target}",
+  "@entryRateEquation": {
+    "placeholders": {
+      "source": {"type": "String"},
+      "rate": {"type": "String"},
+      "target": {"type": "String"}
+    }
+  },
+  "entryRateEditTitle": "How many {target} equal 1 {source}?",
+  "@entryRateEditTitle": {
+    "placeholders": {
+      "source": {"type": "String"},
+      "target": {"type": "String"}
+    }
+  },
+  "entryMissingRate": "A local rate for {currencies} is missing. Enter the actual amount or add a rate first.",
+  "@entryMissingRate": {
+    "placeholders": {"currencies": {"type": "String"}}
+  },
+  "entryRememberRate": "Remember as rate for this date",
+  "entryRememberRateHint": "Off by default. When enabled, this transaction's rate is saved to the current ledger rate table.",
+  "entryConversionSourceRateTable": "Calculated from a local rate. Tap an amount to adjust it.",
+  "entryConversionSourceManual": "Amounts were adjusted for this transaction and will be frozen for historical reports.",
+  "entryAmountInputTitle": "Enter {label} ({currency})",
+  "@entryAmountInputTitle": {
+    "placeholders": {
+      "label": {"type": "String"},
+      "currency": {"type": "String"}
+    }
+  },
+  "refundAccountAmountLabel": "Actual account credit",
+  "refundBaseAmountLabel": "Base-currency offset",
+  "refundCurrencyLockedHint": "The refund keeps the original expense currency and cannot be changed.",
+  "recurringRatePolicyLabel": "Multi-currency conversion",
+  "recurringRatePolicyLatest": "Use latest local rate each time",
+  "recurringRatePolicyFixed": "Keep current amounts fixed",
+  "recurringMissingRate": "Rate required",
+  "recurringMissingRateCount": "{count} rules are waiting for a rate before they can be posted",
+  "@recurringMissingRateCount": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "recurringRetryNow": "Post due entries now",
+  "recurringGeneratedCount": "Posted {count} due transactions",
+  "@recurringGeneratedCount": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "recurringGenerateFailed": "Catch-up failed, please retry",
+  "assetValuationMissing": "{count} accounts need an exchange rate",
+  "@assetValuationMissing": {
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "assetValuationMissingDesc": "A rate from {currencies} to the base currency is missing, so an incomplete asset total is not shown.",
+  "@assetValuationMissingDesc": {
+    "placeholders": {"currencies": {"type": "String"}}
+  },
+  "assetTrendMissingRate": "There is no exchange rate available for valuation yet. Set a rate for today or earlier to show the asset trend.",
+  "assetTrendPartialMissing": "Some months are missing {currencies} rates ({months}); those months are not drawn. Add rates for those months or earlier to show them.",
+  "@assetTrendPartialMissing": {
+    "placeholders": {
+      "currencies": {"type": "String"},
+      "months": {"type": "String"}
+    }
+  },
+  "exchangeRateSetAction": "Set rate",
+  "baseCurrencyAmountLabel": "Base currency {currency}",
+  "@baseCurrencyAmountLabel": {
+    "placeholders": {"currency": {"type": "String"}}
+  },
+  "importSaveExchangeRates": "Save imported rates",
+  "importSaveExchangeRatesHint": "Off by default. When enabled, only rates used by included transactions are saved.",
+  "aiTitleSummary": "{range} · Income & expense summary",
+  "aiTitleCategoryRanking": "{range} · {type} category ranking",
+  "aiTitleTagRanking": "{range} · {type} tag ranking",
+  "aiTitleTransactions": "Transactions ({count})",
+  "aiTitleLargestTransactions": "{range} · Top {count} {extreme} {type}",
+  "aiTitleTrend": "{range} · {type} trend",
+  "aiTitleCompare": "{label} · MoM & YoY",
+  "aiTitleCreditCards": "Cards & credit accounts",
+  "aiTitleBudgetExecution": "{period} · Budget execution",
+  "aiStatNet": "Net",
+  "aiStatSpent": "Spent",
+  "aiStatTotalLiabilities": "Total liabilities",
+  "aiStatLastYearMonthExpense": "Same month last year (expense)",
+  "aiStatLastMonthIncome": "Last month's income",
+  "aiStatLastYearMonthIncome": "Same month last year (income)",
+  "aiHeaderCurrency": "Currency",
+  "aiHeaderBalance": "Balance",
+  "aiHeaderCurrentDebt": "Current debt",
+  "aiExtremeMax": "largest",
+  "aiExtremeMin": "smallest",
+  "aiGranularityMonthly": "monthly",
+  "aiGranularityDaily": "daily",
+  "aiOverBudget": "Over budget",
+  "aiNoBudgetAttention": "No categories over budget or near the limit.",
+  "aiNoAccounts": "This book has no accounts yet.",
+  "aiNoCreditAccounts": "This book has no credit accounts.",
+  "aiNoBudgetData": "This book has no budget data.",
+  "aiNoMatchingTransactions": "No matching transactions.",
+  "aiNoBaseline": "Baseline is 0, so a ratio can't be computed",
+  "aiMonthYearLabel": "{year}-{month}",
+  "aiBudgetPeriodLabel": "Budget period {year}-{month}",
+  "aiSepSemicolon": "; ",
+  "aiSepComma": ", ",
+  "aiSepEnum": ", ",
+  "aiSummaryLine": "{range} income {income} ({incomeCount} entries), expense {expense} ({expenseCount} entries), net {net}.",
+  "aiRankingRowLine": "{label} {amount} ({percent}%, {count} entries)",
+  "aiNoRecords": "{range}: no {type} records.",
+  "aiNoTagRecords": "{range}: no tagged {type} records.",
+  "aiCategoryRankingSummary": "{range} {type} category ranking: {detail}",
+  "aiTagRankingSummary": "{range} {type} tag ranking: {detail}",
+  "aiFoundTransactions": "Found {count} transactions: {detail}",
+  "aiEntryNote": " ({note})",
+  "aiLargestSummary": "{range}: {count} {extreme} {type} — {detail}",
+  "aiTrendSummary": "{range} {type} trend ({granularity}, {count} points, total {total}): {points}",
+  "aiCompareSummary": "{label} expense {expense} (MoM {expenseMom}, YoY {expenseYoy}); income {income} (MoM {incomeMom}, YoY {incomeYoy}).",
+  "aiAccountsSummary": "{count} accounts: {accounts}. {total}.",
+  "aiAssetsTotalLine": "Total of asset accounts {amount}",
+  "aiTotalMissingRateLine": "Total unavailable, missing rates for {codes}",
+  "aiMissingRatesNetWorth": "Some accounts are missing exchange rates ({codes}), so total assets and net assets can't be shown. Add them under {page}.",
+  "aiNetWorthSummary": "Total assets {assets}, total liabilities {liabilities}, net assets {net}.",
+  "aiCardDebtLine": "{name} owes {amount}",
+  "aiCardAvailableLine": ", available {amount}",
+  "aiCardBillLine": ", this cycle {amount}",
+  "aiCardDueLine": ", due on day {day} ({due})",
+  "aiBudgetNotSet": "{period} has no budget set; {amount} spent this period.",
+  "aiBudgetAttention": "Needs attention: {items}.",
+  "aiBudgetAttentionRow": "{label} {spent}/{budget} ({status})",
+  "aiDailyRemainingLine": ", {amount}/day remaining",
+  "aiBudgetSummary": "{period} budget {budget}, spent {spent}, remaining {remaining}{daily}. {attention}",
+  "aiCategoryNotFound": "No category matches “{name}” in this ledger. Check the name or full path.",
+  "aiCategoryAmbiguous": "Several categories match “{name}”: {paths}. Specify a full path and entry type.",
+  "aiNoMatchingCategories": "No categories match in this ledger.",
+  "aiCategoryListSummary": "There are {count} matching categories in this ledger: {detail}.",
+  "aiTitleCategoryList": "Ledger categories",
+  "aiCategoryTypeHeader": "Entry type",
+  "aiCategoryPathHeader": "Category path",
+  "aiSecondLevelCategories": "Second-level categories",
+  "aiChildCategoryScope": "Subcategories of {path}",
+  "categoryIconThemeTitle": "Category icon theme",
+  "categoryIconThemeBuiltin": "Built-in icons",
+  "categoryIconThemeLine": "Thin line preset",
+  "categoryIconThemeColored": "Colored preset",
+  "categoryIconThemeEmoji": "Emoji preset",
+  "categoryIconThemeActive": "Active",
+  "aiAnswerProvenanceQueried": "Based on {count} ledger queries",
+  "aiAnswerProvenanceNoQuery": "No ledger data queried",
+  "aiAnswerProvenanceUnverified": "No ledger data was queried; do not rely on this for account facts",
+  "aiErrRequestTooLarge": "The input or request is too large. Shorten it and try again.",
+  "widgetPreviewFailed": "Widget preview unavailable",
+  "widgetConfigurationFailed": "Could not load this widget. Return to the home screen and try again."
+}

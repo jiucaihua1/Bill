@@ -1,0 +1,1302 @@
+part of 'veri_fin_controller.dart';
+
+/// 控制器的「状态与持久化」层：集中所有内存字段、KV/SQLite 载入与落库、
+/// 以及少量被载入流程调用的基础方法。领域操作在 [_ControllerOps]。
+mixin _ControllerState on ChangeNotifier {
+  // 依赖由具体类 VeriFinController 注入（构造参数）。
+  LocalKeyValueStore get _store;
+  LedgerRepository get _repository;
+  AttachmentStore get _attachmentStore;
+  AppLogger? get _logger;
+  bool get _systemIsEnglish;
+  String Function(String prefix)? get _injectedIdFactory;
+
+  late final categoryIconThemes = CategoryIconThemes(logger: _logger);
+
+  /// SQLite 落库失败时回调（由 UI 层挂钩弹出「保存失败」提示）。
+  void Function(Object error)? onPersistError;
+
+  /// 影响桌面小组件投影的账目类数据变化时回调：交易、账户、账本、汇率、预算与
+  /// 预算周期。只在真正会改变投影的落库咽喉点触发——主题、折叠状态等偏好不参与
+  /// 投影，所以**不挂在整个 [notifyListeners] 上**，否则每次界面状态变化都会重算
+  /// 所有账本的投影并刷新桌面组件。
+  VoidCallback? onWidgetDataChanged;
+
+  /// 通知一次「桌面投影依赖的数据已变化」。分类、标签、账户分组与附件不参与投影，
+  /// 它们的变化**不**调用这里；去抖与平台调用由 `main` 的挂钩负责。
+  void _markWidgetProjectionChanged() => onWidgetDataChanged?.call();
+
+  /// 备份/恢复进度（null = 空闲）。阻塞进度对话框订阅它，不直接读服务层状态。
+  final ValueNotifier<BackupProgress?> backupProgressListenable =
+      ValueNotifier<BackupProgress?>(null);
+
+  /// 存量附件迁移进度（null = 未在迁移），供后台提示使用。
+  final ValueNotifier<({int done, int total})?>
+  attachmentMigrationProgressListenable =
+      ValueNotifier<({int done, int total})?>(null);
+
+  /// 上报/清空备份进度。
+  void reportBackupProgress(BackupProgress? progress) {
+    backupProgressListenable.value = progress;
+  }
+
+  /// 应用锁开关变化时回调（由 main 挂钩，据此开关 Android FLAG_SECURE）。
+  void Function(bool appLockEnabled)? onAppLockChanged;
+
+  /// 播种/初始化默认数据时是否用英文（数据只在播种时定语言，之后随用户编辑）。
+  bool get _seedEnglish {
+    switch (_localePreference) {
+      case LocalePreference.zh:
+        return false;
+      case LocalePreference.en:
+        return true;
+      case LocalePreference.system:
+        return _systemIsEnglish;
+    }
+  }
+
+  List<LedgerBook> get _seedLedgerBooks =>
+      defaultLedgerBooksFor(english: _seedEnglish);
+
+  /// 某账本的默认分类。分类属于账本，id 是随机生成的纯标识，语义只看 [Category.key]。
+  List<Category> _seedCategoriesFor(String bookId) => withSeededBookCategories(
+    const <Category>[],
+    bookIds: [bookId],
+    english: _seedEnglish,
+    nextId: () => _generateId('category'),
+  );
+
+  /// 给所有还没有分类的账本播种默认分类（首启动、新建账本、导入缺分类的备份共用）。
+  /// 返回是否有改动。分类名只在播种时定语言，之后随用户编辑。
+  bool _seedMissingBookCategories() {
+    final next = withSeededBookCategories(
+      _categories,
+      bookIds: <String>[for (final book in _ledgerBooks) book.id],
+      english: _seedEnglish,
+      nextId: () => _generateId('category'),
+    );
+    if (next.length == _categories.length) {
+      return false;
+    }
+    _categories
+      ..clear()
+      ..addAll(next);
+    return true;
+  }
+
+  UserProfile get _seedProfile => defaultUserProfileFor(english: _seedEnglish);
+
+  final List<LedgerEntry> _entries = <LedgerEntry>[];
+  final List<LedgerBook> _ledgerBooks = <LedgerBook>[];
+  final List<Account> _accounts = <Account>[];
+  final List<AccountGroup> _accountGroups = <AccountGroup>[];
+  final List<Category> _categories = <Category>[];
+  final List<Tag> _tags = <Tag>[];
+  final List<ExchangeRate> _exchangeRates = <ExchangeRate>[];
+
+  // 派生视图缓存：按当前账本过滤（并排序/回退种子）后的不可变列表，惰性计算并缓存，
+  // 避免每个 getter 每次调用都做一次 O(n) 过滤 + 拷贝。任一状态变更经 notifyListeners
+  // 统一置空重算——内部逻辑始终读私有列表（_entries/_accounts/…），UI 只在 notify 后
+  // 重建，故这里以 notifyListeners 为唯一失效点是安全的。
+  // **新增派生视图字段必须同步在 [_invalidateDerivedViews] 置空**，
+  // 漏加不会报错、只会返回过期缓存。
+  List<LedgerEntry>? _entriesView;
+  List<Account>? _accountsView;
+  List<AccountGroup>? _accountGroupsView;
+  List<Category>? _categoriesView;
+  List<ExchangeRate>? _exchangeRatesView;
+  Map<String, double>? _accountBalanceCache;
+  Map<String, double>? _balanceAfterEntryCache;
+
+  void _invalidateDerivedViews() {
+    _entriesView = null;
+    _accountsView = null;
+    _accountGroupsView = null;
+    _categoriesView = null;
+    _exchangeRatesView = null;
+    _accountBalanceCache = null;
+    _balanceAfterEntryCache = null;
+  }
+
+  @override
+  void notifyListeners() {
+    _syncAmountFormatContext();
+    _invalidateDerivedViews();
+    super.notifyListeners();
+  }
+
+  final List<Attachment> _attachments = <Attachment>[];
+  final List<RecurringRule> _recurringRules = <RecurringRule>[];
+  final Map<String, double> _monthlyBudgets = <String, double>{};
+  final Map<String, double> _categoryBudgets = <String, double>{};
+  // 按日预算：每个账本一条「每日花销上限」，键为 bookId、值为金额（适用于每一天）。
+  final Map<String, double> _dailyBudgets = <String, double>{};
+  // 默认付款账户：每个账本各存一个账户 id（键为 bookId）。设备本地偏好。
+  final Map<String, String> _defaultAccountIds = <String, String>{};
+  // 预算周期起始日：每个账本一个（键为 bookId，值 1–28），缺省 = 1（自然月）。
+  // 只有非默认值才落键；进 JSON 备份（预算语义的一部分，恢复须还原）。
+  final Map<String, int> _budgetCycleStartDays = <String, int>{};
+  final Set<String> _collapsedAssetSections = <String>{};
+  final Map<String, List<String>> _assetAccountOrders =
+      <String, List<String>>{};
+  final Map<String, List<String>> _assetSectionOrders =
+      <String, List<String>>{};
+  final Map<PanelPageKind, List<PagePanelSetting>> _pagePanels =
+      <PanelPageKind, List<PagePanelSetting>>{
+        for (final page in PanelPageKind.values)
+          page: _defaultPanelSettings(page.specs),
+      };
+
+  late final ValueNotifier<ThemePreference> themePreferenceListenable;
+
+  late final ValueNotifier<ThemeColorPreference> themeColorPreferenceListenable;
+
+  /// 语言偏好通知器：驱动 `MaterialApp.locale` 即时切换。
+  late final ValueNotifier<LocalePreference> localePreferenceListenable;
+
+  /// 导航样式通知器：驱动根导航换样式即时生效，不触发全应用重建。
+  late final ValueNotifier<NavigationStylePreference>
+  navigationStylePreferenceListenable;
+
+  /// AI 能力缓存只驱动设置页和 Agent 协议选择，不触发全应用重建。
+  late final ValueNotifier<AiCapabilityProfile?> aiCapabilityListenable;
+
+  ThemePreference _themePreference = ThemePreference.system;
+  ThemeColorPreference _themeColorPreference =
+      ThemeColorPreference.defaultValue;
+  LocalePreference _localePreference = LocalePreference.system;
+  NavigationStylePreference _navigationStylePreference =
+      NavigationStylePreference.liquidGlass;
+  UserProfile _profile = defaultUserProfile;
+  String _activeBookId = defaultLedgerBookId;
+  String _assetCoverUrl = '';
+  bool _assetAmountsHidden = false;
+  bool _savingAssetAmountsHidden = false;
+  bool _hapticsEnabled = true;
+  bool _privacyConsentAccepted = false;
+  bool _onboardingCompleted = false;
+  AppLockConfig _appLockConfig = const AppLockConfig.none();
+  AssetAccountViewMode _assetAccountViewMode = AssetAccountViewMode.type;
+  BackupSettings _backupSettings = const BackupSettings();
+  String _backupPassphrase = '';
+  WebdavConfig _webdavConfig = const WebdavConfig();
+  ReminderSettings _reminderSettings = ReminderSettings.disabled;
+  FabActionMode _fabActionMode = FabActionMode.manual;
+  HomeTrendConfig _homeTrendConfig = HomeTrendConfig.defaults;
+  CurrencyFractionStyle _currencyFractionStyle = CurrencyFractionStyle.compact;
+  MoneyUnitStyle _moneyUnitStyle = MoneyUnitStyle.symbol;
+  bool _hideUnitInSingleCurrency = true;
+  bool _autoSuggestEnabled = true;
+  // 交易列表是否在每行显示该账户当时的结余；默认关闭，避免信息过载。
+  bool _showRunningBalance = false;
+  NumberPadLayout _numberPadLayout = NumberPadLayout.phone;
+  AiSettings _aiSettings = const AiSettings();
+  AiCapabilityProfile? _aiCapabilityProfile;
+
+  void _loadDefaultAccounts() {
+    final raw = _store.read(_defaultAccountKey);
+    if (raw == null || raw.isEmpty) {
+      return;
+    }
+    try {
+      final decoded = jsonDecode(raw) as Map<dynamic, dynamic>;
+      _defaultAccountIds
+        ..clear()
+        ..addAll(
+          decoded.map(
+            (key, value) => MapEntry(key.toString(), value.toString()),
+          ),
+        );
+    } catch (_) {
+      _store.delete(_defaultAccountKey);
+    }
+  }
+
+  void _persistDefaultAccounts() {
+    _store.write(_defaultAccountKey, jsonEncode(_defaultAccountIds));
+  }
+
+  void _loadBudgetCycleStartDays() {
+    final raw = _store.read(_budgetCycleKey);
+    if (raw == null || raw.isEmpty) {
+      return;
+    }
+    try {
+      final decoded = jsonDecode(raw) as Map<dynamic, dynamic>;
+      _budgetCycleStartDays
+        ..clear()
+        ..addAll(
+          decoded.map(
+            (key, value) => MapEntry(
+              key.toString(),
+              clampBudgetCycleStartDay((value as num).toInt()),
+            ),
+          ),
+        );
+    } catch (_) {
+      _store.delete(_budgetCycleKey);
+    }
+  }
+
+  void _persistBudgetCycleStartDays() {
+    if (_budgetCycleStartDays.isEmpty) {
+      _store.delete(_budgetCycleKey);
+    } else {
+      _store.write(_budgetCycleKey, jsonEncode(_budgetCycleStartDays));
+    }
+    _markWidgetProjectionChanged();
+  }
+
+  /// 删除账户时，清掉任何指向它的默认付款账户设置。
+
+  void _loadPreferences() {
+    _themePreference = ThemePreference.fromStorage(_store.read(_themeKey));
+    _themeColorPreference = ThemeColorPreference.fromStorage(
+      _store.read(_themeColorKey),
+    );
+    _localePreference = LocalePreference.fromStorage(_store.read(_localeKey));
+    _navigationStylePreference = NavigationStylePreference.fromStorage(
+      _store.read(_navigationStyleKey),
+    );
+    _loadProfile();
+    _activeBookId = _store.read(_activeBookKey) ?? defaultLedgerBookId;
+    _assetCoverUrl = _store.read(_assetCoverKey) ?? '';
+    _assetAmountsHidden = _store.read(_assetAmountsHiddenKey) == 'true';
+    _hapticsEnabled = _store.read(_hapticsKey) != 'false';
+    _syncHaptics();
+    _privacyConsentAccepted = _store.read(_privacyConsentKey) == 'true';
+    _onboardingCompleted = _store.read(_onboardingKey) == 'true';
+    _loadAppLock();
+    _assetAccountViewMode = AssetAccountViewMode.fromStorage(
+      _store.read(_assetViewModeKey),
+    );
+    _loadAssetSectionCollapsed();
+    _loadAssetAccountOrders();
+    _loadAssetSectionOrders();
+    _loadPagePanels();
+    _backupSettings = BackupSettings.decode(_store.read(_backupSettingsKey));
+    _backupPassphrase = _store.read(_backupPassphraseKey) ?? '';
+    _webdavConfig = WebdavConfig.decode(_store.read(_webdavKey));
+    _reminderSettings = ReminderSettings.decode(_store.read(_reminderKey));
+    _fabActionMode = FabActionMode.fromStorage(_store.read(_fabActionKey));
+    _numberPadLayout = NumberPadLayout.fromStorage(
+      _store.read(_numberPadLayoutKey),
+    );
+    _loadDefaultAccounts();
+    _loadBudgetCycleStartDays();
+    // 新键存枚举名；老用户只有旧键（'true'/'false'，当时叫「强制两位小数」）时
+    // 读一次并立刻迁移到新键，之后只认新键。
+    final storedFractionStyle = _store.read(_currencyFractionStyleKey);
+    if (storedFractionStyle != null) {
+      _currencyFractionStyle = CurrencyFractionStyle.fromStorage(
+        storedFractionStyle,
+      );
+    } else {
+      final legacyAmountFormat = _store.read(_legacyAmountFormatKey);
+      _currencyFractionStyle = legacyAmountFormat == 'true'
+          ? CurrencyFractionStyle.standard
+          : CurrencyFractionStyle.compact;
+      if (legacyAmountFormat != null) {
+        _store.write(_currencyFractionStyleKey, _currencyFractionStyle.name);
+        _store.delete(_legacyAmountFormatKey);
+      }
+    }
+    amount_format.currencyFractionStyle = _currencyFractionStyle;
+    _moneyUnitStyle = MoneyUnitStyle.fromStorage(
+      _store.read(_moneyUnitStyleKey),
+    );
+    _hideUnitInSingleCurrency =
+        _store.read(_hideSingleCurrencyUnitKey) != 'false';
+    _syncAmountFormatContext();
+    // 默认开启：老用户升级后行为不变，只有显式关过才为 false。
+    _autoSuggestEnabled = _store.read(_autoSuggestKey) != 'false';
+    // 默认关闭：只有显式开过才为 true。
+    _showRunningBalance = _store.read(_runningBalanceKey) == 'true';
+    _aiSettings = AiSettings.decode(_store.read(_aiSettingsKey));
+    _aiCapabilityProfile = AiCapabilityProfile.decode(
+      _store.read(_aiCapabilitiesKey),
+    );
+    if (_aiCapabilityProfile?.matches(_aiSettings) == false) {
+      _aiCapabilityProfile = null;
+      _store.delete(_aiCapabilitiesKey);
+    }
+    // 旧版本把 AI 对话写在设备 KV；新版只保留页面内存会话，不读取也不迁移。
+    _store.delete(_legacyAiChatHistoryKey);
+    _homeTrendConfig = HomeTrendConfig.decode(_store.read(_homeTrendKey));
+  }
+
+  /// 当前活动账本是否实际涉及多个币种。账户、历史交易、周期规则或已维护汇率中
+  /// 任一出现非本位币即视为多币种；这样删除/新增实体、切换账本后展示会自动更新。
+  bool get activeBookUsesMultipleCurrencies {
+    final book = _ledgerBooks
+        .where((item) => item.id == _activeBookId)
+        .firstOrNull;
+    if (book == null) return false;
+    return bookUsesMultipleCurrencies(
+      bookId: book.id,
+      baseCurrencyCode: book.baseCurrencyCode,
+      accounts: _accounts,
+      entries: _entries,
+      rules: _recurringRules,
+      rates: _exchangeRates,
+    );
+  }
+
+  /// 把触感开关单向同步到无 `BuildContext` 的统一入口。
+  ///
+  /// 只在偏好真正变化的地方调用（载入、设置保存、直接 setter、导入应用与回滚、
+  /// 初始化数据），与 `_syncAmountFormatContext` 同一收敛方式；界面读取口始终是
+  /// `VeriHaptics.enabled`，不再各自传 `hapticsEnabled` 参数。
+  void _syncHaptics() {
+    VeriHaptics.enabled = _hapticsEnabled;
+  }
+
+  void _syncAmountFormatContext() {
+    amount_format.moneyUnitStyle = _moneyUnitStyle;
+    amount_format.hideUnitInSingleCurrency = _hideUnitInSingleCurrency;
+    amount_format.activeBookUsesMultipleCurrencies =
+        activeBookUsesMultipleCurrencies;
+    final book = _ledgerBooks
+        .where((item) => item.id == _activeBookId)
+        .firstOrNull;
+    amount_format.activeBaseCurrencyCode =
+        book?.baseCurrencyCode ?? defaultCurrencyCode;
+  }
+
+  /// 从 SQLite 载入账目类数据；全新数据库首启动写入默认账本/账户/分组/分类。
+  Future<void> _loadFromRepository() async {
+    final books = await _repository.loadBooks();
+    var categoriesSeeded = false;
+    if (books.isEmpty) {
+      _ledgerBooks
+        ..clear()
+        ..addAll(_seedLedgerBooks);
+      _accounts
+        ..clear()
+        ..addAll(defaultAccounts);
+      _accountGroups
+        ..clear()
+        ..addAll(defaultAccountGroups);
+      _categories
+        ..clear()
+        ..addAll(_seedCategoriesFor(defaultLedgerBookId));
+      _normalizeGroupOrder();
+      await _repository.saveBooks(_ledgerBooks);
+      await _repository.saveAccounts(_accounts);
+      await _repository.saveAccountGroups(_accountGroups);
+      await _repository.saveCategories(_categories);
+    } else {
+      _ledgerBooks
+        ..clear()
+        ..addAll(books);
+      if (!_ledgerBooks.any((book) => book.id == defaultLedgerBookId)) {
+        _ledgerBooks.insert(0, _seedLedgerBooks.first);
+      }
+      _accounts
+        ..clear()
+        ..addAll(await _repository.loadAccounts());
+      _accountGroups
+        ..clear()
+        ..addAll(await _repository.loadAccountGroups());
+      _normalizeGroupOrder();
+      _categories
+        ..clear()
+        ..addAll(await _repository.loadCategories());
+      // 分类属于账本：某个账本一条分类都没有（首启动、导入缺分类的备份、异构数据）
+      // 就补一份默认集，而不是让整表沿用旧版「全局种子」。
+      categoriesSeeded = _seedMissingBookCategories();
+    }
+    if (!_ledgerBooks.any((book) => book.id == _activeBookId)) {
+      _activeBookId = defaultLedgerBookId;
+      _store.write(_activeBookKey, _activeBookId);
+    }
+    final entries = await _repository.loadEntries();
+    entries.sort(_compareEntriesLatestFirst);
+    _entries
+      ..clear()
+      ..addAll(entries);
+    _tags
+      ..clear()
+      ..addAll(await _repository.loadTags());
+    _attachments
+      ..clear()
+      ..addAll(await _repository.loadAttachments());
+    _recurringRules
+      ..clear()
+      ..addAll(await _repository.loadRecurringRules());
+    _exchangeRates
+      ..clear()
+      ..addAll(await _repository.loadExchangeRates());
+    _monthlyBudgets
+      ..clear()
+      ..addAll(_bookScopedBudgets(await _repository.loadMonthlyBudgets()));
+    _categoryBudgets
+      ..clear()
+      ..addAll(_bookScopedBudgets(await _repository.loadCategoryBudgets()));
+    _dailyBudgets
+      ..clear()
+      ..addAll(await _repository.loadDailyBudgets());
+    // 一次性分类/标签参照完整性自愈：修复历史/异构备份带入的孤儿 parentId、悬空分类
+    // 引用、重复同名分类（消除「幽灵同名分类」的数据根因），并摘掉悬空或跨账本的标签
+    // 引用。改动了才落库。
+    // 退款数据自愈：迁移旧标量退款为关联退款条目并重算净额缓存。
+    final categoryHealed = _healCategoryData();
+    final refundHealed = _syncRefundData();
+    // 标签自愈放在退款自愈之后：合成的退款条目同样要过一遍引用检查。
+    final tagHealed = _healTagData();
+    if (categoryHealed || tagHealed || refundHealed || categoriesSeeded) {
+      _persistAllLedgerData();
+    }
+    notifyListeners();
+  }
+
+  /// 分类参照完整性自愈：在内存列表（[_categories]/[_entries]/[_recurringRules]）上就地
+  /// 修复脏分类数据，返回是否有改动（调用方据此决定落库）。**幂等**：数据已干净时零改动。
+  ///
+  /// **一切判定都在账本内进行**：父级、重复、引用、兜底分类都按记录自己的 `bookId`
+  /// 分组处理，绝不会把一笔交易归到另一个账本的分类上。
+  ///
+  /// 反复运行到不再变化（重挂孤儿会催生新的重复、合并重复会改变子分类归属，需收敛到稳定），
+  /// 循环有上限兜底防止异常数据下的死循环。修复五类问题：
+  /// 0) 缺系统分类（余额调整）的账本 → 补齐该账本的两条系统分类；
+  /// 1) 孤儿 / 空串 / 跨账本 parentId（本账本内找不到该父分类）→ 重挂为顶级（parentId=null）；
+  /// 2) 账本内重复分类（同 bookId+type+parentId+label 的多条）→ 保留一条（系统分类优先），
+  ///    其余的交易 / 周期规则 / 子分类 parentId 改指向保留者后删除；
+  /// 3) 悬空交易 / 周期规则引用（categoryId 在**自己的账本内**不存在），以及**空分类的
+  ///    收/支交易** → 归入该账本按类型惰性创建的「未分类」分类（固定 id，保证幂等、
+  ///    重跑复用同一条）；
+  /// 4) 空分类的转账 → 归到**本账本**的「转账」分类，与 App 内记账/还款口径一致，
+  ///    避免被交易列表回退成「已删除分类」。
+  bool _healCategoryData() {
+    var everChanged = false;
+    // 8 次足以让「重挂→合并→再合并」收敛；纯防御上限，正常一两轮即稳定。
+    for (var round = 0; round < 8; round++) {
+      if (!_healCategoryDataOnce()) {
+        break;
+      }
+      everChanged = true;
+    }
+    return everChanged;
+  }
+
+  /// 标签参照完整性自愈：交易只能引用**自己账本**里存在的标签。指向别的账本或已删除
+  /// 标签的 id 就地摘掉（旧版标签是全局的，异构/手改数据里可能残留跨账本引用），同时
+  /// 去掉同一标签的重复引用。返回是否有改动（调用方据此决定落库）。**幂等**：数据干净
+  /// 时零改动。
+  ///
+  /// 与分类不同，一条都不剩的 `tagIds` 不需要补位——标签是用户可选的横切归类，没有
+  /// 「未分类」等价物，所以只做摘除。
+  bool _healTagData() {
+    var changed = false;
+    final idsByBook = <String, Set<String>>{};
+    for (final tag in _tags) {
+      (idsByBook[tag.bookId] ??= <String>{}).add(tag.id);
+    }
+    for (var i = 0; i < _entries.length; i++) {
+      final entry = _entries[i];
+      if (entry.tagIds.isEmpty) {
+        continue;
+      }
+      final liveIds = idsByBook[entry.bookId] ?? const <String>{};
+      final next = <String>[];
+      for (final tagId in entry.tagIds) {
+        if (liveIds.contains(tagId) && !next.contains(tagId)) {
+          next.add(tagId);
+        }
+      }
+      if (listEquals(next, entry.tagIds)) {
+        continue;
+      }
+      _entries[i] = entry.copyWith(tagIds: next);
+      changed = true;
+    }
+    return changed;
+  }
+
+  bool _healCategoryDataOnce() {
+    var changed = false;
+    // 自愈需要考虑的账本：真实账本 + 数据里出现过的账本 id。异构备份可能带来指向
+    // 已不存在账本的交易/规则，它们同样要有归属（否则悬空引用无处安放）。
+    final scope = <String>{
+      for (final book in _ledgerBooks) book.id,
+      for (final entry in _entries) entry.bookId,
+      for (final rule in _recurringRules) rule.bookId,
+    };
+
+    // ---- 0) 每个账本都必须有系统分类（余额调整）----
+    // 它们随默认分类播种、用户不能删除（见 Category.isBalanceAdjust），但异构备份
+    // 可能缺。补齐之后，下面所有「引用了不存在的分类」都只需做账本内成员检查，
+    // 不必再为系统分类开特例。
+    for (final bookId in scope) {
+      for (final type in const <EntryType>[
+        EntryType.expense,
+        EntryType.income,
+      ]) {
+        final key = balanceAdjustCategoryKey(type);
+        if (_categories.any(
+          (category) => category.bookId == bookId && category.key == key,
+        )) {
+          continue;
+        }
+        _categories.add(
+          buildBalanceAdjustCategory(
+            _generateId('category'),
+            bookId,
+            type,
+            english: _seedEnglish,
+          ),
+        );
+        changed = true;
+      }
+    }
+
+    // 账本内分类 id 索引：孤儿父级与悬空引用都只能在本账本内判定——指向别的账本
+    // 分类的 parentId 属于孤儿（重挂顶级），不能因为「id 存在」就认它。
+    final idsByBook = <String, Set<String>>{};
+    for (final category in _categories) {
+      (idsByBook[category.bookId] ??= <String>{}).add(category.id);
+    }
+
+    // ---- 1) 孤儿 / 空串 / 跨账本 parentId → 顶级 ----
+    for (var i = 0; i < _categories.length; i++) {
+      final parentId = _categories[i].parentId;
+      if (parentId == null) {
+        continue;
+      }
+      final siblings = idsByBook[_categories[i].bookId] ?? const <String>{};
+      if (parentId.isEmpty || !siblings.contains(parentId)) {
+        _categories[i] = _categories[i].copyWith(parentId: null);
+        changed = true;
+      }
+    }
+
+    // ---- 2) 合并账本内重复分类（同 bookId + type + parentId + label）----
+    String dedupeKey(Category c) =>
+        '${c.bookId}\u0000${c.type.storageValue}\u0000${c.parentId ?? ''}'
+        '\u0000${c.label}';
+    final byId = <String, Category>{for (final c in _categories) c.id: c};
+    final canonical = <String, String>{}; // key -> 保留的 id
+    final remap = <String, String>{}; // 被并入的 id -> 保留的 id
+    for (final c in _categories) {
+      final key = dedupeKey(c);
+      final keep = canonical[key];
+      if (keep == null) {
+        canonical[key] = c.id;
+      } else if (c.isBalanceAdjust && !(byId[keep]?.isBalanceAdjust ?? false)) {
+        // 当前是系统分类而已选保留者不是：改用系统分类为保留者，旧的并入。
+        canonical[key] = c.id;
+        remap[keep] = c.id;
+      } else {
+        remap[c.id] = keep;
+      }
+    }
+    if (remap.isNotEmpty) {
+      String resolve(String id) {
+        var cur = id;
+        final seen = <String>{};
+        while (remap.containsKey(cur) && seen.add(cur)) {
+          cur = remap[cur]!;
+        }
+        return cur;
+      }
+
+      final dupIds = remap.keys.toSet();
+      for (var i = 0; i < _entries.length; i++) {
+        if (dupIds.contains(_entries[i].categoryId)) {
+          _entries[i] = _entries[i].copyWith(
+            categoryId: resolve(_entries[i].categoryId),
+          );
+        }
+      }
+      for (var i = 0; i < _recurringRules.length; i++) {
+        if (dupIds.contains(_recurringRules[i].categoryId)) {
+          _recurringRules[i] = _recurringRules[i].copyWith(
+            categoryId: resolve(_recurringRules[i].categoryId),
+          );
+        }
+      }
+      for (var i = 0; i < _categories.length; i++) {
+        final parentId = _categories[i].parentId;
+        if (parentId != null && dupIds.contains(parentId)) {
+          _categories[i] = _categories[i].copyWith(parentId: resolve(parentId));
+        }
+      }
+      _categories.removeWhere((c) => dupIds.contains(c.id));
+      for (final dup in dupIds) {
+        _categoryBudgets.removeWhere((key, _) => key.endsWith(':$dup'));
+      }
+      changed = true;
+    }
+
+    // ---- 3) 悬空交易 / 周期规则引用 → **该条目所属账本**的「未分类」----
+    // （按账本 + 类型惰性创建，固定 id 幂等；绝不能把交易归到别的账本的分类上。）
+    final liveIdsByBook = <String, Set<String>>{};
+    for (final category in _categories) {
+      (liveIdsByBook[category.bookId] ??= <String>{}).add(category.id);
+    }
+    String uncategorizedIdFor(String bookId, EntryType type) {
+      final key = uncategorizedCategoryKey(type);
+      final existing = _categories
+          .where((c) => c.bookId == bookId && c.key == key)
+          .firstOrNull;
+      if (existing != null) {
+        return existing.id;
+      }
+      final created = buildUncategorizedCategory(
+        _generateId('category'),
+        bookId,
+        type,
+        english: _seedEnglish,
+      );
+      _categories.add(created);
+      (liveIdsByBook[bookId] ??= <String>{}).add(created.id);
+      changed = true;
+      return created.id;
+    }
+
+    bool isDangling(String bookId, String categoryId) =>
+        categoryId.isNotEmpty &&
+        !(liveIdsByBook[bookId] ?? const <String>{}).contains(categoryId);
+
+    // 空分类的收/支交易同样归入「未分类」：空 categoryId 会被展示层回退成「已删除分类」
+    // 占位、且无法在分类筛选 / 批量编辑中触达。转账的空分类由下方第 4 步归入「转账」
+    // 分类；退款等衍生条目本就不带分类，保持不动。
+    bool needsUncategorized(LedgerEntry entry) =>
+        isDangling(entry.bookId, entry.categoryId) ||
+        (entry.categoryId.isEmpty &&
+            (entry.type == EntryType.expense ||
+                entry.type == EntryType.income));
+
+    for (var i = 0; i < _entries.length; i++) {
+      if (needsUncategorized(_entries[i])) {
+        _entries[i] = _entries[i].copyWith(
+          categoryId: uncategorizedIdFor(_entries[i].bookId, _entries[i].type),
+        );
+        changed = true;
+      }
+    }
+    for (var i = 0; i < _recurringRules.length; i++) {
+      final categoryId = _recurringRules[i].categoryId;
+      if (isDangling(_recurringRules[i].bookId, categoryId)) {
+        _recurringRules[i] = _recurringRules[i].copyWith(
+          categoryId: uncategorizedIdFor(
+            _recurringRules[i].bookId,
+            _recurringRules[i].type,
+          ),
+        );
+        changed = true;
+      }
+    }
+
+    // ---- 4) 空分类的转账 → **本账本**的「转账」分类（默认「转出」）----
+    // App 内记账/信用卡还款的转账都带「转出」类分类；空 categoryId 会被交易列表回退成
+    // 「已删除分类」占位、也不计入分类管理的转账分类下。这里把遗留的空分类转账补齐，
+    // 与之对齐（幂等：补齐后不再为空；分类必须取自该交易自己的账本）。
+    for (var i = 0; i < _entries.length; i++) {
+      final entry = _entries[i];
+      if (entry.type != EntryType.transfer || entry.categoryId.isNotEmpty) {
+        continue;
+      }
+      final transferCategory = _categories.firstWhere(
+        (c) => c.bookId == entry.bookId && c.type == EntryType.transfer,
+        orElse: () => const Category(
+          id: '',
+          bookId: '',
+          label: '',
+          type: EntryType.transfer,
+          iconCode: '',
+        ),
+      );
+      if (transferCategory.id.isEmpty) {
+        continue;
+      }
+      _entries[i] = entry.copyWith(categoryId: transferCategory.id);
+      changed = true;
+    }
+
+    return changed;
+  }
+
+  /// 迁移：把单标量退款（支出 `refundedBaseAmount > 0` 却没有关联退款条目）合成为一条
+  /// 「已到账」退款条目（金额=标量、日期/账户取原支出、备注空），让旧数据平滑升级到新
+  /// 模型并使历史退款可见。迁移后余额与净额恒等不变（支出改扣全额、退款条目补回同额），
+  /// 只是把「一个数」变成「一条可见事件」。返回是否合成了条目。
+  ///
+  /// **只在载入/导入时调用一次**——绝不在退款增删改后调用：删掉最后一笔退款时缓存尚未
+  /// 清零，若在此判「有标量却无条目」会把退款又合成回来。
+  bool _migrateLegacyRefunds() {
+    final expensesWithRefundEntry = <String>{
+      for (final e in _entries)
+        if (e.type == EntryType.refund && e.refundOf != null) e.refundOf!,
+    };
+    final synthesized = <LedgerEntry>[];
+    for (final e in _entries) {
+      if (e.type == EntryType.expense &&
+          e.refundedBaseAmount > 0 &&
+          !expensesWithRefundEntry.contains(e.id)) {
+        final refundedBaseAmount = e.refundedBaseAmount
+            .clamp(0.0, e.baseAmount)
+            .toDouble();
+        if (refundedBaseAmount <= 0 || e.baseAmount <= 0 || e.amount <= 0) {
+          continue;
+        }
+        final ratio = (refundedBaseAmount / e.baseAmount).clamp(0.0, 1.0);
+        final amount = normalizeCurrencyAmount(
+          e.amount * ratio,
+          e.currencyCode,
+        );
+        final account = _accounts
+            .where(
+              (account) =>
+                  account.id == e.accountId && account.bookId == e.bookId,
+            )
+            .firstOrNull;
+        final accountAmount = e.accountAmount == null || account == null
+            ? null
+            : normalizeCurrencyAmount(
+                e.accountAmount! * ratio,
+                account.currencyCode,
+              );
+        synthesized.add(
+          LedgerEntry(
+            id: _generateId('entry'),
+            bookId: e.bookId,
+            type: EntryType.refund,
+            amount: amount,
+            currencyCode: e.currencyCode,
+            accountAmount: accountAmount,
+            baseAmount: refundedBaseAmount,
+            conversionSource: ConversionSource.legacy,
+            categoryId: e.categoryId,
+            accountId: e.accountId,
+            note: '',
+            occurredAt: e.occurredAt, // 发起日期沿用原支出日
+            refundOf: e.id,
+            settledAt: e.occurredAt, // 历史退款视为已到账
+          ),
+        );
+      }
+    }
+    if (synthesized.isEmpty) return false;
+    _entries.addAll(synthesized);
+    return true;
+  }
+
+  /// 重算每笔支出的本位币净额缓存 [LedgerEntry.refundedBaseAmount] =
+  /// 「挂它的·已到账·退款 baseAmount 之和」（钳到 `[0, baseAmount]`）；无到账退款归零。
+  /// 该缓存只驱动统计净额（[LedgerEntry.netBaseAmount]），
+  /// 账户余额不读它。**待到账**退款（`settledAt == null`）不计入（cash basis）。
+  /// 返回一份缓存已同步的新列表，供“先落库、成功后再替换内存”的原子命令复用。
+  List<LedgerEntry> _entriesWithSyncedRefundCache(
+    Iterable<LedgerEntry> source,
+  ) {
+    final next = List<LedgerEntry>.of(source);
+    final settledByExpense = <String, double>{};
+    for (final e in next) {
+      if (e.type == EntryType.refund &&
+          e.settledAt != null &&
+          e.refundOf != null) {
+        settledByExpense[e.refundOf!] =
+            (settledByExpense[e.refundOf!] ?? 0) + e.baseAmount;
+      }
+    }
+    for (var i = 0; i < next.length; i++) {
+      final e = next[i];
+      if (e.type != EntryType.expense) continue;
+      final target = (settledByExpense[e.id] ?? 0)
+          .clamp(0.0, e.baseAmount)
+          .toDouble();
+      final baseCode = _ledgerBooks
+          .where((book) => book.id == e.bookId)
+          .firstOrNull
+          ?.baseCurrencyCode;
+      final tolerance = CurrencyCatalog.isSupported(baseCode)
+          ? currencyAmountTolerance(baseCode!)
+          : 0.005;
+      if ((e.refundedBaseAmount - target).abs() >= tolerance) {
+        next[i] = e.copyWith(refundedBaseAmount: target);
+      }
+    }
+    return next;
+  }
+
+  /// 每次退款增删改后调用；返回是否有改动。
+  bool _syncRefundCache() {
+    final next = _entriesWithSyncedRefundCache(_entries);
+    var changed = false;
+    for (var i = 0; i < _entries.length; i++) {
+      if (_entries[i].refundedBaseAmount != next[i].refundedBaseAmount) {
+        changed = true;
+        break;
+      }
+    }
+    if (changed) {
+      _entries
+        ..clear()
+        ..addAll(next);
+    }
+    return changed;
+  }
+
+  /// 载入/导入时的退款自愈（幂等）：先迁移旧标量为退款条目，再重算净额缓存并排序。
+  /// 返回是否有改动（调用方据此决定落库）。
+  bool _syncRefundData() {
+    final migrated = _migrateLegacyRefunds();
+    final cached = _syncRefundCache();
+    final changed = migrated || cached;
+    if (changed) {
+      _entries.sort(_compareEntriesLatestFirst);
+    }
+    return changed;
+  }
+
+  void _loadProfile() {
+    final rawProfile = _store.read(_profileKey);
+    if (rawProfile == null || rawProfile.isEmpty) {
+      _profile = _seedProfile;
+      return;
+    }
+
+    try {
+      _profile = UserProfile.fromJson(
+        Map<String, Object?>.from(
+          jsonDecode(rawProfile) as Map<dynamic, dynamic>,
+        ),
+      );
+    } catch (_) {
+      _store.delete(_profileKey);
+      _profile = _seedProfile;
+    }
+  }
+
+  void _loadAppLock() {
+    final raw = _store.read(_appLockKey);
+    if (raw == null || raw.isEmpty) {
+      _appLockConfig = const AppLockConfig.none();
+      return;
+    }
+    try {
+      _appLockConfig = AppLockConfig.fromJson(
+        Map<String, dynamic>.from(jsonDecode(raw) as Map<dynamic, dynamic>),
+      );
+    } catch (_) {
+      _store.delete(_appLockKey);
+      _appLockConfig = const AppLockConfig.none();
+    }
+  }
+
+  /// 读取 KV 中的 JSON 并应用；空则跳过，解码失败则删掉坏值。用于「读→try decode→
+  /// catch 则 delete」这一重复骨架。
+  void _loadJson(String key, void Function(Object decoded) apply) {
+    final raw = _store.read(key);
+    if (raw == null || raw.isEmpty) {
+      return;
+    }
+    try {
+      apply(jsonDecode(raw) as Object);
+    } catch (_) {
+      _store.delete(key);
+    }
+  }
+
+  void _loadAssetSectionCollapsed() {
+    _loadJson(_assetSectionCollapsedKey, (decoded) {
+      _collapsedAssetSections
+        ..clear()
+        ..addAll(_decodeStringSet(decoded));
+    });
+  }
+
+  void _loadAssetAccountOrders() {
+    _loadJson(_assetAccountOrderKey, (decoded) {
+      _assetAccountOrders
+        ..clear()
+        ..addAll(_decodeStringListMap(decoded));
+    });
+  }
+
+  void _loadAssetSectionOrders() {
+    _loadJson(_assetSectionOrderKey, (decoded) {
+      _assetSectionOrders
+        ..clear()
+        ..addAll(_decodeStringListMap(decoded));
+    });
+  }
+
+  /// 进程内单调自增序号，配合微秒时间戳生成不会碰撞的 id：连续两次生成可能落在
+  /// 同一微秒，单靠 microsecondsSinceEpoch 会得到相同 id（删一个会连带删同 id 的）。
+  int _idSeq = 0;
+
+  /// 生成唯一 id：`前缀_微秒时间戳_单调序号`。即便同一微秒批量生成也各不相同。
+  /// 放在状态层，供 [_syncRefundData] 等载入期基础流程与 [_ControllerOps] 共用。
+  /// id 是纯标识、不承载语义；测试可注入确定性生成器（见 [_injectedIdFactory]）。
+  String _generateId(String prefix) =>
+      _injectedIdFactory?.call(prefix) ??
+      '${prefix}_${DateTime.now().microsecondsSinceEpoch}_${_idSeq++}';
+
+  void _persistEntries() {
+    _trackWrite(_repository.saveEntries(List<LedgerEntry>.of(_entries)));
+    _markWidgetProjectionChanged();
+  }
+
+  // 记录最近一次 SQLite 写入，供测试等待其落库。写入按连接串行，等待最新即可。
+  Future<void> _pendingWrite = Future<void>.value();
+  int _writeGeneration = 0;
+  int _lastFailedWriteGeneration = -1;
+
+  void _trackWrite(Future<void> write) {
+    unawaited(_trackWriteResult(write));
+  }
+
+  /// 记录并等待一次 SQLite 写入。显式命令用返回值决定是否提交内存状态；旧的
+  /// fire-and-forget 路径仍经 [_trackWrite] 复用同一套日志、反馈和刷盘追踪。
+  Future<bool> _trackWriteResult(Future<void> write) async {
+    // 挂 catchError：落库失败时记录日志并回调 UI 提示，避免「内存已改但库未写」
+    // 的静默不一致——用户以为已保存、重启后却丢失。
+    final generation = ++_writeGeneration;
+    var succeeded = true;
+    final tracked = write.catchError((Object error, StackTrace stackTrace) {
+      succeeded = false;
+      _lastFailedWriteGeneration = generation;
+      _handlePersistError(error, stackTrace);
+    });
+    _pendingWrite = tracked;
+    await tracked;
+    return succeeded;
+  }
+
+  Future<bool> _runTrackedWrite(Future<void> Function() operation) async {
+    try {
+      return await _trackWriteResult(operation());
+    } catch (error, stackTrace) {
+      // 测试仓储或平台适配也可能在返回 Future 前同步抛错；与异步失败保持
+      // 同一日志、用户反馈和“不提交内存状态”语义。
+      _handlePersistError(error, stackTrace);
+      return false;
+    }
+  }
+
+  void _handlePersistError(Object error, StackTrace stackTrace) {
+    _logger?.error('数据保存失败', source: 'persist', error: error);
+    onPersistError?.call(error);
+  }
+
+  /// 等待挂起的 SQLite 写入落库。
+  Future<void> waitForPendingWrites() => _pendingWrite;
+
+  /// 等待调用前最近一次 SQLite 写入，并返回该次写入是否成功。
+  ///
+  /// 编辑页用此结果决定是否允许退出；错误仍由 [_handlePersistError] 统一记录并
+  /// 通过 [onPersistError] 给用户反馈。保留 [waitForPendingWrites] 的兼容语义，
+  /// 避免后台刷新流程因已上报的写入错误再次抛出。
+  Future<bool> waitForPendingWritesSucceeded() async {
+    final generation = _writeGeneration;
+    await _pendingWrite;
+    return _lastFailedWriteGeneration != generation;
+  }
+
+  /// 刷盘所有挂起写入：偏好类 KV **与** 账目类 SQLite。应用切到后台时调用，
+  /// 确保应用锁 / 隐私同意等关键偏好，以及用户刚记下的交易，在进程可能被系统
+  /// 回收前落盘。
+  Future<void> flushPendingWrites() async {
+    try {
+      await _store.flush();
+    } catch (error, stackTrace) {
+      _handlePersistError(error, stackTrace);
+    }
+    await _pendingWrite;
+  }
+
+  void _persistLedgerBooks() {
+    _trackWrite(_repository.saveBooks(List<LedgerBook>.of(_ledgerBooks)));
+    _markWidgetProjectionChanged();
+  }
+
+  void _persistAccounts() {
+    _trackWrite(_repository.saveAccounts(List<Account>.of(_accounts)));
+    _markWidgetProjectionChanged();
+  }
+
+  void _persistAccountGroups() {
+    _trackWrite(
+      _repository.saveAccountGroups(List<AccountGroup>.of(_accountGroups)),
+    );
+  }
+
+  void _persistCategories() {
+    _trackWrite(_repository.saveCategories(List<Category>.of(_categories)));
+  }
+
+  void _persistTags() {
+    _trackWrite(_repository.saveTags(List<Tag>.of(_tags)));
+  }
+
+  /// 落库附件元数据；[deleteFilesAfter] 里的附件文件只在落库成功后删除，避免
+  /// 落库失败却先删了文件、留下「有行无文件」的不可读附件。失败时文件保留，
+  /// 由孤儿回收兜底。
+  void _persistAttachments({
+    Iterable<String> deleteFilesAfter = const <String>[],
+  }) {
+    final doomed = deleteFilesAfter.toList(growable: false);
+    _trackWrite(
+      _repository.saveAttachments(List<Attachment>.of(_attachments)).then((
+        _,
+      ) async {
+        if (doomed.isNotEmpty) {
+          await _attachmentStore.deleteMany(doomed);
+        }
+      }),
+    );
+  }
+
+  /// 迁移期兜底：某附件文件缺失但库里仍有旧版 base64 时，解成文件并清空该列。
+  ///
+  /// 幂等且可中断：先写文件、写成功才清 `data_url`，因此任何时刻中断都不会丢数据；
+  /// 清列失败也只是下次重复转换一次。
+  Future<bool> _materializeLegacyAttachment(String id) async {
+    if (_attachmentStore.existsSync(id)) {
+      return true;
+    }
+    final String? legacy;
+    try {
+      legacy = await _repository.loadAttachmentDataUrl(id);
+    } catch (error, stackTrace) {
+      _handlePersistError(error, stackTrace);
+      return false;
+    }
+    if (legacy == null || legacy.isEmpty) {
+      return true;
+    }
+    final bytes = _decodeAttachmentDataUrl(legacy);
+    if (bytes == null || bytes.isEmpty) {
+      return false;
+    }
+    try {
+      await _attachmentStore.writeBytes(id, bytes);
+      await _repository.clearAttachmentDataUrl(id);
+      return true;
+    } catch (error, stackTrace) {
+      _handlePersistError(error, stackTrace);
+      return false;
+    }
+  }
+
+  static Uint8List? _decodeAttachmentDataUrl(String dataUrl) {
+    if (!dataUrl.startsWith('data:')) {
+      return null;
+    }
+    final comma = dataUrl.indexOf(',');
+    if (comma < 0) {
+      return null;
+    }
+    try {
+      return base64Decode(dataUrl.substring(comma + 1));
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// 把库里剩余的内嵌 base64 附件逐条转成文件；可中断，下次启动从剩余行继续。
+  Future<({int converted, int failed})> migrateLegacyAttachments({
+    void Function(int done, int total)? onProgress,
+  }) async {
+    final List<String> pending;
+    try {
+      pending = await _repository.attachmentIdsWithLegacyData();
+    } catch (error, stackTrace) {
+      _handlePersistError(error, stackTrace);
+      return (converted: 0, failed: 0);
+    }
+    if (pending.isEmpty) {
+      attachmentMigrationProgressListenable.value = null;
+      return (converted: 0, failed: 0);
+    }
+    var converted = 0;
+    var failed = 0;
+    void report(int done) {
+      attachmentMigrationProgressListenable.value = (
+        done: done,
+        total: pending.length,
+      );
+      onProgress?.call(done, pending.length);
+    }
+
+    report(0);
+    for (final id in pending) {
+      if (await _materializeLegacyAttachment(id)) {
+        converted++;
+      } else {
+        failed++;
+      }
+      report(converted + failed);
+    }
+    attachmentMigrationProgressListenable.value = null;
+    return (converted: converted, failed: failed);
+  }
+
+  /// 迁移完成后的空间回收：库里不再有旧版 base64 时重建附件表去掉 `data_url` 并
+  /// VACUUM，把历史内嵌图片占的空间还给系统。
+  ///
+  /// 幂等，且是尽力而为的维护动作：失败（磁盘不足等）只记日志，列会留到下次启动重试，
+  /// 不影响任何功能，因此不给用户弹反馈。是否还有待迁移数据由仓储层再核验一次。
+  Future<bool> reclaimLegacyAttachmentStorage() async {
+    try {
+      return await _repository.dropLegacyAttachmentData();
+    } catch (error) {
+      _logger?.error('附件旧列回收失败', source: 'attachments', error: error);
+      return false;
+    }
+  }
+
+  void _persistRecurringRules() {
+    _trackWrite(
+      _repository.saveRecurringRules(List<RecurringRule>.of(_recurringRules)),
+    );
+  }
+
+  void _persistBudgets() {
+    _trackWrite(
+      _repository.saveMonthlyBudgets(Map<String, double>.of(_monthlyBudgets)),
+    );
+    _markWidgetProjectionChanged();
+  }
+
+  void _persistCategoryBudgets() {
+    _trackWrite(
+      _repository.saveCategoryBudgets(Map<String, double>.of(_categoryBudgets)),
+    );
+  }
+
+  void _persistDailyBudgets() {
+    _trackWrite(
+      _repository.saveDailyBudgets(Map<String, double>.of(_dailyBudgets)),
+    );
+  }
+
+  LedgerDataSnapshot _ledgerDataSnapshot({
+    List<LedgerBook>? books,
+    List<Account>? accounts,
+    List<AccountGroup>? accountGroups,
+    List<Category>? categories,
+    List<Tag>? tags,
+    List<Attachment>? attachments,
+    List<LedgerEntry>? entries,
+    List<RecurringRule>? recurringRules,
+    List<ExchangeRate>? exchangeRates,
+    Map<String, double>? monthlyBudgets,
+    Map<String, double>? categoryBudgets,
+    Map<String, double>? dailyBudgets,
+  }) {
+    return LedgerDataSnapshot(
+      books: books ?? List<LedgerBook>.of(_ledgerBooks),
+      accounts: accounts ?? List<Account>.of(_accounts),
+      accountGroups: accountGroups ?? List<AccountGroup>.of(_accountGroups),
+      categories: categories ?? List<Category>.of(_categories),
+      tags: tags ?? List<Tag>.of(_tags),
+      attachments: attachments ?? List<Attachment>.of(_attachments),
+      entries: entries ?? List<LedgerEntry>.of(_entries),
+      recurringRules: recurringRules ?? List<RecurringRule>.of(_recurringRules),
+      monthlyBudgets: monthlyBudgets ?? Map<String, double>.of(_monthlyBudgets),
+      categoryBudgets:
+          categoryBudgets ?? Map<String, double>.of(_categoryBudgets),
+      dailyBudgets: dailyBudgets ?? Map<String, double>.of(_dailyBudgets),
+      exchangeRates: exchangeRates ?? List<ExchangeRate>.of(_exchangeRates),
+    );
+  }
+
+  /// 一次性原子替换全部账目类表（导入/恢复/重置/删账本用）。相比逐表 `_persistX`，
+  /// 这些跨多表的整体操作若中途失败会整体回滚，不留孤儿引用（如 entries 已换但
+  /// accounts 还是旧的）。KV 偏好类写入不在事务内，另行处理。
+  void _persistAllLedgerData() {
+    _trackWrite(
+      _repository.replaceAllLedgerData(_ledgerDataSnapshot()).then((_) async {
+        await _collectAttachmentOrphans();
+      }),
+    );
+    _markWidgetProjectionChanged();
+  }
+
+  /// 删除不再被任何附件元数据引用的文件。
+  ///
+  /// 覆盖导入/恢复/重置/删除条目等「整替」路径，以及编辑期取消留下的未落库文件。
+  /// 只在确认无引用时删除，回收失败只记日志、不影响主流程。
+  Future<int> _collectAttachmentOrphans() async {
+    try {
+      return await _attachmentStore.collectOrphans(<String>{
+        for (final attachment in _attachments) attachment.id,
+      });
+    } catch (error) {
+      _logger?.error('附件孤儿回收失败', source: 'attachments', error: error);
+      return 0;
+    }
+  }
+
+  /// 冷启动时回收孤儿附件文件，并清掉中断的导入暂存。
+  Future<void> maintainAttachmentFiles() async {
+    await _collectAttachmentOrphans();
+    try {
+      await _attachmentStore.purgeStaging();
+    } catch (error) {
+      _logger?.error('清理附件暂存失败', source: 'attachments', error: error);
+    }
+  }
+
+  void _persistAssetSectionCollapsed() {
+    _store.write(
+      _assetSectionCollapsedKey,
+      jsonEncode(_collapsedAssetSections.toList()),
+    );
+  }
+
+  void _persistAssetAccountOrders() {
+    _store.write(_assetAccountOrderKey, jsonEncode(_assetAccountOrders));
+  }
+
+  void _persistAssetSectionOrders() {
+    _store.write(_assetSectionOrderKey, jsonEncode(_assetSectionOrders));
+  }
+
+  void _loadPagePanels() {
+    for (final page in PanelPageKind.values) {
+      final key = _panelsKeyFor(page);
+      final raw = _store.read(key);
+      if (raw == null || raw.isEmpty) {
+        _pagePanels[page] = _defaultPanelSettings(page.specs);
+        continue;
+      }
+      try {
+        _pagePanels[page] = _normalizePanelSettings(
+          _decodeModelList<PagePanelSetting>(
+            jsonDecode(raw),
+            PagePanelSetting.fromJson,
+          ),
+          page.specs,
+        );
+      } catch (_) {
+        _store.delete(key);
+        _pagePanels[page] = _defaultPanelSettings(page.specs);
+      }
+    }
+  }
+
+  void _persistPagePanels(PanelPageKind page) {
+    _store.write(
+      _panelsKeyFor(page),
+      jsonEncode(_pagePanels[page]!.map((item) => item.toJson()).toList()),
+    );
+  }
+
+  void _normalizeGroupOrder() {
+    final grouped = <String, List<AccountGroup>>{};
+    for (final group in _accountGroups) {
+      grouped.putIfAbsent(group.bookId, () => <AccountGroup>[]).add(group);
+    }
+    _accountGroups.clear();
+    for (final groups in grouped.values) {
+      groups.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+      _accountGroups.addAll(
+        groups.indexed.map((item) => item.$2.copyWith(sortOrder: item.$1)),
+      );
+    }
+  }
+}

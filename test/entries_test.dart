@@ -1,0 +1,1035 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:verifin/app/app_theme.dart';
+import 'package:verifin/app/common_widgets.dart';
+import 'package:verifin/app/models.dart';
+import 'package:verifin/app/veri_fin_scope.dart';
+import 'package:verifin/local_storage/local_storage.dart';
+import 'package:verifin/pages/transactions_pages.dart';
+
+import 'support/test_harness.dart';
+
+void main() {
+  useTestDatabases();
+
+  testWidgets('shows neutral zero in income expense stats', (
+    WidgetTester tester,
+  ) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.text('概览'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('收支统计'), findsOneWidget);
+    expect(find.text('-0'), findsNothing);
+    expect(find.text('0'), findsWidgets);
+  });
+
+  testWidgets('收支统计类型筛选使用锚点菜单', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('概览'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(FilterPill));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(
+        const ValueKey<String>('anchored_menu_item_stats_type_income'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('anchored_menu_item_stats_type_transfer'),
+      ),
+      findsNothing,
+    );
+    expect(find.text('转账'), findsNothing);
+    await tester.tap(find.text('收入').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('anchored_menu_item_stats_type_income'),
+      ),
+      findsNothing,
+    );
+    expect(find.textContaining('收入'), findsWidgets);
+  });
+
+  testWidgets('交易时间、排序和报销短筛选使用锚点菜单', (tester) async {
+    final controller = await makeController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      VeriFinScope(
+        controller: controller,
+        child: zhMaterialApp(home: const TransactionsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('全部时间'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(
+        const ValueKey<String>('anchored_menu_item_transaction_time_month'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('本月').last);
+    await tester.pumpAndSettle();
+    expect(find.text('${DateTime.now().month}月'), findsOneWidget);
+
+    await tester.tap(find.text('日期降序'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('金额升序'));
+    await tester.pumpAndSettle();
+    expect(find.text('金额升序'), findsOneWidget);
+
+    await tester.tap(find.text('报销'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('无需报销'));
+    await tester.pumpAndSettle();
+    expect(find.text('无需报销'), findsOneWidget);
+  });
+
+  testWidgets('收支统计页可切换周/月/季/年视图', (WidgetTester tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.text('概览'));
+    await tester.pumpAndSettle();
+    expect(find.text('收支统计'), findsOneWidget);
+
+    // 四个档位分段都在（默认「月」）。
+    for (final seg in <String>['周', '月', '季', '年']) {
+      expect(find.text(seg), findsWidgets);
+    }
+
+    final now = DateTime.now();
+    // 切到「年」：范围标签显示「{year}年」，且不崩溃。
+    await tester.tap(find.text('年'));
+    await tester.pumpAndSettle();
+    expect(find.text('${now.year}年'), findsWidgets);
+
+    // 切到「季」：范围标签显示「{year}年第{q}季度」。
+    await tester.tap(find.text('季'));
+    await tester.pumpAndSettle();
+    final quarter = ((now.month - 1) ~/ 3) + 1;
+    expect(find.text('${now.year}年第$quarter季度'), findsOneWidget);
+
+    // 切到「周」：仅确认切换不抛异常。
+    await tester.tap(find.text('周'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('creates an entry through the quick entry flow', (
+    WidgetTester tester,
+  ) async {
+    await pumpApp(tester);
+    await addTestAccount(tester, '现金账户');
+    await tapBottomTab(tester, 0);
+
+    await createQuickEntry(tester);
+
+    expect(find.byKey(const Key('save_entry_button')), findsOneWidget);
+    expect(find.text('-45'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('save_entry_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('最近交易'), findsOneWidget);
+    expect(find.text('餐饮'), findsAtLeastNWidgets(1));
+    expect(find.text('-45'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('entry detail amount color follows type and shows account info', (
+    WidgetTester tester,
+  ) async {
+    await pumpApp(tester);
+    await addTestAccount(tester, '现金账户');
+    await addTestAccount(tester, '备用账户');
+    await tapBottomTab(tester, 0);
+
+    await createQuickEntry(tester);
+
+    Color? amountColor() {
+      final text = tester.widget<Text>(
+        find.descendant(
+          of: find.byKey(const Key('detail_amount_button')),
+          matching: find.byType(Text),
+        ),
+      );
+      return text.style?.color;
+    }
+
+    // 支出红色（浅色主题用加深变体）；账户选择框前置图标为账户图标；
+    // 日期/时间旁没有多余账户 Chip。
+    expect(amountColor(), veriSemanticFor(Brightness.light, veriExpense));
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('account_dropdown')),
+        matching: find.byType(AccountIconBox),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(Chip), findsNothing);
+
+    await tester.tap(find.text('收入'));
+    await tester.pumpAndSettle();
+    expect(amountColor(), veriSemanticFor(Brightness.light, veriIncome));
+
+    await tester.tap(find.text('转账'));
+    await tester.pumpAndSettle();
+    expect(amountColor(), veriSemanticFor(Brightness.light, veriBlue));
+
+    // 账户选择弹窗展示账户图标与余额。
+    await tester.tap(find.byKey(const Key('account_dropdown')));
+    await tester.pumpAndSettle();
+    expect(find.text('选择转出账户'), findsOneWidget);
+    expect(find.text('备用账户'), findsAtLeastNWidgets(1));
+    expect(find.text('0'), findsAtLeastNWidgets(2));
+    expect(find.byType(AccountIconBox), findsAtLeastNWidgets(2));
+
+    await tester.tap(find.text('现金账户'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('save_entry_button')), findsOneWidget);
+  });
+
+  testWidgets('records an expense with no account (无账户)', (
+    WidgetTester tester,
+  ) async {
+    await pumpApp(tester);
+    await addTestAccount(tester, '现金账户');
+    await tapBottomTab(tester, 0);
+
+    await createQuickEntry(tester);
+
+    // 打开账户选择弹窗，选「无账户」。
+    await tester.tap(find.byKey(const Key('account_dropdown')));
+    await tester.pumpAndSettle();
+    expect(find.text('无账户'), findsOneWidget);
+    await tester.tap(find.text('无账户'));
+    await tester.pumpAndSettle();
+
+    // 账户栏显示「无账户」。
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('account_dropdown')),
+        matching: find.text('无账户'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('save_entry_button')));
+    await tester.pumpAndSettle();
+
+    // 保存成功后交易列表里以「无账户」呈现（accountId 为空、不计入任何账户）。
+    expect(find.text('无账户'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('opens and deletes an entry from the transaction detail page', (
+    WidgetTester tester,
+  ) async {
+    await pumpApp(tester);
+    await addTestAccount(tester, '现金账户');
+    await tapBottomTab(tester, 0);
+
+    await createQuickEntry(tester);
+    await tester.tap(find.byKey(const Key('save_entry_button')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('餐饮').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('支出'), findsAtLeastNWidgets(1));
+    expect(find.text('账户'), findsOneWidget);
+    expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('还没有交易'), findsOneWidget);
+  });
+
+  testWidgets('filters transaction list by search and account', (
+    WidgetTester tester,
+  ) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    final now = DateTime.now();
+    final dining = controller.categories.firstWhere((c) => c.key == 'dining');
+    final transport = controller.categories.firstWhere(
+      (c) => c.key == 'transport',
+    );
+    controller
+      ..addAccount(
+        Account(
+          id: 'cash-search-test',
+          bookId: controller.activeBook.id,
+          name: '现金账户',
+          type: AccountType.cash,
+          groupId: null,
+          initialBalance: 0,
+          iconCode: 'cash',
+          note: '',
+          includeInAssets: true,
+          hidden: false,
+        ),
+      )
+      ..addAccount(
+        Account(
+          id: 'card-search-test',
+          bookId: controller.activeBook.id,
+          name: '银行卡',
+          type: AccountType.debitCard,
+          groupId: null,
+          initialBalance: 0,
+          iconCode: 'bank',
+          note: '',
+          includeInAssets: true,
+          hidden: false,
+        ),
+      )
+      ..addEntry(
+        LedgerEntry(
+          id: 'dining-search-test',
+          bookId: controller.activeBook.id,
+          type: EntryType.expense,
+          amount: 75,
+          categoryId: dining.id,
+          accountId: 'cash-search-test',
+          note: '晚餐',
+          occurredAt: now,
+        ),
+      )
+      ..addEntry(
+        LedgerEntry(
+          id: 'transport-search-test',
+          bookId: controller.activeBook.id,
+          type: EntryType.expense,
+          amount: 12,
+          categoryId: transport.id,
+          accountId: 'card-search-test',
+          note: '公交',
+          occurredAt: now,
+        ),
+      )
+      ..dispose();
+
+    await pumpApp(tester, store);
+    await tester.tap(find.text('最近交易'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('交易明细'), findsOneWidget);
+    expect(find.text(dining.label), findsOneWidget);
+    expect(find.text(transport.label), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('transaction_search_field')),
+      '晚餐',
+    );
+    // 搜索有防抖，先让计时器到点再断言。
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(find.text(dining.label), findsOneWidget);
+    expect(find.text(transport.label), findsNothing);
+
+    await tester.tap(find.byTooltip('清空筛选'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('全部账户'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('银行卡').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text(transport.label), findsOneWidget);
+    expect(find.text(dining.label), findsNothing);
+  });
+
+  testWidgets('开启逐笔结余后交易行显示该账户当时的余额', (WidgetTester tester) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    final now = DateTime.now();
+    controller
+      ..addAccount(
+        Account(
+          id: 'cash-running',
+          bookId: controller.activeBook.id,
+          name: '现金账户',
+          type: AccountType.cash,
+          groupId: null,
+          initialBalance: 1000,
+          iconCode: 'cash',
+          note: '',
+          includeInAssets: true,
+          hidden: false,
+        ),
+      )
+      ..addEntry(
+        LedgerEntry(
+          id: 'running-entry',
+          bookId: controller.activeBook.id,
+          type: EntryType.expense,
+          amount: 100,
+          categoryId: 'dining',
+          accountId: 'cash-running',
+          note: '',
+          occurredAt: now,
+        ),
+      )
+      ..dispose();
+
+    // 默认关闭：列表里不出现余额。
+    final controller2 = await pumpApp(tester, store);
+    await tester.tap(find.text('最近交易'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('余额'), findsNothing);
+
+    // 打开偏好后显示该笔之后的余额：1000 − 100 = 900。
+    await controller2.saveAppPreferencesDraft(
+      themePreference: controller2.themePreference,
+      themeColorPreference: controller2.themeColorPreference,
+      localePreference: controller2.localePreference,
+      navigationStylePreference: controller2.navigationStylePreference,
+      hapticsEnabled: controller2.hapticsEnabled,
+      currencyFractionStyle: controller2.currencyFractionStyle,
+      moneyUnitStyle: controller2.moneyUnitStyle,
+      hideUnitInSingleCurrency: controller2.hideUnitInSingleCurrency,
+      fabActionMode: controller2.fabActionMode,
+      defaultAccountId: controller2.defaultAccountId,
+      autoSuggestEnabled: controller2.autoSuggestEnabled,
+      showRunningBalance: true,
+      numberPadLayout: controller2.numberPadLayout,
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('900'), findsOneWidget);
+  });
+
+  testWidgets('searches reimbursement entries by the word 退款', (
+    WidgetTester tester,
+  ) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    final now = DateTime.now();
+    final dining = controller.categories.firstWhere((c) => c.key == 'dining');
+    final transport = controller.categories.firstWhere(
+      (c) => c.key == 'transport',
+    );
+    controller
+      ..addAccount(
+        Account(
+          id: 'cash-refund-search',
+          bookId: controller.activeBook.id,
+          name: '现金账户',
+          type: AccountType.cash,
+          groupId: null,
+          initialBalance: 0,
+          iconCode: 'cash',
+          note: '',
+          includeInAssets: true,
+          hidden: false,
+        ),
+      )
+      ..addEntry(
+        LedgerEntry(
+          id: 'reimbursable-search-test',
+          bookId: controller.activeBook.id,
+          type: EntryType.expense,
+          amount: 60,
+          categoryId: dining.id,
+          accountId: 'cash-refund-search',
+          note: '垫付',
+          occurredAt: now,
+          reimbursable: true,
+        ),
+      )
+      ..addEntry(
+        LedgerEntry(
+          id: 'plain-search-test',
+          bookId: controller.activeBook.id,
+          type: EntryType.expense,
+          amount: 20,
+          categoryId: transport.id,
+          accountId: 'cash-refund-search',
+          note: '公交',
+          occurredAt: now,
+        ),
+      )
+      ..dispose();
+
+    await pumpApp(tester, store);
+    await tester.tap(find.text('最近交易'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('transaction_search_field')),
+      '退款',
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    // 「退款」只应命中确实关联了报销/退款的交易，而不是每一条。
+    expect(find.text(dining.label), findsOneWidget);
+    expect(find.text(transport.label), findsNothing);
+  });
+
+  testWidgets(
+    'filters by a parent category includes its sub-category entries',
+    (WidgetTester tester) async {
+      final store = LocalKeyValueStore();
+      final controller = await makeController(store);
+      final now = DateTime.now();
+      controller
+        ..addAccount(
+          Account(
+            id: 'cash-drill',
+            bookId: controller.activeBook.id,
+            name: '现金账户',
+            type: AccountType.cash,
+            groupId: null,
+            initialBalance: 0,
+            iconCode: 'cash',
+            note: '',
+            includeInAssets: true,
+            hidden: false,
+          ),
+        )
+        ..addCategory(
+          type: EntryType.expense,
+          label: '早餐',
+          iconCode: 'dining',
+          parentId: 'dining',
+        );
+      final breakfast = controller
+          .categoriesForType(EntryType.expense)
+          .firstWhere((c) => c.label == '早餐');
+      controller
+        ..addEntry(
+          LedgerEntry(
+            id: 'e-breakfast',
+            bookId: controller.activeBook.id,
+            type: EntryType.expense,
+            amount: 8,
+            categoryId: breakfast.id,
+            accountId: 'cash-drill',
+            note: '肠粉',
+            occurredAt: now,
+          ),
+        )
+        ..addEntry(
+          LedgerEntry(
+            id: 'e-transport',
+            bookId: controller.activeBook.id,
+            type: EntryType.expense,
+            amount: 12,
+            categoryId: 'transport',
+            accountId: 'cash-drill',
+            note: '公交',
+            occurredAt: now,
+          ),
+        )
+        ..dispose();
+
+      await pumpApp(tester, store);
+      await tester.tap(find.text('最近交易'));
+      await tester.pumpAndSettle();
+      // 交易行显示分类标签：子分类「早餐」与顶级「交通」各一行。
+      expect(find.text('早餐'), findsOneWidget);
+      expect(find.text('交通'), findsOneWidget);
+
+      // 按父分类「餐饮」筛选，应带出记在子分类「早餐」上的交易，排除「交通」。
+      await tester.tap(find.text('全部分类'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('餐饮').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('早餐'), findsOneWidget);
+      expect(find.text('交通'), findsNothing);
+    },
+  );
+
+  testWidgets('adds a custom category from the profile page', (
+    WidgetTester tester,
+  ) async {
+    await pumpApp(tester);
+
+    await tapBottomTab(tester, 3);
+    await tester.tap(find.text('分类管理'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('分类管理'), findsOneWidget);
+    expect(find.text('餐饮'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('新增顶级分类'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '咖啡');
+    await tester.tap(find.text('确认'));
+    await tester.pumpAndSettle();
+    // 图标选择器为网格，选第一个内置图标（category）。
+    await tester.tap(find.byIcon(Icons.category_outlined).last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('咖啡'), findsOneWidget);
+  });
+
+  testWidgets('adds a sub-category under an existing category', (
+    WidgetTester tester,
+  ) async {
+    await pumpApp(tester);
+
+    await tapBottomTab(tester, 3);
+    await tester.tap(find.text('分类管理'));
+    await tester.pumpAndSettle();
+
+    // 点击「餐饮」打开操作菜单，再从「编辑」子菜单选择「新增子分类」。
+    await tester.tap(find.text('餐饮'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('编辑'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('新增子分类'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '早餐');
+    await tester.tap(find.text('确认'));
+    await tester.pumpAndSettle();
+    // 图标选择器为网格，选第一个内置图标（category）。
+    await tester.tap(find.byIcon(Icons.category_outlined).last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('早餐'), findsOneWidget);
+    // 子分类的副标题显示所属父分类下的层级信息（父分类出现「个子分类」）。
+    expect(find.textContaining('个子分类'), findsWidgets);
+  });
+
+  testWidgets('分类管理父分类在行尾展开且点击不打开菜单', (WidgetTester tester) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    controller
+      ..addCategory(
+        type: EntryType.expense,
+        label: '早餐',
+        iconCode: 'category',
+        parentId: 'dining',
+      )
+      ..dispose();
+
+    await pumpApp(tester, store);
+    await tapBottomTab(tester, 3);
+    await tester.tap(find.text('分类管理'));
+    await tester.pumpAndSettle();
+
+    // 父分类默认收起，展开控件在行尾且与操作菜单分开。
+    expect(find.text('早餐'), findsNothing);
+    final toggle = find.byKey(
+      const ValueKey<String>('category_manage_toggle_dining'),
+    );
+    expect(toggle, findsOneWidget);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(find.text('早餐'), findsOneWidget);
+    expect(find.text('编辑'), findsNothing);
+  });
+
+  testWidgets('merges a category into another via the hierarchical picker', (
+    WidgetTester tester,
+  ) async {
+    // 锚点菜单挂在被点的分类行下方：手机视口下子菜单完整可见，而 800×600 的
+    // 默认测试视口会把最后一项挤进 ListView 的 cacheExtent（在树里但不可点）。
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(393, 852);
+    addTearDown(tester.view.reset);
+    await pumpApp(tester);
+
+    await tapBottomTab(tester, 3);
+    await tester.tap(find.text('分类管理'));
+    await tester.pumpAndSettle();
+
+    // 点「交通」→「编辑」→「合并到其他分类」。
+    await tester.tap(find.text('交通').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('编辑'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('合并到其他分类'));
+    await tester.pumpAndSettle();
+
+    // 选择器为带图标的层级树；选目标「餐饮」。
+    await tester.tap(find.text('餐饮').last);
+    await tester.pumpAndSettle();
+    // 确认合并。
+    await tester.tap(find.text('合并'));
+    await tester.pumpAndSettle();
+
+    // 「交通」已被合并删除。
+    expect(find.text('交通'), findsNothing);
+    expect(find.text('餐饮'), findsWidgets);
+  });
+
+  testWidgets('creates a tag in the tag management page', (
+    WidgetTester tester,
+  ) async {
+    await pumpApp(tester);
+
+    await tapBottomTab(tester, 3);
+    await tester.tap(find.text('标签管理'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('标签管理'), findsWidgets);
+    await tester.tap(find.byTooltip('新增标签'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '报销');
+    await tester.tap(find.text('确认'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('报销'), findsOneWidget);
+    expect(find.text('0 笔交易'), findsOneWidget);
+  });
+
+  testWidgets('tags an entry through the entry form', (
+    WidgetTester tester,
+  ) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    controller.addTag('必要');
+    controller.dispose();
+
+    await pumpApp(tester, store);
+    await addTestAccount(tester, '现金账户');
+    await tapBottomTab(tester, 0);
+    await createQuickEntry(tester);
+
+    // 记账表单在「更多信息」中打开标签选择器，勾选「必要」，完成。
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('entry_metadata_tags')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('entry_metadata_tags')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('必要'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('完成'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('save_entry_button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('最近交易'), findsOneWidget);
+  });
+
+  testWidgets('filters transaction list by tag', (WidgetTester tester) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    final tagId = controller.addTag('必要')!;
+    final now = DateTime.now();
+    final dining = controller.categories.firstWhere((c) => c.key == 'dining');
+    final transport = controller.categories.firstWhere(
+      (c) => c.key == 'transport',
+    );
+    controller
+      ..addAccount(
+        Account(
+          id: 'cash-tag-test',
+          bookId: controller.activeBook.id,
+          name: '现金账户',
+          type: AccountType.cash,
+          groupId: null,
+          initialBalance: 0,
+          iconCode: 'cash',
+          note: '',
+          includeInAssets: true,
+          hidden: false,
+        ),
+      )
+      ..addEntry(
+        LedgerEntry(
+          id: 'tagged-dining',
+          bookId: controller.activeBook.id,
+          type: EntryType.expense,
+          amount: 30,
+          categoryId: dining.id,
+          accountId: 'cash-tag-test',
+          note: '午餐',
+          occurredAt: now,
+          tagIds: <String>[tagId],
+        ),
+      )
+      ..addEntry(
+        LedgerEntry(
+          id: 'untagged-transport',
+          bookId: controller.activeBook.id,
+          type: EntryType.expense,
+          amount: 12,
+          categoryId: transport.id,
+          accountId: 'cash-tag-test',
+          note: '公交',
+          occurredAt: now,
+        ),
+      )
+      ..dispose();
+
+    await pumpApp(tester, store);
+    await tester.tap(find.text('最近交易'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(dining.label), findsOneWidget);
+    expect(find.text(transport.label), findsOneWidget);
+
+    // 点击标签筛选胶囊，选择「必要」。
+    await tester.tap(find.text('标签'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('必要').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text(dining.label), findsOneWidget);
+    expect(find.text(transport.label), findsNothing);
+  });
+
+  testWidgets('分类管理「查看交易」跳转到按该分类预筛的交易列表', (WidgetTester tester) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    final now = DateTime.now();
+    controller
+      ..addAccount(
+        Account(
+          id: 'cash-view-test',
+          bookId: controller.activeBook.id,
+          name: '现金账户',
+          type: AccountType.cash,
+          groupId: null,
+          initialBalance: 0,
+          iconCode: 'cash',
+          note: '',
+          includeInAssets: true,
+          hidden: false,
+        ),
+      )
+      ..addEntry(
+        LedgerEntry(
+          id: 'view-dining',
+          bookId: controller.activeBook.id,
+          type: EntryType.expense,
+          amount: 30,
+          categoryId: 'dining',
+          accountId: 'cash-view-test',
+          note: '午餐',
+          occurredAt: now,
+        ),
+      )
+      ..addEntry(
+        LedgerEntry(
+          id: 'view-transport',
+          bookId: controller.activeBook.id,
+          type: EntryType.expense,
+          amount: 12,
+          categoryId: 'transport',
+          accountId: 'cash-view-test',
+          note: '公交',
+          occurredAt: now,
+        ),
+      )
+      ..dispose();
+
+    await pumpApp(tester, store);
+    await tapBottomTab(tester, 3);
+    await tester.tap(find.text('分类管理'));
+    await tester.pumpAndSettle();
+
+    // 点「餐饮」→ 菜单「查看交易」。
+    await tester.tap(find.text('餐饮').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('查看交易'));
+    await tester.pumpAndSettle();
+
+    // 跳到交易列表，且已按「餐饮」预筛：只见餐饮那笔（午餐），不见交通那笔（公交）。
+    expect(find.text('午餐'), findsOneWidget);
+    expect(find.text('公交'), findsNothing);
+  });
+
+  testWidgets('transfer entry shows a fee field and records it', (
+    WidgetTester tester,
+  ) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    Account acc(String id, String name) => Account(
+      id: id,
+      bookId: controller.activeBook.id,
+      name: name,
+      type: AccountType.cash,
+      groupId: null,
+      initialBalance: 500,
+      iconCode: 'cash',
+      note: '',
+      includeInAssets: true,
+      hidden: false,
+    );
+    controller
+      ..addAccount(acc('from-fee', '转出'))
+      ..addAccount(acc('to-fee', '转入'))
+      ..dispose();
+
+    await pumpApp(tester, store);
+    await tapBottomTab(tester, 0);
+    await createQuickEntry(tester);
+
+    // 切到转账，手续费字段出现。
+    await tester.tap(find.text('转账'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('fee_field')), findsOneWidget);
+  });
+
+  test('addEntry keeps entries sorted latest first', () async {
+    final controller = await makeController();
+    final bookId = controller.activeBook.id;
+    LedgerEntry entryAt(String id, DateTime when) => LedgerEntry(
+      id: id,
+      bookId: bookId,
+      type: EntryType.expense,
+      amount: 10,
+      categoryId: 'dining',
+      accountId: 'cash',
+      note: '',
+      occurredAt: when,
+    );
+
+    controller
+      ..addEntry(entryAt('today', DateTime(2026, 7, 3, 10)))
+      ..addEntry(entryAt('backdated', DateTime(2026, 6, 26, 9)));
+
+    expect(controller.entries.first.id, 'today');
+    expect(controller.entries.last.id, 'backdated');
+    controller.dispose();
+  });
+
+  testWidgets('交易列表分页：初始只渲染一批、滚动预加载后可见更早的交易', (WidgetTester tester) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    final bookId = controller.activeBook.id;
+    final now = DateTime(2026, 7, 12, 12);
+    // 40 笔、各自不同日期（40 个分组），超过单批 30 条，触发分页。
+    for (var i = 0; i < 40; i++) {
+      controller.addEntry(
+        LedgerEntry(
+          id: 'page-$i',
+          bookId: bookId,
+          type: EntryType.expense,
+          amount: (10 + i).toDouble(),
+          categoryId: 'dining',
+          accountId: 'cash',
+          note: 'note-$i',
+          occurredAt: now.subtract(Duration(days: i)),
+        ),
+      );
+    }
+    controller.dispose();
+
+    await pumpApp(tester, store);
+    await tester.tap(find.text('最近交易'));
+    await tester.pumpAndSettle();
+
+    // 汇总/计数基于完整列表：仍显示全部 40 笔。
+    expect(find.text('40 笔交易'), findsOneWidget);
+    // 最新的一批已渲染，最旧的一笔（note-39）尚未构建（分页在其之前截断）。
+    expect(find.textContaining('note-0'), findsOneWidget);
+    expect(find.textContaining('note-39'), findsNothing);
+
+    // 向下滚动：预加载逐批追加，最旧的一笔最终可见（无异步等待）。
+    await tester.scrollUntilVisible(
+      find.textContaining('note-39'),
+      400.0,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.textContaining('note-39'), findsOneWidget);
+  });
+
+  testWidgets('交易列表：后台通知不会把翻到深处的列表打回前 30 条', (WidgetTester tester) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    final bookId = controller.activeBook.id;
+    final now = DateTime(2026, 7, 12, 12);
+    // 40 笔、各自不同日期（40 个分组），超过单批 30 条，触发分页。
+    for (var i = 0; i < 40; i++) {
+      controller.addEntry(
+        LedgerEntry(
+          id: 'keep-$i',
+          bookId: bookId,
+          type: EntryType.expense,
+          amount: (10 + i).toDouble(),
+          categoryId: 'dining',
+          accountId: 'cash',
+          note: 'keep-$i',
+          occurredAt: now.subtract(Duration(days: i)),
+        ),
+      );
+    }
+    controller.dispose();
+
+    final app = await pumpApp(tester, store);
+    await tester.tap(find.text('最近交易'));
+    await tester.pumpAndSettle();
+
+    // 翻到最旧的一笔，分页已加载到第二批。
+    await tester.scrollUntilVisible(
+      find.textContaining('keep-39'),
+      400.0,
+      scrollable: firstVerticalScrollable(),
+    );
+    expect(find.textContaining('keep-39'), findsOneWidget);
+
+    // 一个与列表无关的通知（例如在别处改了个偏好）不应重置派生签名、把分页打回
+    // 第一批，以免顶掉用户正在看的内容。
+    app.setDefaultAccountId(null);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('keep-39'), findsOneWidget);
+  });
+
+  testWidgets('交易列表提供记账入口', (WidgetTester tester) async {
+    final store = LocalKeyValueStore();
+    await pumpApp(tester, store);
+    await tester.tap(find.text('最近交易'));
+    await tester.pumpAndSettle();
+
+    final fab = find.byKey(const Key('transactions_quick_entry_fab'));
+    expect(fab, findsOneWidget);
+    await tester.tap(fab);
+    await tester.pumpAndSettle();
+
+    // 与首页快捷记账一致：先弹数字键盘。
+    expect(find.byKey(const Key('number_pad_ok')), findsOneWidget);
+  });
+
+  testWidgets('只按时间筛选时显示「没有匹配交易」，清空后复位', (WidgetTester tester) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    final now = DateTime.now();
+    controller.addEntry(
+      LedgerEntry(
+        id: 'last-year-entry',
+        bookId: controller.activeBook.id,
+        type: EntryType.expense,
+        amount: 10,
+        categoryId: 'dining',
+        accountId: '',
+        note: '去年的一笔',
+        occurredAt: DateTime(now.year - 1, 3, 1),
+      ),
+    );
+
+    await pumpApp(tester, store);
+    await tester.tap(find.text('最近交易'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('去年的一笔'), findsOneWidget);
+
+    // 只切换时间筛选：应视为「有筛选」，显示无匹配而不是「暂无交易」。
+    await tester.tap(find.text('全部时间'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('本月').last);
+    await tester.pumpAndSettle();
+    expect(find.text('没有匹配交易'), findsOneWidget);
+
+    // 清空筛选把时间维度一并复位。
+    await tester.tap(find.byTooltip('清空筛选'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('去年的一笔'), findsOneWidget);
+  });
+}

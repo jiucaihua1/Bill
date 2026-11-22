@@ -1,0 +1,572 @@
+/// 交易域模型：条目类型、交易、周期记账规则、图片附件与标签。
+library;
+
+import '../../l10n/app_localizations.dart';
+
+import 'currency.dart';
+import 'ledger_book.dart';
+
+enum EntryType {
+  expense,
+  income,
+  transfer,
+
+  /// 退款：挂在某笔原支出（[LedgerEntry.refundOf]）上的独立条目，把钱退回某账户。
+  /// 类比转账——不计入收支统计、只影响账户余额（仅「已到账」`settledAt != null` 时）；
+  /// 并通过缓存 [LedgerEntry.refundedBaseAmount] 冲减原支出净额。不能在普通记账页手动选择，
+  /// 只能从「原支出 → 添加退款」创建。
+  refund;
+
+  String label(AppLocalizations l10n) {
+    switch (this) {
+      case EntryType.expense:
+        return l10n.entryTypeExpense;
+      case EntryType.income:
+        return l10n.entryTypeIncome;
+      case EntryType.transfer:
+        return l10n.entryTypeTransfer;
+      case EntryType.refund:
+        return l10n.entryTypeRefund;
+    }
+  }
+
+  String get storageValue {
+    switch (this) {
+      case EntryType.expense:
+        return 'expense';
+      case EntryType.income:
+        return 'income';
+      case EntryType.transfer:
+        return 'transfer';
+      case EntryType.refund:
+        return 'refund';
+    }
+  }
+
+  static EntryType fromStorage(String value) {
+    return EntryType.values.firstWhere(
+      (type) => type.storageValue == value,
+      orElse: () => EntryType.expense,
+    );
+  }
+
+  /// 用户可在记账 / 编辑界面直接选择的类型（不含 [refund]——退款只能从
+  /// 「原支出 → 添加退款」创建，不作为普通可选类型）。收支统计只提供
+  /// 支出/收入，不复用此列表。
+  static const List<EntryType> userSelectable = <EntryType>[
+    EntryType.expense,
+    EntryType.income,
+    EntryType.transfer,
+  ];
+}
+
+class LedgerEntry {
+  const LedgerEntry({
+    required this.id,
+    required this.bookId,
+    required this.type,
+    required this.amount,
+    this.currencyCode = defaultCurrencyCode,
+    double? accountAmount,
+    double? toAccountAmount,
+    double? baseAmount,
+    this.conversionSource = ConversionSource.identity,
+    required this.categoryId,
+    required this.accountId,
+    this.toAccountId,
+    required this.note,
+    required this.occurredAt,
+    this.tagIds = const <String>[],
+    this.fee = 0,
+    this.reimbursable = false,
+    this.excludedFromBudget = false,
+    double? refundedBaseAmount,
+    double? refundedAmount,
+    this.refundOf,
+    this.settledAt,
+  }) : accountAmount = accountAmount ?? (accountId == '' ? null : amount),
+       toAccountAmount =
+           toAccountAmount ??
+           (toAccountId == null || toAccountId == '' ? null : amount),
+       baseAmount = baseAmount ?? (type == EntryType.transfer ? 0 : amount),
+       refundedBaseAmount = refundedBaseAmount ?? refundedAmount ?? 0;
+
+  final String id;
+  final String bookId;
+  final EntryType type;
+
+  /// 商户/现金原始金额及其币种。
+  final double amount;
+  final String currencyCode;
+
+  /// 来源/到账账户的真实变动金额，单位由关联账户的 [Account.currencyCode] 决定。
+  /// 无对应账户时为 null。
+  final double? accountAmount;
+
+  /// 转账转入账户的真实增加金额；无转入账户或非转账时为 null。
+  final double? toAccountAmount;
+
+  /// 保存时冻结的账本本位币金额。转账恒为 0，不随以后汇率表变化。
+  final double baseAmount;
+  final ConversionSource conversionSource;
+  final String categoryId;
+  final String accountId;
+  final String? toAccountId;
+  final String note;
+  final DateTime occurredAt;
+
+  /// 该交易关联的标签 id 列表（多对多，可为空）。
+  final List<String> tagIds;
+
+  /// 转账手续费（仅 [EntryType.transfer] 有意义），由转出账户承担；
+  /// 转出账户余额额外减少该金额，转入账户不变。
+  final double fee;
+
+  /// 是否标记为「待报销」（仅支出有意义）。仅作标记，不影响金额；
+  /// 报销/退款到账通过关联的退款条目（[EntryType.refund]）冲抵原交易。
+  final bool reimbursable;
+
+  /// 是否标记为「不计入预算」（仅支出有意义）。仅作标记，不影响金额。
+  /// 预算口径（预算页、首页与看板预算卡、按日预算、桌面小组件预算、
+  /// AI `budgetStatus` 工具）聚合时跳过该笔——借款、垫付这类钱确实花出去了、
+  /// 但不该占用本月消费额度的支出。**收支统计、账户余额与报表不受影响**，
+  /// 它们算的是「实际发生」，与预算口径是两件事。
+  final bool excludedFromBudget;
+
+  /// 已被退款 / 报销回款冲抵的金额（仅支出有意义）——**派生缓存**，
+  /// 恒等于「挂在本支出上的·已到账·退款条目金额之和」，由 controller 的
+  /// `_syncRefundData()` 在载入 / 导入 / 退款增删改时重算并落库，从不独立写入。
+  /// 只驱动 **统计口径的净额**（[netAmount]）；**账户余额不读它**——余额是
+  /// 「支出扣全额 + 退款条目给到账账户加」，故支持退款到不同账户。
+  final double refundedBaseAmount;
+
+  /// 旧调用点的源码兼容别名；新代码使用 [refundedBaseAmount]。
+  double get refundedAmount => refundedBaseAmount;
+
+  /// 退款条目专用：指向被退的原支出 `id`（仅 [EntryType.refund] 非空）。
+  final String? refundOf;
+
+  /// 退款条目专用：**到账日期**；`null` = 待到账（pending）。
+  /// 待到账退款不进余额 / 净额 / 收支统计，只进「待退款」清单；`occurredAt` 复用为
+  /// **发起日期**。仅 [EntryType.refund] 有意义。
+  final DateTime? settledAt;
+
+  /// 是否为「待到账」退款（已申请、钱还没回来）。
+  bool get isPendingRefund => type == EntryType.refund && settledAt == null;
+
+  /// 是否为「已到账」退款（真正影响余额 / 净额）。
+  bool get isSettledRefund => type == EntryType.refund && settledAt != null;
+
+  /// 净支出额（原金额减去已退款/报销回款）。非支出返回原金额。
+  /// 净额钳制在 [0, amount]：编辑时把金额改到低于已退款额、或损坏备份导入越界值时，
+  /// 净额不会变负（否则支出会被 signedAmount 当成收入、账户余额虚增）。
+  double get netBaseAmount {
+    if (type != EntryType.expense) return baseAmount;
+    if (baseAmount <= 0) return 0; // 异常/损坏数据兜底，避免 clamp 上界小于下界
+    return (baseAmount - refundedBaseAmount).clamp(0.0, baseAmount);
+  }
+
+  /// 旧统计调用点的源码兼容别名；阶段 3 会迁移为 [netBaseAmount]。
+  double get netAmount => netBaseAmount;
+
+  LedgerEntry copyWith({
+    String? id,
+    String? bookId,
+    EntryType? type,
+    double? amount,
+    String? currencyCode,
+    double? accountAmount,
+    bool clearAccountAmount = false,
+    double? toAccountAmount,
+    bool clearToAccountAmount = false,
+    double? baseAmount,
+    ConversionSource? conversionSource,
+    String? categoryId,
+    String? accountId,
+    String? toAccountId,
+    bool clearToAccountId = false,
+    String? note,
+    DateTime? occurredAt,
+    List<String>? tagIds,
+    double? fee,
+    bool? reimbursable,
+    bool? excludedFromBudget,
+    double? refundedBaseAmount,
+    double? refundedAmount,
+    String? refundOf,
+    bool clearRefundOf = false,
+    DateTime? settledAt,
+    bool clearSettledAt = false,
+  }) {
+    return LedgerEntry(
+      id: id ?? this.id,
+      bookId: bookId ?? this.bookId,
+      type: type ?? this.type,
+      amount: amount ?? this.amount,
+      currencyCode: currencyCode ?? this.currencyCode,
+      accountAmount: clearAccountAmount
+          ? null
+          : accountAmount ?? this.accountAmount,
+      toAccountAmount: clearToAccountAmount
+          ? null
+          : toAccountAmount ?? this.toAccountAmount,
+      baseAmount: baseAmount ?? this.baseAmount,
+      conversionSource: conversionSource ?? this.conversionSource,
+      categoryId: categoryId ?? this.categoryId,
+      accountId: accountId ?? this.accountId,
+      toAccountId: clearToAccountId ? null : toAccountId ?? this.toAccountId,
+      note: note ?? this.note,
+      occurredAt: occurredAt ?? this.occurredAt,
+      tagIds: tagIds ?? this.tagIds,
+      fee: fee ?? this.fee,
+      reimbursable: reimbursable ?? this.reimbursable,
+      excludedFromBudget: excludedFromBudget ?? this.excludedFromBudget,
+      refundedBaseAmount:
+          refundedBaseAmount ?? refundedAmount ?? this.refundedBaseAmount,
+      refundOf: clearRefundOf ? null : refundOf ?? this.refundOf,
+      settledAt: clearSettledAt ? null : settledAt ?? this.settledAt,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'id': id,
+      'bookId': bookId,
+      'type': type.storageValue,
+      'amount': amount,
+      'currencyCode': currencyCode,
+      if (accountAmount != null) 'accountAmount': accountAmount,
+      if (toAccountAmount != null) 'toAccountAmount': toAccountAmount,
+      'baseAmount': baseAmount,
+      'conversionSource': conversionSource.name,
+      'categoryId': categoryId,
+      'accountId': accountId,
+      'toAccountId': toAccountId,
+      'note': note,
+      'occurredAt': occurredAt.toIso8601String(),
+      if (tagIds.isNotEmpty) 'tagIds': tagIds,
+      if (fee != 0) 'fee': fee,
+      if (reimbursable) 'reimbursable': true,
+      if (excludedFromBudget) 'excludedFromBudget': true,
+      if (refundedBaseAmount != 0) 'refundedBaseAmount': refundedBaseAmount,
+      if (refundOf != null) 'refundOf': refundOf,
+      if (settledAt != null) 'settledAt': settledAt!.toIso8601String(),
+    };
+  }
+
+  static LedgerEntry fromJson(Map<String, Object?> json) {
+    final type = EntryType.fromStorage(json['type'] as String? ?? 'expense');
+    final amount = (json['amount'] as num).toDouble();
+    return LedgerEntry(
+      id: json['id'] as String,
+      bookId: json['bookId'] as String? ?? defaultLedgerBookId,
+      type: type,
+      amount: amount,
+      currencyCode: (json['currencyCode'] as String? ?? defaultCurrencyCode)
+          .toUpperCase(),
+      accountAmount: (json['accountAmount'] as num?)?.toDouble(),
+      toAccountAmount: (json['toAccountAmount'] as num?)?.toDouble(),
+      baseAmount:
+          (json['baseAmount'] as num?)?.toDouble() ??
+          (type == EntryType.transfer ? 0 : amount),
+      conversionSource: json.containsKey('conversionSource')
+          ? ConversionSource.fromStorage(json['conversionSource'] as String?)
+          : ConversionSource.legacy,
+      // 缺分类的旧数据留空串，由载入自愈按本条目的账本归入「未分类」；
+      // 不要回落到某个固定分类 id（那是历史实现，会让缺字段的数据静默变成「餐饮」）。
+      categoryId: json['categoryId'] as String? ?? '',
+      accountId: json['accountId'] as String? ?? 'alipay',
+      toAccountId: json['toAccountId'] as String?,
+      note: json['note'] as String? ?? '',
+      occurredAt:
+          DateTime.tryParse(json['occurredAt'] as String? ?? '') ??
+          DateTime.now(),
+      tagIds: _stringList(json['tagIds']),
+      fee: (json['fee'] as num?)?.toDouble() ?? 0,
+      reimbursable: json['reimbursable'] as bool? ?? false,
+      excludedFromBudget: json['excludedFromBudget'] as bool? ?? false,
+      refundedBaseAmount:
+          (json['refundedBaseAmount'] as num?)?.toDouble() ??
+          (json['refundedAmount'] as num?)?.toDouble() ??
+          0,
+      refundOf: json['refundOf'] as String?,
+      settledAt: DateTime.tryParse(json['settledAt'] as String? ?? ''),
+    );
+  }
+}
+
+List<String> _stringList(Object? value) {
+  if (value is List) {
+    return value.map((e) => e.toString()).toList(growable: false);
+  }
+  return const <String>[];
+}
+
+/// 周期记账频率。
+enum RecurringFrequency {
+  daily('daily'),
+  weekly('weekly'),
+  monthly('monthly'),
+  yearly('yearly');
+
+  const RecurringFrequency(this.storageValue);
+
+  final String storageValue;
+
+  String label(AppLocalizations l10n) {
+    switch (this) {
+      case RecurringFrequency.daily:
+        return l10n.recurringDaily;
+      case RecurringFrequency.weekly:
+        return l10n.recurringWeekly;
+      case RecurringFrequency.monthly:
+        return l10n.recurringMonthly;
+      case RecurringFrequency.yearly:
+        return l10n.recurringYearly;
+    }
+  }
+
+  static RecurringFrequency fromStorage(String? value) {
+    return RecurringFrequency.values.firstWhere(
+      (f) => f.storageValue == value,
+      orElse: () => RecurringFrequency.monthly,
+    );
+  }
+}
+
+/// 周期记账规则：按频率自动补记交易（如房租、工资）。规则本身带 [bookId]，
+/// 生成的交易落入同一账本；[nextRunDate] 为下一次应生成的日期。
+class RecurringRule {
+  const RecurringRule({
+    required this.id,
+    required this.bookId,
+    required this.type,
+    required this.amount,
+    this.currencyCode = defaultCurrencyCode,
+    double? accountAmount,
+    double? toAccountAmount,
+    double? baseAmount,
+    this.ratePolicy = RecurringRatePolicy.fixedAmounts,
+    required this.categoryId,
+    required this.accountId,
+    this.toAccountId,
+    required this.note,
+    required this.frequency,
+    required this.startDate,
+    required this.nextRunDate,
+    this.active = true,
+  }) : accountAmount = accountAmount ?? (accountId == '' ? null : amount),
+       toAccountAmount =
+           toAccountAmount ??
+           (toAccountId == null || toAccountId == '' ? null : amount),
+       baseAmount = baseAmount ?? (type == EntryType.transfer ? 0 : amount);
+
+  final String id;
+  final String bookId;
+  final EntryType type;
+  final double amount;
+  final String currencyCode;
+  final double? accountAmount;
+  final double? toAccountAmount;
+  final double baseAmount;
+  final RecurringRatePolicy ratePolicy;
+  final String categoryId;
+  final String accountId;
+  final String? toAccountId;
+  final String note;
+  final RecurringFrequency frequency;
+  final DateTime startDate;
+  final DateTime nextRunDate;
+  final bool active;
+
+  RecurringRule copyWith({
+    String? note,
+    double? amount,
+    String? currencyCode,
+    double? accountAmount,
+    bool clearAccountAmount = false,
+    double? toAccountAmount,
+    bool clearToAccountAmount = false,
+    double? baseAmount,
+    RecurringRatePolicy? ratePolicy,
+    String? categoryId,
+    String? accountId,
+    String? toAccountId,
+    bool clearToAccountId = false,
+    EntryType? type,
+    RecurringFrequency? frequency,
+    DateTime? startDate,
+    DateTime? nextRunDate,
+    bool? active,
+  }) {
+    return RecurringRule(
+      id: id,
+      bookId: bookId,
+      type: type ?? this.type,
+      amount: amount ?? this.amount,
+      currencyCode: currencyCode ?? this.currencyCode,
+      accountAmount: clearAccountAmount
+          ? null
+          : accountAmount ?? this.accountAmount,
+      toAccountAmount: clearToAccountAmount
+          ? null
+          : toAccountAmount ?? this.toAccountAmount,
+      baseAmount: baseAmount ?? this.baseAmount,
+      ratePolicy: ratePolicy ?? this.ratePolicy,
+      categoryId: categoryId ?? this.categoryId,
+      accountId: accountId ?? this.accountId,
+      toAccountId: clearToAccountId ? null : toAccountId ?? this.toAccountId,
+      note: note ?? this.note,
+      frequency: frequency ?? this.frequency,
+      startDate: startDate ?? this.startDate,
+      nextRunDate: nextRunDate ?? this.nextRunDate,
+      active: active ?? this.active,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'id': id,
+      'bookId': bookId,
+      'type': type.storageValue,
+      'amount': amount,
+      'currencyCode': currencyCode,
+      if (accountAmount != null) 'accountAmount': accountAmount,
+      if (toAccountAmount != null) 'toAccountAmount': toAccountAmount,
+      'baseAmount': baseAmount,
+      'ratePolicy': ratePolicy.name,
+      'categoryId': categoryId,
+      'accountId': accountId,
+      'toAccountId': toAccountId,
+      'note': note,
+      'frequency': frequency.storageValue,
+      'startDate': startDate.toIso8601String(),
+      'nextRunDate': nextRunDate.toIso8601String(),
+      'active': active,
+    };
+  }
+
+  static RecurringRule fromJson(Map<String, Object?> json) {
+    final now = DateTime.now();
+    final type = EntryType.fromStorage(json['type'] as String? ?? 'expense');
+    final amount = (json['amount'] as num?)?.toDouble() ?? 0;
+    return RecurringRule(
+      id: json['id'] as String,
+      bookId: json['bookId'] as String? ?? defaultLedgerBookId,
+      type: type,
+      amount: amount,
+      currencyCode: (json['currencyCode'] as String? ?? defaultCurrencyCode)
+          .toUpperCase(),
+      accountAmount: (json['accountAmount'] as num?)?.toDouble(),
+      toAccountAmount: (json['toAccountAmount'] as num?)?.toDouble(),
+      baseAmount:
+          (json['baseAmount'] as num?)?.toDouble() ??
+          (type == EntryType.transfer ? 0 : amount),
+      ratePolicy: RecurringRatePolicy.fromStorage(
+        json['ratePolicy'] as String?,
+      ),
+      // 同上：缺分类留空串，由自愈归入所属账本的「未分类」。
+      categoryId: json['categoryId'] as String? ?? '',
+      accountId: json['accountId'] as String? ?? '',
+      toAccountId: json['toAccountId'] as String?,
+      note: json['note'] as String? ?? '',
+      frequency: RecurringFrequency.fromStorage(json['frequency'] as String?),
+      startDate: DateTime.tryParse(json['startDate'] as String? ?? '') ?? now,
+      nextRunDate:
+          DateTime.tryParse(json['nextRunDate'] as String? ?? '') ?? now,
+      active: json['active'] as bool? ?? true,
+    );
+  }
+}
+
+/// 交易的图片附件（如票据）元数据。
+///
+/// 图片字节存应用私有目录下的独立文件（见 `AttachmentStore`），SQLite 只保存元数据，
+/// 不放进 entries 表。这样启动只读元数据、备份与恢复可逐张流式处理，内存不再随附件
+/// 总量增长。渲染一律经 `AttachmentStore.imageProviderFor` 取文件，不再内联 base64。
+class Attachment {
+  const Attachment({
+    required this.id,
+    required this.entryId,
+    this.mimeType = 'image/jpeg',
+    this.byteSize = 0,
+  });
+
+  final String id;
+  final String entryId;
+
+  /// 图片 MIME 类型；旧备份缺字段时按 `image/jpeg` 读入。
+  final String mimeType;
+
+  /// 图片字节数；未知/旧数据为 0。
+  final int byteSize;
+
+  Attachment copyWith({
+    String? id,
+    String? entryId,
+    String? mimeType,
+    int? byteSize,
+  }) {
+    return Attachment(
+      id: id ?? this.id,
+      entryId: entryId ?? this.entryId,
+      mimeType: mimeType ?? this.mimeType,
+      byteSize: byteSize ?? this.byteSize,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'id': id,
+      'entryId': entryId,
+      'mimeType': mimeType,
+      'byteSize': byteSize,
+    };
+  }
+
+  static Attachment fromJson(Map<String, Object?> json) {
+    // `_archiveMime` 是备份压缩包里剥离 base64 后记录的 MIME（见 backup_archive），
+    // 直接读 v3 的 backup.json 时兜底取用，保证旧包也能解析出正确类型。
+    final mime =
+        json['mimeType'] as String? ?? json['_archiveMime'] as String? ?? '';
+    return Attachment(
+      id: json['id'] as String,
+      entryId: json['entryId'] as String? ?? '',
+      mimeType: mime.isEmpty ? 'image/jpeg' : mime,
+      byteSize: (json['byteSize'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+/// 标签：与交易多对多关联，用于**账本内**跨分类的横向归类与统计。
+class Tag {
+  const Tag({required this.id, required this.bookId, required this.label});
+
+  final String id;
+
+  /// 所属账本。标签跟随账本而不是跟随应用：换账本会换成该账本自己的标签集合。
+  final String bookId;
+
+  final String label;
+
+  Tag copyWith({String? id, String? bookId, String? label}) {
+    return Tag(
+      id: id ?? this.id,
+      bookId: bookId ?? this.bookId,
+      label: label ?? this.label,
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{'id': id, 'bookId': bookId, 'label': label};
+  }
+
+  static Tag fromJson(Map<String, Object?> json) {
+    return Tag(
+      id: json['id'] as String,
+      // 旧版备份里的标签是全局的、没有 bookId；那条路径由导入侧显式展开到各账本。
+      bookId: json['bookId'] as String? ?? defaultLedgerBookId,
+      label: json['label'] as String? ?? '未命名标签',
+    );
+  }
+}

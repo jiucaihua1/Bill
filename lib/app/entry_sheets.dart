@@ -1,0 +1,1036 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+import 'app_theme.dart';
+import 'calc_expression.dart';
+import 'category_tree.dart';
+import 'common_widgets.dart';
+import 'currency_math.dart';
+import 'haptics.dart';
+import 'ledger_math.dart';
+import 'models.dart';
+import '../l10n/app_localizations.dart';
+
+/// 金额键盘。作为弹层时经 `showNumberPadSheet` 打开，手动记账页使用内嵌布局。
+class NumberPadSheet extends StatefulWidget {
+  const NumberPadSheet({
+    super.key,
+    required this.title,
+    this.initialAmount,
+    this.allowNegative = false,
+    this.allowZero = false,
+    this.maxAmount,
+    this.maxFractionDigits = 2,
+    this.currencyCode,
+    this.layout = NumberPadLayout.phone,
+    this.showTitle = true,
+  }) : onAmountChanged = null,
+       onSubmitted = null,
+       onContinue = null,
+       onCancel = null,
+       submitEnabled = true,
+       blockReason = null,
+       amountLeading = null,
+       amountColor = null,
+       metadata = null,
+       assert(maxFractionDigits >= 0 && maxFractionDigits <= 12);
+
+  const NumberPadSheet.inline({
+    super.key,
+    required this.initialAmount,
+    required String this.currencyCode,
+    required this.maxFractionDigits,
+    required ValueChanged<double?> this.onAmountChanged,
+    required ValueChanged<double> this.onSubmitted,
+    required ValueChanged<double> this.onContinue,
+    required VoidCallback this.onCancel,
+    required this.submitEnabled,
+    this.blockReason,
+    this.amountLeading,
+    this.amountColor,
+    required this.metadata,
+  }) : title = '',
+       showTitle = false,
+       layout = NumberPadLayout.phone,
+       allowNegative = false,
+       allowZero = false,
+       maxAmount = null,
+       assert(maxFractionDigits >= 0 && maxFractionDigits <= 12);
+
+  final String title;
+  final double? initialAmount;
+  final bool allowNegative;
+  final bool allowZero;
+
+  /// 单个操作数允许的小数位数。普通金额默认为 2；本地汇率可提高到 10。
+  final int maxFractionDigits;
+  final String? currencyCode;
+  final NumberPadLayout layout;
+  final ValueChanged<double?>? onAmountChanged;
+  final ValueChanged<double>? onSubmitted;
+  final ValueChanged<double>? onContinue;
+  final VoidCallback? onCancel;
+  final bool submitEnabled;
+  final String? blockReason;
+  final Widget? amountLeading;
+  final Color? amountColor;
+  final Widget? metadata;
+
+  /// 快速记账入口已由底部按钮表达语义，金额键盘不重复显示标题。
+  final bool showTitle;
+
+  /// 可选金额上限：非空时输入框下方展示「最多 {max}」提示（超上限时变红），
+  /// 点 OK 确认的结果会被封顶到该值。用于退款「剩余可退」等有上限的输入。
+  final double? maxAmount;
+
+  @override
+  State<NumberPadSheet> createState() => _NumberPadSheetState();
+}
+
+class _NumberPadSheetState extends State<NumberPadSheet> {
+  late String _input = _initialInput(
+    widget.initialAmount,
+    widget.maxFractionDigits,
+  );
+
+  /// 初始输入串：空值与 0 都从空输入开始，不再把 `0` 预填成值。
+  ///
+  /// 预填的 `0` 会被当成已输入内容——按数字要顶掉它、按运算符要接在它后面，
+  /// 用户看不到「还没输入」的状态。0 由占位提示表达；需要确认 0 的场景走
+  /// `allowZero`，清空后按 OK 仍会提交 0。
+  static String _initialInput(double? amount, int fractionDigits) {
+    if (amount == null || amount == 0) {
+      return '';
+    }
+    return _formatInitialValue(amount, fractionDigits);
+  }
+
+  /// 求值当前输入（可能是 `500+800` 这类算式）；不完整/无效时为 null。
+  double? get _result =>
+      evaluateAmountExpression(_input, decimalPlaces: widget.maxFractionDigits);
+  double get _amount => _result ?? 0;
+  bool get _inline => widget.onSubmitted != null;
+
+  /// 输入是否为算式（含运算符）——决定是否展示右下角结果预览。
+  bool get _hasOperator => amountExpressionHasOperator(_input);
+
+  @override
+  Widget build(BuildContext context) {
+    // 页内备注由系统键盘编辑。只在金额与键盘区处理底部遮挡，分类网格只读取宽度和字号。
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final bottomInset = _inline
+        ? MediaQuery.viewPaddingOf(context).bottom
+        : math.max(keyboardInset, MediaQuery.paddingOf(context).bottom);
+    Widget amountRow(Widget display) {
+      final leading = widget.amountLeading;
+      if (leading == null) return display;
+      return Row(
+        children: [
+          Expanded(child: leading),
+          const SizedBox(width: 10),
+          Flexible(child: display),
+        ],
+      );
+    }
+
+    final tokens = VeriStyleTokens.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final body = Align(
+      alignment: Alignment.bottomCenter,
+      heightFactor: 1,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: veriPageMaxWidth),
+        child: Padding(
+          padding: _inline
+              ? EdgeInsets.fromLTRB(12, 10, 12, 10 + bottomInset)
+              : EdgeInsets.fromLTRB(14, 14, 14, 14 + bottomInset),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              if (widget.showTitle) ...[
+                Text(
+                  widget.title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              // 数字显示行单独成层：按键只重绘这一行，不带动整块毛玻璃背景
+              // 重算模糊（弹层越大越贵）。
+              RepaintBoundary(
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: _inline ? 6 : 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: tokens.surfaceAltColor,
+                    borderRadius: BorderRadius.circular(tokens.innerRadius),
+                  ),
+                  child: amountRow(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Text(
+                          key: const Key('number_pad_display'),
+                          _input.isEmpty
+                              ? _inline
+                                    ? formatCurrencyNumber(
+                                        0,
+                                        widget.currencyCode!,
+                                        style: CurrencyFractionStyle.standard,
+                                      )
+                                    : AppLocalizations.of(
+                                        context,
+                                      ).numberPadAmountHint
+                              : _input,
+                          textAlign: TextAlign.end,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.displaySmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: _input.isEmpty
+                                    ? Theme.of(context).colorScheme.onSurface
+                                          .withValues(alpha: 0.32)
+                                    : widget.amountColor,
+                              ),
+                        ),
+                        // 算式模式在右下角展示浅色结果预览；不完整则提示。
+                        if (_hasOperator) ...<Widget>[
+                          const SizedBox(height: 2),
+                          Text(
+                            _result == null
+                                ? AppLocalizations.of(context).calcIncomplete
+                                : '= ${_formatResult(_result!)}',
+                            textAlign: TextAlign.end,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurface
+                                      .withValues(alpha: 0.45),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (widget.metadata case final metadata?) ...[
+                const SizedBox(height: 4),
+                metadata,
+              ],
+              if (widget.maxAmount != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 4),
+                  child: Text(
+                    AppLocalizations.of(context).numberPadMax(
+                      widget.currencyCode == null
+                          ? formatAmount(widget.maxAmount!)
+                          : formatCurrencyNumber(
+                              widget.maxAmount!,
+                              widget.currencyCode!,
+                            ),
+                    ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: _amount > widget.maxAmount! + _maxTolerance
+                          ? veriSemantic(context, veriExpense)
+                          : Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.55),
+                      fontWeight: _amount > widget.maxAmount! + _maxTolerance
+                          ? FontWeight.w700
+                          : FontWeight.w400,
+                    ),
+                  ),
+                ),
+              if (widget.blockReason case final reason? when _canSubmit)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    reason,
+                    key: const Key('entry_save_block_reason'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+              SizedBox(height: _inline ? 6 : 10),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  const spacing = 6.0;
+                  final cellW = (constraints.maxWidth - spacing * 3) / 4;
+                  return _buildKeys(
+                    context,
+                    cellW,
+                    spacing,
+                    keyboardOverlap: _inline
+                        ? math.max(0.0, keyboardInset - bottomInset)
+                        : 0.0,
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!_inline) return body;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: tokens.cardColor,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(tokens.cardRadius),
+        ),
+        border: Border(top: BorderSide(color: tokens.borderColor)),
+        boxShadow: isDark
+            ? const <BoxShadow>[]
+            : const <BoxShadow>[
+                BoxShadow(
+                  color: Color(0x0D000000),
+                  blurRadius: 16,
+                  offset: Offset(0, -4),
+                ),
+              ],
+      ),
+      child: body,
+    );
+  }
+
+  Widget _buildKeys(
+    BuildContext context,
+    double width,
+    double spacing, {
+    required double keyboardOverlap,
+  }) {
+    final height = math.min(
+      width * 0.75,
+      (MediaQuery.sizeOf(context).height * 0.065).clamp(28.0, 54.0),
+    );
+    if (keyboardOverlap > 0) {
+      // 输入法开始展开时仍占住原数字键区，备注不会先下坠、再被系统键盘推上去。
+      return SizedBox(
+        height: math.max(height * 4 + spacing * 3, keyboardOverlap),
+      );
+    }
+    Widget cell(String value, {double? cellWidth}) => SizedBox(
+      width: cellWidth ?? width,
+      height: height,
+      child: _buildKey(context, value),
+    );
+    Widget splitCell(String left, String right) {
+      final halfWidth = (width - spacing) / 2;
+      return Row(
+        spacing: spacing,
+        children: [
+          cell(left, cellWidth: halfWidth),
+          cell(right, cellWidth: halfWidth),
+        ],
+      );
+    }
+
+    Widget numberRow(List<String> digits, Widget end) => Row(
+      spacing: spacing,
+      children: [...digits.map((digit) => cell(digit)), end],
+    );
+
+    const lowDigits = ['1', '2', '3'];
+    const highDigits = ['7', '8', '9'];
+    final ascending = widget.layout == NumberPadLayout.phone;
+
+    return RepaintBoundary(
+      child: Column(
+        spacing: spacing,
+        children: [
+          numberRow(ascending ? lowDigits : highDigits, cell('⌫')),
+          numberRow(const ['4', '5', '6'], splitCell('+', '-')),
+          numberRow(ascending ? highDigits : lowDigits, splitCell('×', '÷')),
+          Row(
+            spacing: spacing,
+            children: [
+              cell(_inline ? 'AGAIN' : 'C'),
+              cell('0'),
+              cell('.'),
+              cell(_inline && _input.isEmpty ? 'CANCEL' : 'OK'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 单个按键：尺寸由外层 SizedBox 约束，按分组配色。
+  Widget _buildKey(BuildContext context, String value) {
+    final isOk = value == 'OK';
+    final isContinue = value == 'AGAIN';
+    final isSubmit = isOk || isContinue;
+    final isOperator = _operators.contains(value);
+    final isClear = value == 'C' || value == '⌫';
+    final isDot = value == '.';
+    final tokens = VeriStyleTokens.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final keyColor = tokens.surfaceAltColor;
+    final keyTextColor = tokens.inkColor;
+    final canSubmit = _canSubmit && widget.submitEnabled;
+    final enabled =
+        (!isSubmit || canSubmit) && (!isDot || widget.maxFractionDigits > 0);
+    final okDisabledBackground = isDark
+        ? Colors.white.withValues(alpha: 0.10)
+        : Theme.of(context).colorScheme.primary.withValues(alpha: 0.16);
+    final okDisabledForeground = isDark
+        ? Colors.white.withValues(alpha: 0.46)
+        : Theme.of(context).colorScheme.primary.withValues(alpha: 0.56);
+    // 按键分组配色：运算符=主色弱底、清除/退格=语义支出柔底、小数点=琥珀柔底、数字=柔雾底。
+    final Color buttonBackground;
+    final Color buttonForeground;
+    final primary = Theme.of(context).colorScheme.primary;
+    final expense = veriSemantic(context, veriExpense);
+    final warning = veriSemantic(context, veriWarning);
+    if (isOk) {
+      buttonBackground = enabled ? primary : okDisabledBackground;
+      buttonForeground = enabled
+          ? Theme.of(context).colorScheme.onPrimary
+          : okDisabledForeground;
+    } else if (isOperator || isContinue) {
+      buttonBackground = Color.alphaBlend(
+        primary.withValues(alpha: isDark ? 0.24 : 0.12),
+        tokens.cardColor,
+      );
+      buttonForeground = isDark
+          ? Colors.white.withValues(alpha: 0.94)
+          : primary;
+    } else if (isClear) {
+      buttonBackground = Color.alphaBlend(
+        expense.withValues(alpha: isDark ? 0.24 : 0.12),
+        tokens.cardColor,
+      );
+      buttonForeground = isDark ? const Color(0xFFFFAAB6) : expense;
+    } else if (isDot) {
+      buttonBackground = Color.alphaBlend(
+        warning.withValues(alpha: isDark ? 0.24 : 0.14),
+        tokens.cardColor,
+      );
+      buttonForeground = isDark ? veriWarning : warning;
+    } else {
+      buttonBackground = keyColor;
+      buttonForeground = keyTextColor;
+    }
+    final l10n = AppLocalizations.of(context);
+    final label = switch (value) {
+      'OK' when _inline => l10n.commonDone,
+      'OK' => l10n.commonConfirm,
+      'AGAIN' => l10n.entrySaveAndContinue,
+      'C' => l10n.numberPadClear,
+      'CANCEL' => l10n.commonCancel,
+      _ => value,
+    };
+    return FilledButton.tonal(
+      key: isOk
+          ? Key(_inline ? 'save_entry_button' : 'number_pad_ok')
+          : Key('number_key_$value'),
+      style: FilledButton.styleFrom(
+        backgroundColor: buttonBackground,
+        foregroundColor: buttonForeground,
+        disabledBackgroundColor: isOk
+            ? okDisabledBackground
+            : keyColor.withValues(alpha: 0.42),
+        disabledForegroundColor: isOk
+            ? okDisabledForeground
+            : keyTextColor.withValues(alpha: 0.36),
+        minimumSize: Size.zero,
+        padding: EdgeInsets.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(tokens.buttonRadius),
+        ),
+      ),
+      onPressed: enabled ? () => _handleKey(value) : null,
+      onLongPress: _inline && value == '⌫' ? () => _handleKey('C') : null,
+      child: value == '⌫'
+          ? Icon(Icons.backspace_outlined, color: buttonForeground)
+          : Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: buttonForeground,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+    );
+  }
+
+  bool get _canSubmit {
+    final result = _result;
+    if (result == null) {
+      // 空输入在允许零时视为 0（清空后可直接确认为 0，如清除预算/信用额度）；
+      // 非空但算式不完整/无效（如末尾挂着运算符）时才不允许确认。
+      return _input.isEmpty && widget.allowZero;
+    }
+    if (widget.allowNegative) {
+      final isZero = widget.currencyCode == null
+          ? isZeroAmount(result)
+          : isZeroCurrencyAmount(result, widget.currencyCode!);
+      return widget.allowZero || !isZero;
+    }
+    return widget.allowZero ? result >= 0 : result > 0;
+  }
+
+  double get _maxTolerance => widget.currencyCode == null
+      ? 0.0001
+      : currencyAmountTolerance(widget.currencyCode!);
+
+  static const String _operators = '+-×÷';
+
+  /// 当前正在输入的操作数（最后一个运算符之后的片段；首位 `-` 视为负号不算运算符）。
+  String get _currentOperand {
+    final idx = _lastOperatorIndex();
+    return idx < 0 ? _input : _input.substring(idx + 1);
+  }
+
+  int _lastOperatorIndex() {
+    for (var i = _input.length - 1; i >= 0; i--) {
+      final ch = _input[i];
+      if (ch == '+' || ch == '×' || ch == '÷') {
+        return i;
+      }
+      if (ch == '-' && i != 0) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  void _handleKey(String value) {
+    if (value == 'CANCEL') {
+      widget.onCancel?.call();
+      return;
+    }
+    if (value == 'AGAIN') {
+      widget.onContinue?.call(_amount);
+      return;
+    }
+    // 数字键与确认键分两档：确认是一次明确提交，按重一档给反馈。
+    if (value == 'OK') {
+      final max = widget.maxAmount;
+      // 有上限时确认即封顶（配合下方「最多 xxx」提示，超额当场生效、不必等保存）。
+      final result = max != null && _amount > max ? max : _amount;
+      final submit = widget.onSubmitted;
+      if (submit != null) {
+        submit(result);
+      } else {
+        VeriHaptics.commit();
+        Navigator.of(context).pop(result);
+      }
+      return;
+    }
+
+    VeriHaptics.tap();
+    setState(() {
+      if (value == 'C') {
+        _input = '';
+        return;
+      }
+      if (value == '⌫') {
+        if (_input.isNotEmpty) {
+          _input = _input.substring(0, _input.length - 1);
+        }
+        return;
+      }
+      if (_operators.contains(value)) {
+        _appendOperator(value);
+        return;
+      }
+      if (value == '.') {
+        if (widget.maxFractionDigits == 0) {
+          return;
+        }
+        final operand = _currentOperand;
+        if (operand.contains('.')) {
+          return;
+        }
+        // 空操作数与「只有负号」都补前导 0，避免出现 `-.` 这种无效串。
+        _input += operand.isEmpty || operand == '-' ? '0.' : '.';
+        return;
+      }
+      // 数字键：小数位与前导零规则只针对当前操作数。
+      final operand = _currentOperand;
+      if (operand.contains('.')) {
+        final decimalLength = operand.split('.').last.length;
+        if (decimalLength >= widget.maxFractionDigits) {
+          return;
+        }
+      }
+      if (operand == '0') {
+        // 用新数字替换当前操作数的前导零。
+        _input = _input.substring(0, _input.length - 1) + value;
+      } else if (operand == '-0') {
+        _input = '${_input.substring(0, _input.length - 1)}$value';
+      } else {
+        _input += value;
+      }
+    });
+    widget.onAmountChanged?.call(_result);
+  }
+
+  String _formatResult(double value) =>
+      _formatInitialValue(value, widget.maxFractionDigits);
+
+  static String _formatInitialValue(double value, int fractionDigits) {
+    final fixed = value.toStringAsFixed(fractionDigits);
+    if (!fixed.contains('.')) return fixed;
+    return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  /// 追加一个运算符。
+  ///
+  /// 空输入时只有「允许负数」下的 `-` 有意义——作为首位负号写入，其余运算符仍
+  /// 需要左操作数而保持不响应。单独一个 `-` 之后不能再接运算符，否则算式必然
+  /// 不完整。末尾已是运算符则替换，末尾的 `.` 先去掉。
+  void _appendOperator(String op) {
+    if (_input.isEmpty) {
+      if (op == '-' && widget.allowNegative) {
+        _input = '-';
+      }
+      return;
+    }
+    var next = _input;
+    if (next.endsWith('.')) {
+      next = next.substring(0, next.length - 1);
+    }
+    if (next.isEmpty || next == '-') {
+      return;
+    }
+    final last = next[next.length - 1];
+    final endsWithOperator =
+        last == '+' ||
+        last == '×' ||
+        last == '÷' ||
+        (last == '-' && next.length > 1);
+    if (endsWithOperator) {
+      next = next.substring(0, next.length - 1) + op;
+    } else {
+      next += op;
+    }
+    _input = next;
+  }
+}
+
+/// 记账时选择分类的底部弹窗。支持多级分类：父分类可展开/收起，
+/// 子分类缩进显示，点选任意层级的分类（父或子）都会返回其 id。
+/// [CategoryPickerSheet] 选择「移到顶级」时返回的哨兵值（区别于任何真实分类 id）。
+const String categoryPickerTopLevel = '__category_picker_top_level__';
+
+/// [CategoryPickerSheet] 选择「全部分类」时返回的哨兵值（筛选场景用）。
+const String categoryPickerAll = '__category_picker_all__';
+
+/// 分类选择弹层组件体。**勿直接实例化**——统一走 `pages/sheets.dart` 的
+/// `showCategoryPickerSheet`。
+class CategoryPickerSheet extends StatefulWidget {
+  const CategoryPickerSheet({
+    super.key,
+    required this.categories,
+    required this.selectedId,
+    this.title,
+    this.topLevelLabel,
+    this.allLabel,
+  });
+
+  /// 当前类型下的全部分类（含各级子分类），由调用方按类型过滤后传入。
+  final List<Category> categories;
+  final String selectedId;
+
+  /// 弹窗标题；为空时用「全部分类」。
+  final String? title;
+
+  /// 非空时在列表顶部加一个「移到顶级」选项，点选返回 [categoryPickerTopLevel]。
+  final String? topLevelLabel;
+
+  /// 非空时在列表顶部加一个「全部」选项（筛选场景），点选返回 [categoryPickerAll]；
+  /// 当 [selectedId] 为 [categoryPickerAll] 时该项高亮。
+  final String? allLabel;
+
+  @override
+  State<CategoryPickerSheet> createState() => _CategoryPickerSheetState();
+}
+
+class _CategoryPickerSheetState extends State<CategoryPickerSheet> {
+  late final Set<String> _collapsed;
+
+  @override
+  void initState() {
+    super.initState();
+    // 默认展开全部；但收起与当前选中项无关的分支，保持已选项可见。
+    _collapsed = <String>{};
+  }
+
+  /// 按类型分区（支出→收入→转账）并按折叠状态前序展开：每个非空类型前插入一行
+  /// 类型标题，区内根分类保持列表顺序（= 用户在分类页拖拽设置的顺序），子分类缩进。
+  List<_CategoryPickerRow> _buildRows() {
+    final rows = <_CategoryPickerRow>[];
+    final visited = <String>{};
+    void walkChildren(String parentId, int depth) {
+      for (final child in widget.categories.where(
+        (c) => c.parentId == parentId,
+      )) {
+        if (!visited.add(child.id)) {
+          continue;
+        }
+        rows.add(
+          _CategoryPickerRow.node(CategoryNode(category: child, depth: depth)),
+        );
+        final hasKids = widget.categories.any((c) => c.parentId == child.id);
+        if (hasKids && !_collapsed.contains(child.id)) {
+          walkChildren(child.id, depth + 1);
+        }
+      }
+    }
+
+    // 类型顺序固定为 支出→收入→转账；末尾兜底追加任何其它出现过的顶级类型（防御，
+    // 正常不会有 refund 类分类）。
+    final types = <EntryType>[
+      for (final type in const <EntryType>[
+        EntryType.expense,
+        EntryType.income,
+        EntryType.transfer,
+      ])
+        if (widget.categories.any((c) => c.parentId == null && c.type == type))
+          type,
+    ];
+    for (final root in widget.categories.where((c) => c.parentId == null)) {
+      if (!types.contains(root.type)) {
+        types.add(root.type);
+      }
+    }
+
+    for (final type in types) {
+      rows.add(_CategoryPickerRow.header(type));
+      for (final root in widget.categories.where(
+        (c) => c.parentId == null && c.type == type,
+      )) {
+        if (!visited.add(root.id)) {
+          continue;
+        }
+        rows.add(
+          _CategoryPickerRow.node(CategoryNode(category: root, depth: 0)),
+        );
+        final hasKids = widget.categories.any((c) => c.parentId == root.id);
+        if (hasKids && !_collapsed.contains(root.id)) {
+          walkChildren(root.id, 1);
+        }
+      }
+    }
+    return rows;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = _buildRows();
+    // 「全部」「移到顶级」等非分类的元操作项用中性主题色（深浅色自适应），不用蓝色。
+    final metaIconColor = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            widget.title ?? AppLocalizations.of(context).categoryAll,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          if (widget.allLabel != null)
+            ListTile(
+              minTileHeight: 48,
+              dense: true,
+              selected: widget.selectedId == categoryPickerAll,
+              selectedTileColor: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(veriRadiusSm),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+              leading: VeriIconBox(
+                icon: Icons.select_all,
+                color: metaIconColor,
+                size: 32,
+              ),
+              title: Text(
+                widget.allLabel!,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: widget.selectedId == categoryPickerAll
+                      ? FontWeight.w800
+                      : FontWeight.w600,
+                ),
+              ),
+              trailing: widget.selectedId == categoryPickerAll
+                  ? Icon(
+                      Icons.check,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 18,
+                    )
+                  : null,
+              onTap: () {
+                VeriHaptics.tick();
+                Navigator.of(context).pop(categoryPickerAll);
+              },
+            ),
+          if (widget.topLevelLabel != null)
+            ListTile(
+              minTileHeight: 48,
+              dense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+              leading: VeriIconBox(
+                icon: Icons.vertical_align_top,
+                color: metaIconColor,
+                size: 32,
+              ),
+              title: Text(
+                widget.topLevelLabel!,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              onTap: () {
+                VeriHaptics.tick();
+                Navigator.of(context).pop(categoryPickerTopLevel);
+              },
+            ),
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: rows.length,
+              separatorBuilder: (context, index) {
+                // 类型标题行两侧不画分隔线。
+                if (rows[index].isHeader || rows[index + 1].isHeader) {
+                  return const SizedBox.shrink();
+                }
+                return Divider(
+                  height: 1,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.06),
+                );
+              },
+              itemBuilder: (context, index) {
+                final row = rows[index];
+                if (row.isHeader) {
+                  final type = row.headerType!;
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      left: 8,
+                      right: 8,
+                      top: index == 0 ? 2 : 14,
+                      bottom: 4,
+                    ),
+                    child: Text(
+                      type.label(AppLocalizations.of(context)),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colorForType(context, type),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  );
+                }
+                final node = row.node!;
+                final category = node.category;
+                final isSelected = category.id == widget.selectedId;
+                final hasKids = widget.categories.any(
+                  (c) => c.parentId == category.id,
+                );
+                final collapsed = _collapsed.contains(category.id);
+                return Material(
+                  color: isSelected
+                      ? Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(veriRadiusSm),
+                  child: ListTile(
+                    minTileHeight: 48,
+                    dense: true,
+                    contentPadding: EdgeInsets.only(
+                      left: 8 + node.depth * 20,
+                      right: 8,
+                    ),
+                    leading: CategoryIconBox(
+                      iconCode: category.iconCode,
+                      categoryName: category.label,
+                      color: colorForType(context, category.type),
+                      size: 32,
+                    ),
+                    title: Text(
+                      category.label,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: isSelected
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                      ),
+                    ),
+                    trailing: hasKids
+                        ? IconButton(
+                            visualDensity: VisualDensity.compact,
+                            iconSize: 22,
+                            icon: Icon(
+                              collapsed
+                                  ? Icons.chevron_right
+                                  : Icons.expand_more,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.55),
+                            ),
+                            onPressed: () => setState(() {
+                              if (collapsed) {
+                                _collapsed.remove(category.id);
+                              } else {
+                                _collapsed.add(category.id);
+                              }
+                            }),
+                          )
+                        : (isSelected
+                              ? Icon(
+                                  Icons.check,
+                                  color: Theme.of(context).colorScheme.primary,
+                                  size: 18,
+                                )
+                              : null),
+                    onTap: () {
+                      VeriHaptics.tick();
+                      Navigator.of(context).pop(category.id);
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 分类选择弹窗的列表行：要么是一行类型标题（[headerType]），要么是一个分类节点
+/// （[node]）。用于把分类按 支出/收入/转账 分区展示。
+class _CategoryPickerRow {
+  const _CategoryPickerRow.header(EntryType type)
+    : headerType = type,
+      node = null;
+  const _CategoryPickerRow.node(CategoryNode this.node) : headerType = null;
+
+  final EntryType? headerType;
+  final CategoryNode? node;
+
+  bool get isHeader => headerType != null;
+}
+
+/// 记账时给交易多选标签的底部弹窗。展示已有标签的 FilterChip 供多选，
+/// 并可即时新建标签。点「完成」返回选中的标签 id 列表（取消返回 null）。
+/// 标签选择弹层组件体。**勿直接实例化**——统一走 `pages/sheets.dart` 的
+/// `showTagSelectorSheet`。
+class TagSelectorSheet extends StatefulWidget {
+  const TagSelectorSheet({
+    super.key,
+    required this.tags,
+    required this.selectedIds,
+    required this.onCreateTag,
+  });
+
+  final List<Tag> tags;
+  final List<String> selectedIds;
+
+  /// 新建标签：由调用方弹出输入框、创建标签，并返回新标签（重名返回已有，取消返回 null）。
+  final Future<Tag?> Function() onCreateTag;
+
+  @override
+  State<TagSelectorSheet> createState() => _TagSelectorSheetState();
+}
+
+class _TagSelectorSheetState extends State<TagSelectorSheet> {
+  late final Set<String> _selected = <String>{...widget.selectedIds};
+  late List<Tag> _tags = <Tag>[...widget.tags];
+
+  Future<void> _createTag() async {
+    final tag = await widget.onCreateTag();
+    if (!mounted || tag == null) {
+      return;
+    }
+    setState(() {
+      if (!_tags.any((t) => t.id == tag.id)) {
+        _tags = <Tag>[..._tags, tag];
+      }
+      _selected.add(tag.id);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Text(
+                AppLocalizations.of(context).tagPickerTitle,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(_selected.toList()),
+                child: Text(AppLocalizations.of(context).commonDone),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Flexible(
+            child: SingleChildScrollView(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: <Widget>[
+                  for (final tag in _tags)
+                    FilterChip(
+                      label: Text(tag.label),
+                      selected: _selected.contains(tag.id),
+                      onSelected: (value) {
+                        VeriHaptics.tap();
+                        setState(() {
+                          if (value) {
+                            _selected.add(tag.id);
+                          } else {
+                            _selected.remove(tag.id);
+                          }
+                        });
+                      },
+                    ),
+                  ActionChip(
+                    avatar: const Icon(Icons.add, size: 18),
+                    label: Text(AppLocalizations.of(context).tagCreateTitle),
+                    onPressed: _createTag,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

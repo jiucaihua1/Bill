@@ -1,0 +1,58 @@
+import 'package:flutter/material.dart';
+
+import '../app/image_sources.dart';
+import '../app/models.dart';
+
+/// 用户头像：有自定义图则渲染，否则显示叶芽图标。
+/// 我的页、个人资料页共用。
+class ProfileAvatar extends StatelessWidget {
+  const ProfileAvatar({super.key, required this.profile, required this.radius});
+
+  final UserProfile profile;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    if (profile.avatarDataUrl.isNotEmpty) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundImage: imageProviderForSource(profile.avatarDataUrl),
+      );
+    }
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+      child: Icon(
+        Icons.eco_rounded,
+        size: radius * 1.15,
+        color: Theme.of(context).colorScheme.onPrimaryContainer,
+      ),
+    );
+  }
+}
+
+/// 我的页概览的单个统计项（大号数值 + 小标签）。
+class ProfileStat extends StatelessWidget {
+  const ProfileStat({super.key, required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 4),
+        Text(label, style: Theme.of(context).textTheme.labelSmall),
+      ],
+    );
+  }
+}

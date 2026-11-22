@@ -1,0 +1,1199 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:sqflite_common/sqlite_api.dart';
+
+import '../app/account_icon_assets.dart';
+import '../app/models.dart';
+import 'app_database.dart';
+
+/// 账目类全量数据快照。用于「导入/恢复/重置/删账本」这类需要一次性原子替换
+/// 多张表的场景——见 [LedgerRepository.replaceAllLedgerData]。
+class LedgerDataSnapshot {
+  const LedgerDataSnapshot({
+    required this.books,
+    required this.accounts,
+    required this.accountGroups,
+    required this.categories,
+    required this.tags,
+    required this.attachments,
+    required this.entries,
+    required this.recurringRules,
+    required this.monthlyBudgets,
+    required this.categoryBudgets,
+    required this.dailyBudgets,
+    this.exchangeRates = const <ExchangeRate>[],
+  });
+
+  final List<LedgerBook> books;
+  final List<Account> accounts;
+  final List<AccountGroup> accountGroups;
+  final List<Category> categories;
+  final List<Tag> tags;
+  final List<Attachment> attachments;
+  final List<LedgerEntry> entries;
+  final List<RecurringRule> recurringRules;
+  final Map<String, double> monthlyBudgets;
+  final Map<String, double> categoryBudgets;
+  final Map<String, double> dailyBudgets;
+  final List<ExchangeRate> exchangeRates;
+}
+
+/// 账目类数据仓储接口。生产实现为 [SqliteLedgerRepository]；测试可注入内存实现，
+/// 避免真实异步 I/O 与 widget 测试的 fake-async 冲突。
+///
+/// 语义为「整表覆盖」：每次 saveX 以传入列表整体替换该类数据。
+abstract interface class LedgerRepository {
+  Future<List<LedgerEntry>> loadEntries();
+  Future<void> saveEntries(List<LedgerEntry> entries);
+
+  Future<List<LedgerBook>> loadBooks();
+  Future<void> saveBooks(List<LedgerBook> books);
+
+  Future<List<Account>> loadAccounts();
+  Future<void> saveAccounts(List<Account> accounts);
+
+  Future<List<AccountGroup>> loadAccountGroups();
+  Future<void> saveAccountGroups(List<AccountGroup> groups);
+
+  Future<List<Category>> loadCategories();
+  Future<void> saveCategories(List<Category> categories);
+
+  Future<List<Tag>> loadTags();
+  Future<void> saveTags(List<Tag> tags);
+
+  /// 附件元数据（按 sort_order 升序）。
+  ///
+  /// **只读元数据列，绝不 SELECT `data_url`**：旧库里该列可能内嵌几十~上百 MB 的
+  /// base64，整列取回会在冷启动时直接 OOM（Issue 45）。需要旧版 base64 时用
+  /// [loadAttachmentDataUrl] 逐条读取。
+  Future<List<Attachment>> loadAttachments();
+  Future<void> saveAttachments(List<Attachment> attachments);
+
+  /// 读取某附件的旧版 base64（`data_url`）。文件已生成或该行不存在时返回 null。
+  /// 仅迁移期使用：文件缺失时由附件存储层按需物化，成功后清空该列。
+  Future<String?> loadAttachmentDataUrl(String id);
+
+  /// 仍有旧版 base64 待转换的附件 id（按 sort_order 升序），供后台迁移任务消费。
+  Future<List<String>> attachmentIdsWithLegacyData();
+
+  /// 清空某附件的旧版 base64（幂等）。转换成功落盘后才允许调用。
+  Future<void> clearAttachmentDataUrl(String id);
+
+  /// 库里是否还存在旧版 `data_url` 列。迁移全部完成后该列会被物理删除。
+  Future<bool> hasLegacyAttachmentColumn();
+
+  /// 迁移完成后的空间回收：重建附件表去掉 `data_url` 并 VACUUM。
+  ///
+  /// 幂等且保守：列已删除时返回 false；**只要还有任何一行非空 `data_url` 就拒绝执行**，
+  /// 绝不在旧字节尚未落盘的窗口里删列。返回是否真的重建了表。
+  Future<bool> dropLegacyAttachmentData();
+
+  /// Replaces entries, attachments and optional exchange rates in one transaction.
+  Future<void> saveEntryAggregate({
+    required List<LedgerEntry> entries,
+    required List<Attachment> attachments,
+    List<ExchangeRate>? exchangeRates,
+  });
+
+  Future<List<RecurringRule>> loadRecurringRules();
+  Future<void> saveRecurringRules(List<RecurringRule> rules);
+
+  /// Persists generated recurring entries and advanced rules atomically.
+  Future<void> saveRecurringGeneration({
+    required List<LedgerEntry> entries,
+    required List<RecurringRule> recurringRules,
+  });
+
+  Future<List<ExchangeRate>> loadExchangeRates();
+  Future<void> saveExchangeRates(List<ExchangeRate> rates);
+
+  Future<Map<String, double>> loadMonthlyBudgets();
+  Future<void> saveMonthlyBudgets(Map<String, double> budgets);
+
+  Future<Map<String, double>> loadCategoryBudgets();
+  Future<void> saveCategoryBudgets(Map<String, double> budgets);
+
+  Future<Map<String, double>> loadDailyBudgets();
+  Future<void> saveDailyBudgets(Map<String, double> budgets);
+
+  /// 在单个事务中保存三张预算表，供预算设置页一次性提交草稿。
+  Future<void> saveBudgetSettings({
+    required Map<String, double> monthlyBudgets,
+    required Map<String, double> categoryBudgets,
+    required Map<String, double> dailyBudgets,
+  });
+
+  /// 在单个数据库事务中整体替换全部账目类表。用于导入/恢复/重置/删账本：
+  /// 保证跨表一致——中途失败会整体回滚，不会留下「entries 已换、accounts 还是旧的」
+  /// 这类孤儿引用状态。
+  Future<void> replaceAllLedgerData(LedgerDataSnapshot snapshot);
+
+  Future<bool> hasAnyData();
+}
+
+/// 基于 SQLite 的仓储实现。列表顺序通过 sort_order 列保留（entries 除外，其顺序
+/// 由 occurred_at 决定）。
+///
+/// 写入策略：交易/账本/账户/分组/分类/标签/周期规则/汇率走**行级差分**（[_incrementalReplace]）
+/// ——只写与内存基线快照不同的行，避免单条改动就重写整表（entries 随交易量无限增长，
+/// 是写放大主因）。附件（含大 blob）与预算（极小）仍整表覆盖。saveX 的对外语义不变：
+/// 落库后该表内容 == 传入列表。导入/恢复/重置走 [replaceAllLedgerData] 多表原子整替。
+class SqliteLedgerRepository implements LedgerRepository {
+  SqliteLedgerRepository(this._database);
+
+  final AppDatabase _database;
+  Database get _db => _database.db;
+
+  /// 串行化本仓储的全部写入。sqflite 会串行执行底层事务，但行级差分快照在
+  /// 事务开始前就会读取；若两个 saveX 同时进入，后一个会基于旧快照计算差分，
+  /// 可能把“刚新增后立即删除”误判为无需写入。这里把“读取快照 → 写事务 → 更新
+  /// 快照”整个临界区排成队列，同时让失败只结束当前调用、不阻塞后续写入。
+  Future<void> _writeTail = Future<void>.value();
+
+  Future<T> _enqueueWrite<T>(Future<T> Function() operation) {
+    final completer = Completer<T>();
+    _writeTail = _writeTail.then((_) async {
+      try {
+        completer.complete(await operation());
+      } catch (error, stackTrace) {
+        completer.completeError(error, stackTrace);
+      }
+    });
+    return completer.future;
+  }
+
+  // ---- 交易 ----
+
+  @override
+  Future<List<LedgerEntry>> loadEntries() async {
+    final rows = await _db.query(
+      'entries',
+      orderBy: 'occurred_at DESC, id DESC',
+    );
+    final entries = rows.map(_entryFromRow).toList();
+    _seedSnapshot('entries', entries.map(_entryToRow));
+    return entries;
+  }
+
+  @override
+  Future<void> saveEntries(List<LedgerEntry> entries) {
+    final snapshot = List<LedgerEntry>.of(entries);
+    return _enqueueWrite(
+      () => _incrementalReplace('entries', snapshot.map(_entryToRow)),
+    );
+  }
+
+  // ---- 账本 ----
+
+  @override
+  Future<List<LedgerBook>> loadBooks() async {
+    final rows = await _db.query('ledger_books', orderBy: 'sort_order ASC');
+    final books = rows.map(_bookFromRow).toList();
+    _seedSnapshot('ledger_books', _indexed(books, _bookToRow));
+    return books;
+  }
+
+  @override
+  Future<void> saveBooks(List<LedgerBook> books) {
+    final snapshot = List<LedgerBook>.of(books);
+    return _enqueueWrite(
+      () => _incrementalReplace('ledger_books', _indexed(snapshot, _bookToRow)),
+    );
+  }
+
+  // ---- 账户 ----
+
+  @override
+  Future<List<Account>> loadAccounts() async {
+    final rows = await _db.query('accounts', orderBy: 'sort_order ASC');
+    final accounts = rows.map(_accountFromRow).toList();
+    _seedSnapshot('accounts', _indexed(accounts, _accountToRow));
+    return accounts;
+  }
+
+  @override
+  Future<void> saveAccounts(List<Account> accounts) {
+    final snapshot = List<Account>.of(accounts);
+    return _enqueueWrite(
+      () => _incrementalReplace('accounts', _indexed(snapshot, _accountToRow)),
+    );
+  }
+
+  // ---- 账户分组 ----
+
+  @override
+  Future<List<AccountGroup>> loadAccountGroups() async {
+    final rows = await _db.query('account_groups', orderBy: 'sort_order ASC');
+    final groups = rows.map(_groupFromRow).toList();
+    _seedSnapshot('account_groups', groups.map(_groupToRow));
+    return groups;
+  }
+
+  @override
+  Future<void> saveAccountGroups(List<AccountGroup> groups) {
+    final snapshot = List<AccountGroup>.of(groups);
+    return _enqueueWrite(
+      () => _incrementalReplace('account_groups', snapshot.map(_groupToRow)),
+    );
+  }
+
+  // ---- 分类 ----
+
+  @override
+  Future<List<Category>> loadCategories() async {
+    final rows = await _db.query('categories', orderBy: 'sort_order ASC');
+    final categories = rows.map(_categoryFromRow).toList();
+    _seedSnapshot('categories', _indexed(categories, _categoryToRow));
+    return categories;
+  }
+
+  @override
+  Future<void> saveCategories(List<Category> categories) {
+    final snapshot = List<Category>.of(categories);
+    return _enqueueWrite(
+      () =>
+          _incrementalReplace('categories', _indexed(snapshot, _categoryToRow)),
+    );
+  }
+
+  // ---- 标签 ----
+
+  @override
+  Future<List<Tag>> loadTags() async {
+    final rows = await _db.query('tags', orderBy: 'sort_order ASC');
+    final tags = rows.map(_tagFromRow).toList();
+    _seedSnapshot('tags', _indexed(tags, _tagToRow));
+    return tags;
+  }
+
+  @override
+  Future<void> saveTags(List<Tag> tags) {
+    final snapshot = List<Tag>.of(tags);
+    return _enqueueWrite(
+      () => _incrementalReplace('tags', _indexed(snapshot, _tagToRow)),
+    );
+  }
+
+  // ---- 图片附件 ----
+
+  @override
+  Future<List<Attachment>> loadAttachments() async {
+    // 只读元数据列：`data_url` 可能还存着内嵌 base64 的历史图片，整列取回会让
+    // 冷启动内存随附件总量增长（Issue 45 的崩溃点）。旧字节只在迁移期按需逐条读。
+    final rows = await _db.query(
+      'attachments',
+      columns: _attachmentColumns,
+      orderBy: 'sort_order ASC',
+    );
+    return rows.map(_attachmentFromRow).toList();
+  }
+
+  @override
+  Future<void> saveAttachments(List<Attachment> attachments) {
+    final snapshot = List<Attachment>.of(attachments);
+    return _enqueueWrite(
+      () => _db.transaction(
+        (txn) =>
+            _replaceAttachmentsInTxn(txn, _indexed(snapshot, _attachmentToRow)),
+      ),
+    );
+  }
+
+  @override
+  Future<String?> loadAttachmentDataUrl(String id) async {
+    if (!await hasLegacyAttachmentColumn()) {
+      return null;
+    }
+    final rows = await _db.query(
+      'attachments',
+      columns: const <String>['data_url'],
+      where: 'id = ?',
+      whereArgs: <Object?>[id],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return rows.first['data_url'] as String?;
+  }
+
+  @override
+  Future<List<String>> attachmentIdsWithLegacyData() async {
+    if (!await hasLegacyAttachmentColumn()) {
+      return const <String>[];
+    }
+    final rows = await _db.query(
+      'attachments',
+      columns: const <String>['id'],
+      where: "data_url IS NOT NULL AND data_url != ''",
+      orderBy: 'sort_order ASC',
+    );
+    return rows.map((row) => row['id'] as String).toList(growable: false);
+  }
+
+  @override
+  Future<void> clearAttachmentDataUrl(String id) {
+    return _enqueueWrite(() async {
+      // 列可能已经在空间回收时被物理删除：那样就没有旧字节可清，直接跳过。
+      if (!await hasLegacyAttachmentColumn()) {
+        return;
+      }
+      await _db.update(
+        'attachments',
+        <String, Object?>{'data_url': null},
+        where: 'id = ?',
+        whereArgs: <Object?>[id],
+      );
+    });
+  }
+
+  /// `data_url` 列是否还存在；null 表示尚未探测。迁移期每张图片都要问一次，必须缓存。
+  bool? _legacyAttachmentColumnKnown;
+
+  @override
+  Future<bool> hasLegacyAttachmentColumn() async {
+    final cached = _legacyAttachmentColumnKnown;
+    if (cached != null) {
+      return cached;
+    }
+    final rows = await _db.rawQuery('PRAGMA table_info(attachments)');
+    final present = rows.any((row) => row['name'] == 'data_url');
+    _legacyAttachmentColumnKnown = present;
+    return present;
+  }
+
+  @override
+  Future<bool> dropLegacyAttachmentData() {
+    return _enqueueWrite(() async {
+      if (!await hasLegacyAttachmentColumn()) {
+        return false;
+      }
+      final rows = await _db.rawQuery(
+        "SELECT COUNT(*) AS c FROM attachments "
+        "WHERE data_url IS NOT NULL AND data_url != ''",
+      );
+      if ((rows.first['c'] as num?)?.toInt() != 0) {
+        // 还有没落盘的旧字节：保留整列，下次启动继续迁移，绝不在这里删数据。
+        return false;
+      }
+      await _db.transaction((txn) async {
+        await txn.execute(
+          'CREATE TABLE attachments_reclaimed ('
+          'id TEXT PRIMARY KEY, entry_id TEXT NOT NULL, '
+          'sort_order INTEGER NOT NULL, mime_type TEXT NOT NULL, '
+          'byte_size INTEGER NOT NULL)',
+        );
+        await txn.execute(
+          'INSERT INTO attachments_reclaimed '
+          '(id, entry_id, sort_order, mime_type, byte_size) '
+          'SELECT id, entry_id, sort_order, mime_type, byte_size '
+          'FROM attachments',
+        );
+        await txn.execute('DROP TABLE attachments');
+        await txn.execute(
+          'ALTER TABLE attachments_reclaimed RENAME TO attachments',
+        );
+        await txn.execute(
+          'CREATE INDEX IF NOT EXISTS idx_attachments_entry '
+          'ON attachments (entry_id)',
+        );
+      });
+      _legacyAttachmentColumnKnown = false;
+      // VACUUM 不能在事务内执行；它只归还空间，失败（如磁盘不足）不影响数据正确性，
+      // 列已删除、元数据完好，下次启动还会再试。
+      await _db.execute('VACUUM');
+      return true;
+    });
+  }
+
+  /// 交易与附件在同一事务内提交，保留跨表原子性：交易走行级差分（只写变化行），
+  /// 附件含大 blob 仍整表覆盖。差分基线必须在事务提交成功后写入，否则回滚会留下
+  /// 与 DB 不符的快照。
+  @override
+  Future<void> saveEntryAggregate({
+    required List<LedgerEntry> entries,
+    required List<Attachment> attachments,
+    List<ExchangeRate>? exchangeRates,
+  }) {
+    final entrySnapshot = List<LedgerEntry>.of(entries);
+    final attachmentSnapshot = List<Attachment>.of(attachments);
+    final rateSnapshot = exchangeRates == null
+        ? null
+        : List<ExchangeRate>.of(exchangeRates);
+    return _enqueueWrite(() async {
+      // entries 行映射昂贵且随行数增长：同一份行映射同时供差分与事务后的基线快照复用。
+      final entryRows = entrySnapshot.map(_entryToRow).toList(growable: false);
+      final rateRows = rateSnapshot
+          ?.map(_exchangeRateToRow)
+          .toList(growable: false);
+      final entryDiff = _diffRows(_rowSnapshots['entries'], _byId(entryRows));
+      await _db.transaction((txn) async {
+        await _applyRowDiffInTxn(txn, 'entries', entryDiff);
+        await _replaceAttachmentsInTxn(
+          txn,
+          _indexed(attachmentSnapshot, _attachmentToRow),
+        );
+        if (rateRows != null) {
+          await _replaceInTxn(txn, 'exchange_rates', rateRows);
+        }
+      });
+      _seedSnapshot('entries', entryRows);
+      if (rateRows != null) {
+        _seedSnapshot('exchange_rates', rateRows);
+      }
+    });
+  }
+
+  // ---- 周期记账规则 ----
+
+  @override
+  Future<List<RecurringRule>> loadRecurringRules() async {
+    final rows = await _db.query('recurring_rules', orderBy: 'sort_order ASC');
+    final rules = rows.map(_recurringFromRow).toList();
+    _seedSnapshot('recurring_rules', _indexed(rules, _recurringToRow));
+    return rules;
+  }
+
+  @override
+  Future<void> saveRecurringRules(List<RecurringRule> rules) {
+    final snapshot = List<RecurringRule>.of(rules);
+    return _enqueueWrite(
+      () => _incrementalReplace(
+        'recurring_rules',
+        _indexed(snapshot, _recurringToRow),
+      ),
+    );
+  }
+
+  @override
+  Future<void> saveRecurringGeneration({
+    required List<LedgerEntry> entries,
+    required List<RecurringRule> recurringRules,
+  }) {
+    final entrySnapshot = List<LedgerEntry>.of(entries);
+    final ruleSnapshot = List<RecurringRule>.of(recurringRules);
+    return _enqueueWrite(() async {
+      await _db.transaction((txn) async {
+        await _replaceInTxn(txn, 'entries', entrySnapshot.map(_entryToRow));
+        await _replaceInTxn(
+          txn,
+          'recurring_rules',
+          _indexed(ruleSnapshot, _recurringToRow),
+        );
+      });
+      _seedSnapshot('entries', entrySnapshot.map(_entryToRow));
+      _seedSnapshot('recurring_rules', _indexed(ruleSnapshot, _recurringToRow));
+    });
+  }
+
+  // ---- 本地汇率 ----
+
+  @override
+  Future<List<ExchangeRate>> loadExchangeRates() async {
+    final rows = await _db.query(
+      'exchange_rates',
+      orderBy: 'currency_code ASC, effective_date DESC, id DESC',
+    );
+    final rates = rows.map(_exchangeRateFromRow).toList();
+    _seedSnapshot('exchange_rates', rates.map(_exchangeRateToRow));
+    return rates;
+  }
+
+  @override
+  Future<void> saveExchangeRates(List<ExchangeRate> rates) {
+    final snapshot = List<ExchangeRate>.of(rates);
+    return _enqueueWrite(
+      () => _incrementalReplace(
+        'exchange_rates',
+        snapshot.map(_exchangeRateToRow),
+      ),
+    );
+  }
+
+  // ---- 预算（键值对：月度 / 分类）----
+
+  @override
+  Future<Map<String, double>> loadMonthlyBudgets() =>
+      _loadBudgetMap('monthly_budgets');
+
+  @override
+  Future<void> saveMonthlyBudgets(Map<String, double> budgets) {
+    final snapshot = Map<String, double>.of(budgets);
+    return _enqueueWrite(() => _saveBudgetMap('monthly_budgets', snapshot));
+  }
+
+  @override
+  Future<Map<String, double>> loadCategoryBudgets() =>
+      _loadBudgetMap('category_budgets');
+
+  @override
+  Future<void> saveCategoryBudgets(Map<String, double> budgets) {
+    final snapshot = Map<String, double>.of(budgets);
+    return _enqueueWrite(() => _saveBudgetMap('category_budgets', snapshot));
+  }
+
+  @override
+  Future<Map<String, double>> loadDailyBudgets() =>
+      _loadBudgetMap('daily_budgets');
+
+  @override
+  Future<void> saveDailyBudgets(Map<String, double> budgets) {
+    final snapshot = Map<String, double>.of(budgets);
+    return _enqueueWrite(() => _saveBudgetMap('daily_budgets', snapshot));
+  }
+
+  @override
+  Future<void> saveBudgetSettings({
+    required Map<String, double> monthlyBudgets,
+    required Map<String, double> categoryBudgets,
+    required Map<String, double> dailyBudgets,
+  }) {
+    final monthlySnapshot = Map<String, double>.of(monthlyBudgets);
+    final categorySnapshot = Map<String, double>.of(categoryBudgets);
+    final dailySnapshot = Map<String, double>.of(dailyBudgets);
+    return _enqueueWrite(() async {
+      await _db.transaction((txn) async {
+        await _replaceInTxn(
+          txn,
+          'monthly_budgets',
+          _budgetRows(monthlySnapshot),
+        );
+        await _replaceInTxn(
+          txn,
+          'category_budgets',
+          _budgetRows(categorySnapshot),
+        );
+        await _replaceInTxn(txn, 'daily_budgets', _budgetRows(dailySnapshot));
+      });
+    });
+  }
+
+  @override
+  Future<void> replaceAllLedgerData(LedgerDataSnapshot snapshot) {
+    return _enqueueWrite(() async {
+      // 全部表在同一事务内清空重建：任一步失败即整体回滚，绝不留半新半旧状态。
+      await _db.transaction((txn) async {
+        await _replaceInTxn(
+          txn,
+          'ledger_books',
+          _indexed(snapshot.books, _bookToRow),
+        );
+        await _replaceInTxn(
+          txn,
+          'accounts',
+          _indexed(snapshot.accounts, _accountToRow),
+        );
+        await _replaceInTxn(
+          txn,
+          'account_groups',
+          snapshot.accountGroups.map(_groupToRow),
+        );
+        await _replaceInTxn(
+          txn,
+          'categories',
+          _indexed(snapshot.categories, _categoryToRow),
+        );
+        await _replaceInTxn(txn, 'tags', _indexed(snapshot.tags, _tagToRow));
+        // 附件表专用整替：整账本重建（导入/恢复/重置/删账本/启动自愈）也会保留未被
+        // 删除行的 `data_url`。其它表都是模型数据的完整投影，唯独该列可能还承载
+        // 尚未迁移的旧版 base64 图片，按普通整替重插会把用户的图片直接丢掉。
+        await _replaceAttachmentsInTxn(
+          txn,
+          _indexed(snapshot.attachments, _attachmentToRow),
+        );
+        await _replaceInTxn(txn, 'entries', snapshot.entries.map(_entryToRow));
+        await _replaceInTxn(
+          txn,
+          'recurring_rules',
+          _indexed(snapshot.recurringRules, _recurringToRow),
+        );
+        await _replaceInTxn(
+          txn,
+          'monthly_budgets',
+          _budgetRows(snapshot.monthlyBudgets),
+        );
+        await _replaceInTxn(
+          txn,
+          'category_budgets',
+          _budgetRows(snapshot.categoryBudgets),
+        );
+        await _replaceInTxn(
+          txn,
+          'daily_budgets',
+          _budgetRows(snapshot.dailyBudgets),
+        );
+        await _replaceInTxn(
+          txn,
+          'exchange_rates',
+          snapshot.exchangeRates.map(_exchangeRateToRow),
+        );
+      });
+      // 整替后重建各增量表基线，使后续单条 saveX 的差分有正确起点（否则会拿导入前
+      // 的旧快照去 diff、误删或漏写）。附件/预算不走增量、无需重置。
+      _seedSnapshot('ledger_books', _indexed(snapshot.books, _bookToRow));
+      _seedSnapshot('accounts', _indexed(snapshot.accounts, _accountToRow));
+      _seedSnapshot('account_groups', snapshot.accountGroups.map(_groupToRow));
+      _seedSnapshot(
+        'categories',
+        _indexed(snapshot.categories, _categoryToRow),
+      );
+      _seedSnapshot('tags', _indexed(snapshot.tags, _tagToRow));
+      _seedSnapshot('entries', snapshot.entries.map(_entryToRow));
+      _seedSnapshot(
+        'recurring_rules',
+        _indexed(snapshot.recurringRules, _recurringToRow),
+      );
+      _seedSnapshot(
+        'exchange_rates',
+        snapshot.exchangeRates.map(_exchangeRateToRow),
+      );
+    });
+  }
+
+  /// 是否已存在任何账目数据（用于判断迁移是否有内容写入）。
+  @override
+  Future<bool> hasAnyData() async {
+    for (final table in const <String>[
+      'entries',
+      'ledger_books',
+      'accounts',
+      'account_groups',
+      'categories',
+      'exchange_rates',
+    ]) {
+      final rows = await _db.rawQuery('SELECT COUNT(*) AS c FROM $table');
+      final count = (rows.first['c'] as int?) ?? 0;
+      if (count > 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // ---- 增量写：按主键 id 的行级差分 ----
+
+  /// 每张「增量表」在内存里保留上次落库的行快照（id → 规范化行）。saveX 时据此
+  /// 算出真正变化的行（新增/改动/删除），只写这些行，避免每次单条改动就 DELETE
+  /// 整表再全量 INSERT（entries 表随交易量无限增长，是写放大的主因）。
+  ///
+  /// 语义与整表覆盖完全一致——落库后 DB 内容 == 传入列表；只是实现为「差分应用」。
+  /// 附件表（含大 JPEG blob，缓存整行会成倍占内存）与预算表（极小、少写）不走此路，
+  /// 仍用整表覆盖。导入/恢复/重置走 [replaceAllLedgerData]（多表原子整替）。
+  final Map<String, Map<Object, Map<String, Object?>>> _rowSnapshots =
+      <String, Map<Object, Map<String, Object?>>>{};
+
+  /// 记录某表当前 DB 内容为基线快照（键为行的 id 列）。loadX 载入后、
+  /// replaceAllLedgerData 整替后调用，使后续差分有正确基线。
+  void _seedSnapshot(String table, Iterable<Map<String, Object?>> rows) {
+    _rowSnapshots[table] = _byId(rows);
+  }
+
+  /// 以行的 id 列为键建立索引；差分与基线快照共用同一份键规则。
+  static Map<Object, Map<String, Object?>> _byId(
+    Iterable<Map<String, Object?>> rows,
+  ) => <Object, Map<String, Object?>>{
+    for (final row in rows) row['id'] as Object: row,
+  };
+
+  /// 以 [rows] 差分更新 [table]：只写与基线快照不同的行。无基线（未 load 过）时
+  /// 退化为一次整表覆盖并建立基线；无任何变化则不发生写入。
+  Future<void> _incrementalReplace(
+    String table,
+    Iterable<Map<String, Object?>> rows,
+  ) async {
+    final diff = _diffRows(_rowSnapshots[table], _byId(rows));
+    if (diff.isEmpty) {
+      return;
+    }
+    await _db.transaction((txn) => _applyRowDiffInTxn(txn, table, diff));
+    _rowSnapshots[table] = diff.baseline;
+  }
+
+  /// 相对基线 [prev] 计算 [next] 的行级差分。基线缺失时只能整表覆盖：仅靠 upsert
+  /// 无法删掉库里存在、传入列表里没有的行。
+  static _RowDiff _diffRows(
+    Map<Object, Map<String, Object?>>? prev,
+    Map<Object, Map<String, Object?>> next,
+  ) {
+    if (prev == null) {
+      return _RowDiff(
+        upsert: next.values.toList(growable: false),
+        deleteIds: const <Object>[],
+        baseline: next,
+        fullReplace: true,
+      );
+    }
+    final upsert = <Map<String, Object?>>[];
+    next.forEach((id, row) {
+      final old = prev[id];
+      if (old == null || !_sameRow(old, row)) {
+        upsert.add(row);
+      }
+    });
+    return _RowDiff(
+      upsert: upsert,
+      deleteIds: <Object>[
+        for (final id in prev.keys)
+          if (!next.containsKey(id)) id,
+      ],
+      baseline: next,
+      fullReplace: false,
+    );
+  }
+
+  /// 在调用方给定的事务内应用差分。供 [_incrementalReplace]（单表自建事务）与
+  /// [saveEntryAggregate]（多表共享事务）复用；原子性由该事务保证。
+  static Future<void> _applyRowDiffInTxn(
+    Transaction txn,
+    String table,
+    _RowDiff diff,
+  ) async {
+    if (diff.fullReplace) {
+      await txn.delete(table);
+    }
+    for (final row in diff.upsert) {
+      // 用主键 UPDATE 更新已有行，只有确实不存在时才 INSERT。不能使用
+      // INSERT OR REPLACE：它会把其它唯一索引冲突也当成“替换”，静默删除
+      // 同名的分类/标签行。
+      final updated = await txn.update(
+        table,
+        row,
+        where: 'id = ?',
+        whereArgs: <Object?>[row['id']],
+      );
+      if (updated == 0) {
+        await txn.insert(
+          table,
+          row,
+          conflictAlgorithm: ConflictAlgorithm.abort,
+        );
+      }
+    }
+    final batch = txn.batch();
+    for (final id in diff.deleteIds) {
+      batch.delete(table, where: 'id = ?', whereArgs: <Object>[id]);
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// 行相等：列数与每列值都相等（列值均为 String/int/double/null，`!=` 即可）。
+  static bool _sameRow(Map<String, Object?> a, Map<String, Object?> b) {
+    if (a.length != b.length) {
+      return false;
+    }
+    for (final entry in a.entries) {
+      if (!b.containsKey(entry.key) || b[entry.key] != entry.value) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // ---- 内部工具 ----
+
+  Future<void> _replaceAll(
+    String table,
+    Iterable<Map<String, Object?>> rows,
+  ) async {
+    await _db.transaction((txn) async {
+      await _replaceInTxn(txn, table, rows);
+    });
+  }
+
+  /// 在给定事务执行器内清空并重建单表。供 [_replaceAll]（单表）与
+  /// [replaceAllLedgerData]（多表共享一个事务）复用。
+  Future<void> _replaceInTxn(
+    Transaction txn,
+    String table,
+    Iterable<Map<String, Object?>> rows,
+  ) async {
+    final rowList = rows.toList();
+    await txn.delete(table);
+    final batch = txn.batch();
+    for (final row in rowList) {
+      batch.insert(table, row, conflictAlgorithm: ConflictAlgorithm.abort);
+    }
+    await batch.commit(noResult: true);
+  }
+
+  static Iterable<Map<String, Object?>> _budgetRows(
+    Map<String, double> budgets,
+  ) => budgets.entries.map(
+    (entry) => <String, Object?>{'scope_key': entry.key, 'amount': entry.value},
+  );
+
+  /// 附件表专用整替：对外语义不变（落库后元数据内容 == 传入列表），但对仍保留的同一
+  /// id 只更新元数据列，**不触碰 `data_url`**。原因：迁移期附件字节可能还只在
+  /// `data_url` 里、文件尚未生成，若按普通整表覆盖重插会把未转换的 base64 丢掉。
+  ///
+  /// [saveAttachments]、`saveEntryAggregate` 与 [replaceAllLedgerData] 都走这里；
+  /// 导入/恢复时附件文件已先落盘、读取优先文件，因此残留的旧 `data_url` 不参与展示，
+  /// 只在文件缺失时兜底。
+  static Future<void> _replaceAttachmentsInTxn(
+    Transaction txn,
+    Iterable<Map<String, Object?>> rows,
+  ) async {
+    final rowList = rows.toList(growable: false);
+    final keepIds = <Object?>{for (final row in rowList) row['id']};
+    final existing = await txn.query(
+      'attachments',
+      columns: const <String>['id'],
+    );
+    final batch = txn.batch();
+    for (final row in existing) {
+      if (!keepIds.contains(row['id'])) {
+        batch.delete(
+          'attachments',
+          where: 'id = ?',
+          whereArgs: <Object?>[row['id']],
+        );
+      }
+    }
+    for (final row in rowList) {
+      batch.rawInsert(
+        'INSERT INTO attachments (id, entry_id, sort_order, mime_type, byte_size) '
+        'VALUES (?, ?, ?, ?, ?) '
+        'ON CONFLICT(id) DO UPDATE SET '
+        'entry_id = excluded.entry_id, '
+        'sort_order = excluded.sort_order, '
+        'mime_type = excluded.mime_type, '
+        'byte_size = excluded.byte_size',
+        <Object?>[
+          row['id'],
+          row['entry_id'],
+          row['sort_order'],
+          row['mime_type'],
+          row['byte_size'],
+        ],
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  Future<Map<String, double>> _loadBudgetMap(String table) async {
+    final rows = await _db.query(table);
+    return <String, double>{
+      for (final row in rows)
+        row['scope_key'] as String: (row['amount'] as num).toDouble(),
+    };
+  }
+
+  Future<void> _saveBudgetMap(String table, Map<String, double> budgets) async {
+    await _replaceAll(table, _budgetRows(budgets));
+  }
+
+  /// 为有序列表补充 sort_order 列（值为列表下标）。
+  static Iterable<Map<String, Object?>> _indexed<T>(
+    List<T> items,
+    Map<String, Object?> Function(T item, int index) toRow,
+  ) {
+    return items.indexed.map((item) => toRow(item.$2, item.$1));
+  }
+
+  // ---- 行映射 ----
+
+  static Map<String, Object?> _entryToRow(LedgerEntry e) => <String, Object?>{
+    'id': e.id,
+    'book_id': e.bookId,
+    'type': e.type.storageValue,
+    'amount': e.amount,
+    'currency_code': e.currencyCode,
+    'account_amount': e.accountAmount,
+    'to_account_amount': e.toAccountAmount,
+    'base_amount': e.baseAmount,
+    'conversion_source': e.conversionSource.name,
+    'category_id': e.categoryId,
+    'account_id': e.accountId,
+    'to_account_id': e.toAccountId,
+    'note': e.note,
+    'occurred_at': e.occurredAt.millisecondsSinceEpoch,
+    // 标签 id 列表以 JSON 数组存单列（整表覆盖式读写，无需关联表）。
+    'tag_ids': e.tagIds.isEmpty ? null : jsonEncode(e.tagIds),
+    'fee': e.fee,
+    'reimbursable': e.reimbursable ? 1 : 0,
+    'excluded_from_budget': e.excludedFromBudget ? 1 : 0,
+    'refunded_amount': e.refundedBaseAmount,
+    'refund_of': e.refundOf,
+    'settled_at': e.settledAt?.millisecondsSinceEpoch,
+  };
+
+  static LedgerEntry _entryFromRow(Map<String, Object?> row) => LedgerEntry(
+    id: row['id'] as String,
+    bookId: row['book_id'] as String,
+    type: EntryType.fromStorage(row['type'] as String),
+    amount: (row['amount'] as num).toDouble(),
+    currencyCode: row['currency_code'] as String? ?? defaultCurrencyCode,
+    accountAmount: (row['account_amount'] as num?)?.toDouble(),
+    toAccountAmount: (row['to_account_amount'] as num?)?.toDouble(),
+    baseAmount: (row['base_amount'] as num?)?.toDouble() ?? 0,
+    conversionSource: ConversionSource.fromStorage(
+      row['conversion_source'] as String?,
+    ),
+    categoryId: row['category_id'] as String,
+    accountId: row['account_id'] as String,
+    toAccountId: row['to_account_id'] as String?,
+    note: row['note'] as String? ?? '',
+    occurredAt: DateTime.fromMillisecondsSinceEpoch(row['occurred_at'] as int),
+    tagIds: _decodeTagIds(row['tag_ids']),
+    fee: (row['fee'] as num?)?.toDouble() ?? 0,
+    reimbursable: ((row['reimbursable'] as int?) ?? 0) != 0,
+    excludedFromBudget: ((row['excluded_from_budget'] as int?) ?? 0) != 0,
+    refundedBaseAmount: (row['refunded_amount'] as num?)?.toDouble() ?? 0,
+    refundOf: row['refund_of'] as String?,
+    settledAt: row['settled_at'] == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(row['settled_at'] as int),
+  );
+
+  static List<String> _decodeTagIds(Object? raw) {
+    if (raw is String && raw.isNotEmpty) {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded.map((e) => e.toString()).toList(growable: false);
+      }
+    }
+    return const <String>[];
+  }
+
+  static Map<String, Object?> _tagToRow(Tag t, int index) => <String, Object?>{
+    'id': t.id,
+    'book_id': t.bookId,
+    'label': t.label,
+    'sort_order': index,
+  };
+
+  static Tag _tagFromRow(Map<String, Object?> row) => Tag(
+    id: row['id'] as String,
+    bookId: row['book_id'] as String,
+    label: row['label'] as String,
+  );
+
+  /// 附件元数据列。**任何读取路径都不得把它换成 `SELECT *`**：`data_url` 里可能
+  /// 还留着旧版内嵌 base64 图片，整列取回会让内存随附件总量增长（Issue 45）。
+  static const List<String> _attachmentColumns = <String>[
+    'id',
+    'entry_id',
+    'sort_order',
+    'mime_type',
+    'byte_size',
+  ];
+
+  static Map<String, Object?> _attachmentToRow(Attachment a, int index) =>
+      <String, Object?>{
+        'id': a.id,
+        'entry_id': a.entryId,
+        'sort_order': index,
+        'mime_type': a.mimeType,
+        'byte_size': a.byteSize,
+      };
+
+  static Attachment _attachmentFromRow(Map<String, Object?> row) => Attachment(
+    id: row['id'] as String,
+    entryId: row['entry_id'] as String,
+    mimeType: row['mime_type'] as String? ?? 'image/jpeg',
+    byteSize: (row['byte_size'] as num?)?.toInt() ?? 0,
+  );
+
+  static Map<String, Object?> _recurringToRow(RecurringRule r, int index) =>
+      <String, Object?>{
+        'id': r.id,
+        'book_id': r.bookId,
+        'type': r.type.storageValue,
+        'amount': r.amount,
+        'currency_code': r.currencyCode,
+        'account_amount': r.accountAmount,
+        'to_account_amount': r.toAccountAmount,
+        'base_amount': r.baseAmount,
+        'rate_policy': r.ratePolicy.name,
+        'category_id': r.categoryId,
+        'account_id': r.accountId,
+        'to_account_id': r.toAccountId,
+        'note': r.note,
+        'frequency': r.frequency.storageValue,
+        'start_date': r.startDate.millisecondsSinceEpoch,
+        'next_run_date': r.nextRunDate.millisecondsSinceEpoch,
+        'active': r.active ? 1 : 0,
+        'sort_order': index,
+      };
+
+  static RecurringRule _recurringFromRow(
+    Map<String, Object?> row,
+  ) => RecurringRule(
+    id: row['id'] as String,
+    bookId: row['book_id'] as String,
+    type: EntryType.fromStorage(row['type'] as String),
+    amount: (row['amount'] as num).toDouble(),
+    currencyCode: row['currency_code'] as String? ?? defaultCurrencyCode,
+    accountAmount: (row['account_amount'] as num?)?.toDouble(),
+    toAccountAmount: (row['to_account_amount'] as num?)?.toDouble(),
+    baseAmount: (row['base_amount'] as num?)?.toDouble() ?? 0,
+    ratePolicy: RecurringRatePolicy.fromStorage(row['rate_policy'] as String?),
+    categoryId: row['category_id'] as String,
+    accountId: row['account_id'] as String,
+    toAccountId: row['to_account_id'] as String?,
+    note: row['note'] as String? ?? '',
+    frequency: RecurringFrequency.fromStorage(row['frequency'] as String?),
+    startDate: DateTime.fromMillisecondsSinceEpoch(row['start_date'] as int),
+    nextRunDate: DateTime.fromMillisecondsSinceEpoch(
+      row['next_run_date'] as int,
+    ),
+    active: ((row['active'] as int?) ?? 1) != 0,
+  );
+
+  static Map<String, Object?> _exchangeRateToRow(ExchangeRate rate) =>
+      <String, Object?>{
+        'id': rate.id,
+        'book_id': rate.bookId,
+        'base_currency_code': rate.baseCurrencyCode,
+        'currency_code': rate.currencyCode,
+        'effective_date': currencyDateKey(rate.effectiveDate),
+        'rate_to_base': rate.rateToBase,
+        'source': rate.source.name,
+        'created_at': rate.createdAt.millisecondsSinceEpoch,
+        'updated_at': rate.updatedAt.millisecondsSinceEpoch,
+      };
+
+  static ExchangeRate _exchangeRateFromRow(Map<String, Object?> row) {
+    final effectiveDate = parseCurrencyDateKey(row['effective_date']);
+    if (effectiveDate == null) {
+      throw FormatException(
+        'Invalid exchange rate effective_date: ${row['effective_date']}',
+      );
+    }
+    return ExchangeRate(
+      id: row['id'] as String,
+      bookId: row['book_id'] as String,
+      baseCurrencyCode: row['base_currency_code'] as String,
+      currencyCode: row['currency_code'] as String,
+      effectiveDate: effectiveDate,
+      rateToBase: (row['rate_to_base'] as num).toDouble(),
+      source: ExchangeRateSource.fromStorage(row['source'] as String?),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(row['updated_at'] as int),
+    );
+  }
+
+  static Map<String, Object?> _bookToRow(LedgerBook b, int index) =>
+      <String, Object?>{
+        'id': b.id,
+        'name': b.name,
+        'created_at': b.createdAt.millisecondsSinceEpoch,
+        'is_default': b.isDefault ? 1 : 0,
+        'base_currency_code': b.baseCurrencyCode,
+        'currency_setup_status': b.currencySetupStatus.name,
+        'sort_order': index,
+      };
+
+  static LedgerBook _bookFromRow(Map<String, Object?> row) => LedgerBook(
+    id: row['id'] as String,
+    name: row['name'] as String,
+    createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
+    isDefault: (row['is_default'] as int) != 0,
+    baseCurrencyCode:
+        row['base_currency_code'] as String? ?? defaultCurrencyCode,
+    currencySetupStatus: CurrencySetupStatus.fromStorage(
+      row['currency_setup_status'] as String?,
+    ),
+  );
+
+  static Map<String, Object?> _accountToRow(Account a, int index) =>
+      <String, Object?>{
+        'id': a.id,
+        'book_id': a.bookId,
+        'name': a.name,
+        'type': a.type.name,
+        'group_id': a.groupId,
+        'initial_balance': a.initialBalance,
+        'currency_code': a.currencyCode,
+        'icon_code': a.iconCode,
+        'note': a.note,
+        'include_in_assets': a.includeInAssets ? 1 : 0,
+        'hidden': a.hidden ? 1 : 0,
+        'card_last4': a.cardLast4,
+        'card_number': a.cardNumber,
+        'card_last4_follows': a.cardLast4Follows ? 1 : 0,
+        'credit_limit': a.creditLimit,
+        'sort_order': index,
+        'statement_day': a.statementDay,
+        'due_day': a.dueDay,
+      };
+
+  static Account _accountFromRow(Map<String, Object?> row) => Account(
+    id: row['id'] as String,
+    bookId: row['book_id'] as String,
+    name: row['name'] as String,
+    type: AccountType.fromStorage(row['type'] as String?),
+    groupId: row['group_id'] as String?,
+    initialBalance: (row['initial_balance'] as num).toDouble(),
+    currencyCode: row['currency_code'] as String? ?? defaultCurrencyCode,
+    iconCode: normalizeAccountIconCode(row['icon_code'] as String?),
+    note: row['note'] as String? ?? '',
+    includeInAssets: (row['include_in_assets'] as int) != 0,
+    hidden: (row['hidden'] as int) != 0,
+    cardLast4: row['card_last4'] as String? ?? '',
+    cardNumber: row['card_number'] as String? ?? '',
+    cardLast4Follows: (row['card_last4_follows'] as int? ?? 0) != 0,
+    creditLimit: (row['credit_limit'] as num?)?.toDouble(),
+    statementDay: (row['statement_day'] as num?)?.toInt(),
+    dueDay: (row['due_day'] as num?)?.toInt(),
+  );
+
+  static Map<String, Object?> _groupToRow(AccountGroup g) => <String, Object?>{
+    'id': g.id,
+    'book_id': g.bookId,
+    'name': g.name,
+    'sort_order': g.sortOrder,
+  };
+
+  static AccountGroup _groupFromRow(Map<String, Object?> row) => AccountGroup(
+    id: row['id'] as String,
+    bookId: row['book_id'] as String,
+    name: row['name'] as String,
+    sortOrder: row['sort_order'] as int,
+  );
+
+  static Map<String, Object?> _categoryToRow(Category c, int index) =>
+      <String, Object?>{
+        'id': c.id,
+        'book_id': c.bookId,
+        'label': c.label,
+        'type': c.type.storageValue,
+        'icon_code': c.iconCode,
+        'sort_order': index,
+        'parent_id': c.parentId,
+        'category_key': c.key,
+      };
+
+  static Category _categoryFromRow(Map<String, Object?> row) {
+    return Category(
+      id: row['id'] as String,
+      bookId: row['book_id'] as String,
+      label: row['label'] as String,
+      type: EntryType.fromStorage(row['type'] as String),
+      iconCode: row['icon_code'] as String,
+      key: row['category_key'] as String?,
+      parentId: Category.normalizeParentId(row['parent_id'] as String?),
+    );
+  }
+}
+
+/// 一张增量表的行级差分计划：相对基线快照需要写入/删除的行，以及应用后应记录的
+/// 新基线。[fullReplace] 为 true 表示没有基线可用，必须先清空整表再写入 [upsert]，
+/// 否则库里可能残留传入列表之外的行。
+class _RowDiff {
+  const _RowDiff({
+    required this.upsert,
+    required this.deleteIds,
+    required this.baseline,
+    required this.fullReplace,
+  });
+
+  final List<Map<String, Object?>> upsert;
+  final List<Object> deleteIds;
+  final Map<Object, Map<String, Object?>> baseline;
+  final bool fullReplace;
+
+  /// 无增删改且无需清空整表——调用方可据此跳过事务。
+  bool get isEmpty => !fullReplace && upsert.isEmpty && deleteIds.isEmpty;
+}

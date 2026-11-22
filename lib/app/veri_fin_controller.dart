@@ -1,0 +1,469 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' hide Category;
+
+import '../data/ledger_repository.dart';
+import '../local_storage/local_storage.dart';
+import 'ai/ai_capabilities.dart';
+import 'ai/ai_ledger_snapshot.dart';
+import 'ai/ai_settings.dart';
+import 'app_lock.dart';
+import 'attachments/attachment_store.dart';
+import 'backup/backup_progress.dart';
+import 'backup/backup_settings.dart';
+import 'backup/legacy_book_scope.dart';
+import 'backup/payment_import.dart';
+import 'backup/transaction_import.dart';
+import 'backup/webdav_config.dart';
+import 'budget_cycle.dart';
+import 'category_icon_theme.dart';
+import 'category_tree.dart';
+import 'currency_catalog.dart';
+import 'currency_math.dart';
+import 'haptics.dart';
+import 'seed_data.dart';
+import 'model_lookup.dart';
+import 'amount_format.dart' as amount_format;
+import 'home_metrics.dart';
+import 'widgets/widget_projection.dart';
+import 'series_math.dart';
+import 'ledger_math.dart';
+import 'ledger_data_validation.dart';
+import 'logging/app_logger.dart';
+import 'models.dart';
+import 'recurring.dart';
+import 'reminder/reminder_settings.dart';
+
+part 'veri_fin_controller_state.dart';
+part 'veri_fin_controller_ops.dart';
+
+/// 导入校验用的已知备份数据键：`data` 里出现其一即认定为本应用备份（配合 `app`
+/// 标记）。用于拦截「格式合法却非本应用」的 JSON，避免其把数据静默覆盖为初始态。
+const Set<String> _knownBackupDataKeys = <String>{
+  'ledgerBooks',
+  'activeBookId',
+  'entries',
+  'accounts',
+  'accountGroups',
+  'categories',
+  'tags',
+  'attachments',
+  'recurringRules',
+  'exchangeRates',
+  'monthlyBudgets',
+  'categoryBudgets',
+  'dailyBudgets',
+  'profile',
+  'themePreference',
+  'homePanels',
+  'reportPanels',
+  'reportDailyPanels',
+  'reportYearlyPanels',
+};
+
+// 偏好类 KV 键（库级私有以便各 part 共享）。全部 `verifin.*.v1` 键集中在此，
+// 仅两处例外：软件日志 `verifin.logs.v1`（logging/app_logger.dart，自管读写）；
+// 应用锁 `verifin.app_lock.v1` 的哈希格式在 app_lock.dart、键仍在下表。
+// 新增偏好键一律加进本表，并确认「初始化清除/备份豁免」清单是否需要覆盖它。
+const String _themeKey = 'verifin.theme.v1';
+const String _themeColorKey = 'verifin.theme_color.v1';
+const String _localeKey = 'verifin.locale.v1';
+const String _navigationStyleKey = 'verifin.nav_style.v1';
+const String _profileKey = 'verifin.profile.v1';
+const String _activeBookKey = 'verifin.active_book.v1';
+const String _assetCoverKey = 'verifin.asset_cover.v1';
+const String _assetAmountsHiddenKey = 'verifin.asset_amounts_hidden.v1';
+// 触感开关的键定义在统一入口里：独立引擎（桌面组件配置页）也要按同一个键读取。
+const String _hapticsKey = VeriHaptics.storageKey;
+const String _privacyConsentKey = 'verifin.privacy_consent.v1';
+const String _appLockKey = appLockStorageKey;
+const String _assetViewModeKey = 'verifin.asset_view_mode.v1';
+const String _assetSectionCollapsedKey = 'verifin.asset_section_collapsed.v1';
+const String _assetAccountOrderKey = 'verifin.asset_account_order.v1';
+const String _assetSectionOrderKey = 'verifin.asset_section_order.v1';
+const String _homePanelsKey = 'verifin.home_panels.v1';
+// 看板各 Tab 的面板清单按 Tab 分键。月统计沿用旧键，老用户升级后清单不重置。
+const String _reportDailyPanelsKey = 'verifin.report_daily_panels.v1';
+const String _reportMonthlyPanelsKey = 'verifin.report_panels.v1';
+const String _reportYearlyPanelsKey = 'verifin.report_yearly_panels.v1';
+const String _backupSettingsKey = 'verifin.backup_settings.v1';
+const String _backupPassphraseKey = 'verifin.backup_passphrase.v1';
+const String _webdavKey = 'verifin.webdav.v1';
+const String _reminderKey = 'verifin.reminder.v1';
+const String _fabActionKey = 'verifin.fab_action.v1';
+const String _numberPadLayoutKey = 'verifin.number_pad_layout.v1';
+const String _defaultAccountKey = 'verifin.default_account.v1';
+const String _budgetCycleKey = 'verifin.budget_cycle.v1';
+const String _currencyFractionStyleKey = 'verifin.currency_fraction_style.v1';
+
+/// 旧键：存的是 `'true'`/`'false'`（当时叫「强制两位小数」）。升级时只读一次，
+/// 之后只写新键；两个键都加进「初始化清除」清单。
+const String _legacyAmountFormatKey = 'verifin.amount_format.v1';
+const String _moneyUnitStyleKey = 'verifin.money_unit_style.v1';
+const String _hideSingleCurrencyUnitKey =
+    'verifin.hide_single_currency_unit.v1';
+const String _autoSuggestKey = 'verifin.auto_suggest.v1';
+const String _runningBalanceKey = 'verifin.entry_running_balance.v1';
+const String _aiSettingsKey = 'verifin.ai.v1';
+const String _aiCapabilitiesKey = 'verifin.ai_capabilities.v1';
+const String _legacyAiChatHistoryKey = 'verifin.ai_chat.v1';
+const String _homeTrendKey = 'verifin.home_metrics.v1';
+const String _onboardingKey = 'verifin.onboarding.v1';
+
+String _panelsKeyFor(PanelPageKind page) {
+  switch (page) {
+    case PanelPageKind.home:
+      return _homePanelsKey;
+    case PanelPageKind.reportsDaily:
+      return _reportDailyPanelsKey;
+    case PanelPageKind.reportsMonthly:
+      return _reportMonthlyPanelsKey;
+    case PanelPageKind.reportsYearly:
+      return _reportYearlyPanelsKey;
+  }
+}
+
+/// 交易列表排序：时间倒序。
+int _compareEntriesLatestFirst(LedgerEntry a, LedgerEntry b) {
+  final byDate = b.occurredAt.compareTo(a.occurredAt);
+  if (byDate != 0) {
+    return byDate;
+  }
+  return b.id.compareTo(a.id);
+}
+
+/// 记账后回调（新增交易时触发），供自动备份「每次记账后」挂钩。
+/// 由应用根组件注入，控制器本身不做文件 I/O，测试宿主保持为空。
+
+class VeriFinController extends ChangeNotifier
+    with _ControllerState, _ControllerOps {
+  VeriFinController._(
+    this._store,
+    this._repository, {
+    required AttachmentStore attachmentStore,
+    AppLogger? logger,
+    bool systemIsEnglish = false,
+    String Function(String prefix)? idFactory,
+    // ignore: prefer_initializing_formals
+  }) : _attachmentStore = attachmentStore,
+       // ignore: prefer_initializing_formals
+       _systemIsEnglish = systemIsEnglish,
+       // ignore: prefer_initializing_formals
+       _logger = logger,
+       // ignore: prefer_initializing_formals
+       _injectedIdFactory = idFactory {
+    _loadPreferences();
+    themePreferenceListenable = ValueNotifier<ThemePreference>(
+      _themePreference,
+    );
+    themeColorPreferenceListenable = ValueNotifier<ThemeColorPreference>(
+      _themeColorPreference,
+    );
+    localePreferenceListenable = ValueNotifier<LocalePreference>(
+      _localePreference,
+    );
+    navigationStylePreferenceListenable =
+        ValueNotifier<NavigationStylePreference>(_navigationStylePreference);
+    aiCapabilityListenable = ValueNotifier<AiCapabilityProfile?>(
+      _aiCapabilityProfile,
+    );
+  }
+
+  /// 唯一的构造入口：同步载入偏好类 KV 数据后，从 SQLite 载入账目类数据
+  /// （全新数据库首启动写入默认数据）。账目类数据只以 SQLite 为准。
+  ///
+  /// [attachmentStore] 省略时取 [debugDefaultAttachmentStore]（仅测试脚手架会设置）；
+  /// 两者都没有时直接抛错，避免生产环境静默退化成内存存储、重启即丢附件。
+  static Future<VeriFinController> create(
+    LocalKeyValueStore store, {
+    required LedgerRepository repository,
+    AttachmentStore? attachmentStore,
+    AppLogger? logger,
+    bool systemIsEnglish = false,
+    String Function(String prefix)? idFactory,
+  }) async {
+    final resolvedAttachmentStore =
+        attachmentStore ?? debugDefaultAttachmentStore;
+    if (resolvedAttachmentStore == null) {
+      throw StateError(
+        'VeriFinController.create 缺少 attachmentStore：生产入口必须传入 FileAttachmentStore。',
+      );
+    }
+    final controller = VeriFinController._(
+      store,
+      repository,
+      attachmentStore: resolvedAttachmentStore,
+      logger: logger,
+      systemIsEnglish: systemIsEnglish,
+      idFactory: idFactory,
+    );
+    // 迁移期兜底：文件缺失时由控制器把旧库内 base64 物化成文件（幂等）。
+    resolvedAttachmentStore.setMaterializer(
+      controller._materializeLegacyAttachment,
+    );
+    await controller._loadFromRepository();
+    controller._syncAmountFormatContext();
+    return controller;
+  }
+
+  /// 测试宿主默认附件存储。测试脚手架在 `useTestDatabases()` 里设置内存实现，
+  /// 生产代码必须显式注入 `FileAttachmentStore`。
+  @visibleForTesting
+  static AttachmentStore? debugDefaultAttachmentStore;
+
+  @override
+  final LocalKeyValueStore _store;
+  @override
+  final LedgerRepository _repository;
+  @override
+  final AttachmentStore _attachmentStore;
+  @override
+  final AppLogger? _logger;
+  @override
+  final bool _systemIsEnglish;
+
+  /// 实体 id 生成器（可注入）。生产用默认实现：微秒时间戳 + 单调序号，全局唯一且
+  /// **不承载语义**——分类 id 一律随机生成，语义只看 `Category.key`。测试注入确定性
+  /// 实现，让既有夹具继续按可读 id 引用种子分类。
+  @override
+  final String Function(String prefix)? _injectedIdFactory;
+
+  /// 软件日志入口，供「软件日志」页读取；未注入时为 null。
+  AppLogger? get logger => _logger;
+
+  /// 附件字节入口，供绘制层取图片 provider。
+  AttachmentStore get attachmentStore => _attachmentStore;
+
+  /// 备份/恢复用的临时目录（缓存 zip、解密产物）；由附件存储定位应用私有目录。
+  Future<Directory> ensureBackupCacheDirectory() =>
+      _attachmentStore.ensureCacheDirectory();
+
+  @override
+  void dispose() {
+    categoryIconThemes.dispose();
+    themePreferenceListenable.dispose();
+    themeColorPreferenceListenable.dispose();
+    localePreferenceListenable.dispose();
+    navigationStylePreferenceListenable.dispose();
+    aiCapabilityListenable.dispose();
+    backupProgressListenable.dispose();
+    attachmentMigrationProgressListenable.dispose();
+    super.dispose();
+  }
+}
+
+String _monthKey(DateTime month) {
+  return '${month.year}-${month.month.toString().padLeft(2, '0')}';
+}
+
+String _assetSectionKey(
+  String bookId,
+  AssetAccountViewMode mode,
+  String sectionId,
+) {
+  return '$bookId:${mode.name}:$sectionId';
+}
+
+String _assetSectionOrderKeyForMode(String bookId, AssetAccountViewMode mode) {
+  return '$bookId:${mode.name}';
+}
+
+enum EntryValidationCode {
+  staleDraft,
+  invalidAmounts,
+  invalidRefund,
+  refundExceedsExpense,
+  invalidAttachments,
+  invalidRememberedRate,
+
+  /// 交易/退款引用了不属于其账本的分类（分类按账本隔离后的写入守卫）。
+  categoryOutOfScope,
+
+  /// 交易/退款引用了不属于其账本的标签（标签按账本隔离后的写入守卫）。
+  tagOutOfScope,
+}
+
+enum RenameResult { success, invalid, duplicate, persistenceFailure }
+
+sealed class EntrySaveResult {
+  const EntrySaveResult();
+
+  bool get isSuccess => this is EntrySaveSuccess;
+}
+
+final class EntrySaveSuccess extends EntrySaveResult {
+  const EntrySaveSuccess();
+}
+
+final class EntrySaveValidationFailure extends EntrySaveResult {
+  const EntrySaveValidationFailure(this.code);
+
+  final EntryValidationCode code;
+}
+
+final class EntrySavePersistenceFailure extends EntrySaveResult {
+  const EntrySavePersistenceFailure();
+}
+
+enum BatchAccountChangeStatus {
+  success,
+  unsafeSelection,
+  invalidTarget,
+  persistenceFailure,
+}
+
+class BatchAccountChangeResult {
+  const BatchAccountChangeResult({required this.status, this.changed = 0});
+
+  final BatchAccountChangeStatus status;
+  final int changed;
+
+  bool get isSuccess => status == BatchAccountChangeStatus.success;
+}
+
+int _defaultAccountCompare(Account a, Account b) {
+  final hiddenCompare = (a.hidden ? 1 : 0).compareTo(b.hidden ? 1 : 0);
+  if (hiddenCompare != 0) {
+    return hiddenCompare;
+  }
+  final includeCompare = (b.includeInAssets ? 1 : 0).compareTo(
+    a.includeInAssets ? 1 : 0,
+  );
+  if (includeCompare != 0) {
+    return includeCompare;
+  }
+  final typeCompare = a.type.index.compareTo(b.type.index);
+  if (typeCompare != 0) {
+    return typeCompare;
+  }
+  return a.name.compareTo(b.name);
+}
+
+Set<String> _decodeStringSet(Object? value) {
+  if (value == null) {
+    return <String>{};
+  }
+  if (value is! List) {
+    throw const FormatException('折叠数据格式不正确');
+  }
+  return value.whereType<String>().toSet();
+}
+
+Map<String, List<String>> _decodeStringListMap(Object? value) {
+  if (value == null) {
+    return <String, List<String>>{};
+  }
+  if (value is! Map) {
+    throw const FormatException('排序数据格式不正确');
+  }
+  return Map<String, Object?>.from(value).map((key, rawList) {
+    if (rawList is! List) {
+      return MapEntry(key, <String>[]);
+    }
+    return MapEntry(key, rawList.whereType<String>().toList());
+  });
+}
+
+String _categoryBudgetKey(String bookId, DateTime month, String categoryId) {
+  return '$bookId:${_monthKey(month)}:$categoryId';
+}
+
+/// 「默认预算」的哨兵月段：默认月/分类预算存在预算表的 `bookId:default[:catId]`
+/// 键上。逐月键恒为 `yyyy-MM`（纯数字），故 `default` 与任何真实月份天然不冲突，
+/// 也无需改表结构或迁移；账本删除（`startsWith('bookId:')`）与分类删除/合并
+/// （`endsWith(':catId')`）的清理规则对默认键同样生效。
+const String _budgetDefaultMonthSegment = 'default';
+
+String _defaultMonthlyBudgetKey(String bookId) =>
+    '$bookId:$_budgetDefaultMonthSegment';
+
+String _defaultCategoryBudgetKey(String bookId, String categoryId) =>
+    '$bookId:$_budgetDefaultMonthSegment:$categoryId';
+
+/// 预算键按账本隔离,格式为 `bookId:yyyy-MM[:categoryId]`。
+/// 早期数据没有 bookId 前缀时，加载/导入归入默认账本。
+Map<String, double> _bookScopedBudgets(Map<String, double> raw) {
+  final legacyKey = RegExp(r'^\d{4}-\d{2}(:|$)');
+  return raw.map(
+    (key, value) => MapEntry(
+      legacyKey.hasMatch(key) ? '$defaultLedgerBookId:$key' : key,
+      value,
+    ),
+  );
+}
+
+List<T> _decodeModelList<T>(
+  Object? value,
+  T Function(Map<String, Object?> json) fromJson,
+) {
+  if (value == null) {
+    return <T>[];
+  }
+  if (value is! List) {
+    throw const FormatException('备份列表格式不正确');
+  }
+  return value.map((item) {
+    if (item is! Map) {
+      throw const FormatException('备份条目格式不正确');
+    }
+    return fromJson(Map<String, Object?>.from(item));
+  }).toList();
+}
+
+List<PagePanelSetting> _defaultPanelSettings(List<PagePanelSpec> specs) {
+  return specs
+      .map((spec) => PagePanelSetting(id: spec.id, enabled: true))
+      .toList();
+}
+
+/// 面板设置归一化:丢弃目录外的 id 并去重;目录中新增的面板按其在 [specs] 里的
+/// 位置插入（而不是一律追加到末尾,例如摘要卡应当落在首位)并默认开启;
+/// 若结果全部关闭则强制开启第一个,保证页面至少保留一个面板。
+/// 目录为空时结果保持为空。
+List<PagePanelSetting> _normalizePanelSettings(
+  List<PagePanelSetting> stored,
+  List<PagePanelSpec> specs,
+) {
+  final specIndexById = <String, int>{
+    for (var i = 0; i < specs.length; i++) specs[i].id: i,
+  };
+  final seen = <String>{};
+  final result = <PagePanelSetting>[
+    for (final item in stored)
+      if (specIndexById.containsKey(item.id) && seen.add(item.id)) item,
+  ];
+  for (var i = 0; i < specs.length; i++) {
+    final spec = specs[i];
+    if (!seen.add(spec.id)) {
+      continue;
+    }
+    // 排在所有「目录下标更靠前」的既有项之后；没有更早的项时落到最前。
+    var insertAt = 0;
+    for (var k = result.length - 1; k >= 0; k--) {
+      final indexInSpecs = specIndexById[result[k].id];
+      if (indexInSpecs != null && indexInSpecs < i) {
+        insertAt = k + 1;
+        break;
+      }
+    }
+    result.insert(insertAt, PagePanelSetting(id: spec.id, enabled: true));
+  }
+  if (result.isNotEmpty && result.every((item) => !item.enabled)) {
+    result[0] = result[0].copyWith(enabled: true);
+  }
+  return result;
+}
+
+Map<String, double> _decodeBudgets(Object? value) {
+  if (value == null) {
+    return <String, double>{};
+  }
+  if (value is! Map) {
+    throw const FormatException('预算数据格式不正确');
+  }
+  return Map<String, Object?>.from(
+    value,
+  ).map((key, rawAmount) => MapEntry(key, (rawAmount as num? ?? 0).toDouble()));
+}

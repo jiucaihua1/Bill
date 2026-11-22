@@ -1,0 +1,988 @@
+import 'dart:async';
+
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+
+import '../app/app_lock.dart';
+import '../app/app_theme.dart';
+import '../app/biometric_auth.dart';
+import '../app/common_widgets.dart';
+import '../app/feedback.dart';
+import '../app/haptics.dart';
+import '../app/platform_bridge.dart';
+import '../app/veri_fin_controller.dart';
+import '../app/veri_fin_scope.dart';
+import '../l10n/app_localizations.dart';
+import 'sheets.dart';
+
+/// 6 位 PIN 输入视图：圆点指示 + 数字键盘。输满 [kAppLockPinLength] 位自动回调
+/// [onCompleted] 并清空输入，由上层判定成功/失败并通过 [errorText] 反馈。
+///
+/// [footer] 用于在键盘左下角放置额外操作（如生物识别解锁按钮）。
+class PinInputView extends StatefulWidget {
+  const PinInputView({
+    super.key,
+    required this.onCompleted,
+    this.errorText,
+    this.footer,
+  });
+
+  final ValueChanged<String> onCompleted;
+  final String? errorText;
+  final Widget? footer;
+
+  @override
+  State<PinInputView> createState() => _PinInputViewState();
+}
+
+class _PinInputViewState extends State<PinInputView> {
+  String _input = '';
+
+  void _press(String digit) {
+    if (_input.length >= kAppLockPinLength) {
+      return;
+    }
+    VeriHaptics.tap();
+    setState(() => _input += digit);
+    if (_input.length == kAppLockPinLength) {
+      final value = _input;
+      setState(() => _input = '');
+      widget.onCompleted(value);
+    }
+  }
+
+  void _backspace() {
+    if (_input.isEmpty) {
+      return;
+    }
+    VeriHaptics.tap();
+    setState(() => _input = _input.substring(0, _input.length - 1));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final error = widget.errorText;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            for (var i = 0; i < kAppLockPinLength; i += 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: _PinDot(filled: i < _input.length),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 20,
+          child: error == null
+              ? null
+              : Text(
+                  error,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: veriSemantic(context, veriExpense),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+        ),
+        const SizedBox(height: 8),
+        _Keypad(
+          onDigit: _press,
+          onBackspace: _backspace,
+          footer: widget.footer,
+        ),
+      ],
+    );
+  }
+}
+
+class _PinDot extends StatelessWidget {
+  const _PinDot({required this.filled});
+
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = Theme.of(context).colorScheme.onSurface;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      width: 14,
+      height: 14,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: filled
+            ? Theme.of(context).colorScheme.primary
+            : Colors.transparent,
+        border: Border.all(
+          color: filled
+              ? Theme.of(context).colorScheme.primary
+              : base.withValues(alpha: 0.32),
+          width: 1.6,
+        ),
+      ),
+    );
+  }
+}
+
+class _Keypad extends StatelessWidget {
+  const _Keypad({
+    required this.onDigit,
+    required this.onBackspace,
+    this.footer,
+  });
+
+  final ValueChanged<String> onDigit;
+  final VoidCallback onBackspace;
+  final Widget? footer;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 300),
+      child: GridView.count(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 3,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 1.3,
+        children: <Widget>[
+          for (var digit = 1; digit <= 9; digit += 1)
+            _DigitKey(digit: '$digit', onTap: () => onDigit('$digit')),
+          footer ?? const SizedBox.shrink(),
+          _DigitKey(digit: '0', onTap: () => onDigit('0')),
+          // 不用 IconButton 的 tooltip：锁屏覆盖在根 Navigator 之上，
+          // Tooltip 找不到 Overlay 祖先会报错。
+          Semantics(
+            label: AppLocalizations.of(context).commonDelete,
+            button: true,
+            child: IconButton(
+              key: const Key('pin_backspace'),
+              onPressed: onBackspace,
+              icon: const Icon(Icons.backspace_outlined),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DigitKey extends StatelessWidget {
+  const _DigitKey({required this.digit, required this.onTap});
+
+  final String digit;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = VeriStyleTokens.of(context);
+    return Material(
+      key: Key('pin_key_$digit'),
+      color: tokens.surfaceAltColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(tokens.buttonRadius),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(tokens.buttonRadius),
+        onTap: onTap,
+        child: Center(
+          child: Text(
+            digit,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 图案区域边长（正方形），供绘制与测试计算点位。
+const double kPatternAreaSize = 264;
+
+/// 索引 [index]（0-8，行优先）在边长 [size] 的图案区域内的圆心坐标。
+Offset patternDotCenter(int index, double size) {
+  final cell = size / 3;
+  return Offset((index % 3 + 0.5) * cell, (index ~/ 3 + 0.5) * cell);
+}
+
+/// 3×3 图案输入视图：拖动连接圆点。松手时若连接点数 ≥ [kAppLockPatternMinPoints]
+/// 则回调 [onCompleted]（点序列以 `-` 连接，如 `0-1-2-4-8`），否则提示过短并重置。
+class PatternInputView extends StatefulWidget {
+  const PatternInputView({
+    super.key,
+    required this.onCompleted,
+    this.errorText,
+  });
+
+  final ValueChanged<String> onCompleted;
+  final String? errorText;
+
+  @override
+  State<PatternInputView> createState() => _PatternInputViewState();
+}
+
+class _PatternInputViewState extends State<PatternInputView> {
+  final List<int> _selected = <int>[];
+  Offset? _pointer;
+  String? _tooShort;
+
+  void _hitTest(Offset local) {
+    for (var i = 0; i < 9; i += 1) {
+      final center = patternDotCenter(i, kPatternAreaSize);
+      if ((local - center).distance <= kPatternAreaSize / 6 * 0.62) {
+        if (!_selected.contains(i)) {
+          VeriHaptics.tick();
+          setState(() => _selected.add(i));
+        }
+        return;
+      }
+    }
+  }
+
+  void _start(Offset local) {
+    setState(() {
+      _selected.clear();
+      _tooShort = null;
+      _pointer = local;
+    });
+    _hitTest(local);
+  }
+
+  void _update(Offset local) {
+    setState(() => _pointer = local);
+    _hitTest(local);
+  }
+
+  void _end() {
+    final sequence = _selected.join('-');
+    final count = _selected.length;
+    if (count < kAppLockPatternMinPoints) {
+      // 连线过短：一次明确的失败反馈。
+      VeriHaptics.emphasis();
+      setState(() {
+        _selected.clear();
+        _pointer = null;
+        _tooShort = AppLocalizations.of(
+          context,
+        ).patternTooShort(kAppLockPatternMinPoints);
+      });
+      return;
+    }
+    setState(() {
+      _selected.clear();
+      _pointer = null;
+    });
+    widget.onCompleted(sequence);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final error = widget.errorText ?? _tooShort;
+    final dotColor = Theme.of(context).colorScheme.onSurface;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        SizedBox(
+          width: kPatternAreaSize,
+          height: kPatternAreaSize,
+          child: RawGestureDetector(
+            key: const Key('pattern_area'),
+            behavior: HitTestBehavior.opaque,
+            gestures: <Type, GestureRecognizerFactory>{
+              _PatternPanRecognizer:
+                  GestureRecognizerFactoryWithHandlers<_PatternPanRecognizer>(
+                    _PatternPanRecognizer.new,
+                    (recognizer) {
+                      recognizer.onStart = (details) {
+                        _start(details.localPosition);
+                      };
+                      recognizer.onUpdate = (details) {
+                        _update(details.localPosition);
+                      };
+                      recognizer.onEnd = (_) {
+                        _end();
+                      };
+                    },
+                  ),
+            },
+            child: CustomPaint(
+              painter: _PatternPainter(
+                selected: _selected,
+                pointer: _pointer,
+                accent: Theme.of(context).colorScheme.primary,
+                dotColor: dotColor,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 20,
+          child: error == null
+              ? null
+              : Text(
+                  error,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: veriSemantic(context, veriExpense),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 图案连线专用 pan 识别器：位于 `SingleChildScrollView` 内时，普通
+/// `GestureDetector` 的 pan 会在手势竞技场里输给滚动视图的竖向拖动（表现为
+/// 「手在点上却在滚动页面」）。这里在被判负时改为立即接受，从而在图案区域内
+/// 抢下手势、不再触发父级滚动。触点落在图案区外时不受影响。
+class _PatternPanRecognizer extends PanGestureRecognizer {
+  @override
+  void rejectGesture(int pointer) {
+    acceptGesture(pointer);
+  }
+}
+
+class _PatternPainter extends CustomPainter {
+  _PatternPainter({
+    required this.selected,
+    required this.pointer,
+    required this.accent,
+    required this.dotColor,
+  });
+
+  final List<int> selected;
+  final Offset? pointer;
+  final Color accent;
+  final Color dotColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final linePaint = Paint()
+      ..color = accent
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    for (var i = 0; i < selected.length - 1; i += 1) {
+      canvas.drawLine(
+        patternDotCenter(selected[i], size.width),
+        patternDotCenter(selected[i + 1], size.width),
+        linePaint,
+      );
+    }
+    if (selected.isNotEmpty && pointer != null) {
+      canvas.drawLine(
+        patternDotCenter(selected.last, size.width),
+        pointer!,
+        linePaint,
+      );
+    }
+
+    for (var i = 0; i < 9; i += 1) {
+      final center = patternDotCenter(i, size.width);
+      final active = selected.contains(i);
+      canvas.drawCircle(
+        center,
+        active ? 9 : 6,
+        Paint()..color = active ? accent : dotColor.withValues(alpha: 0.28),
+      );
+      if (active) {
+        canvas.drawCircle(
+          center,
+          16,
+          Paint()
+            ..color = accent
+            ..strokeWidth = 2
+            ..style = PaintingStyle.stroke,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PatternPainter oldDelegate) {
+    return oldDelegate.selected != selected || oldDelegate.pointer != pointer;
+  }
+}
+
+/// 按锁类型构建输入视图。[footer]（如生物识别按钮）仅数字密码键盘支持。
+Widget buildAppLockInput({
+  required AppLockKind kind,
+  required ValueChanged<String> onCompleted,
+  String? errorText,
+  Widget? footer,
+}) {
+  if (kind == AppLockKind.pattern) {
+    return PatternInputView(onCompleted: onCompleted, errorText: errorText);
+  }
+  return PinInputView(
+    onCompleted: onCompleted,
+    errorText: errorText,
+    footer: footer,
+  );
+}
+
+/// 全屏锁定界面（由 AppLockGate 覆盖在应用之上）。校验通过后回调 [onUnlocked]。
+/// 开启生物解锁时，出现锁屏即自动发起一次生物识别验证，并提供手动重试按钮。
+class AppLockScreen extends StatefulWidget {
+  const AppLockScreen({super.key, required this.onUnlocked, this.config});
+
+  final VoidCallback onUnlocked;
+
+  /// 独立入口（如桌面小组件配置页）只需验证锁，不持有完整 Controller。
+  final AppLockConfig? config;
+
+  @override
+  State<AppLockScreen> createState() => _AppLockScreenState();
+}
+
+class _AppLockScreenState extends State<AppLockScreen> {
+  final BiometricAuth _biometric = const BiometricAuth();
+  String? _error;
+  bool _biometricAvailable = false;
+  bool _authInProgress = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initBiometric());
+  }
+
+  Future<void> _initBiometric() async {
+    if (!mounted) {
+      return;
+    }
+    final config = widget.config;
+    if (config != null || !VeriFinScope.of(context).biometricUnlockEnabled) {
+      return;
+    }
+    final available = await _biometric.isAvailable();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _biometricAvailable = available);
+    if (available) {
+      unawaited(_runBiometric());
+    }
+  }
+
+  Future<void> _runBiometric() async {
+    if (_authInProgress) {
+      return;
+    }
+    setState(() => _authInProgress = true);
+    final l10n = AppLocalizations.of(context);
+    final ok = await _biometric.authenticate(
+      reason: l10n.bioUnlockReason,
+      l10n: l10n,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() => _authInProgress = false);
+    if (ok) {
+      widget.onUnlocked();
+    }
+  }
+
+  void _submit(String secret) {
+    final config = widget.config;
+    final verified = config == null
+        ? VeriFinScope.of(context).verifyAppLock(secret)
+        : config.verify(secret);
+    if (verified) {
+      VeriHaptics.commit();
+      widget.onUnlocked();
+      return;
+    }
+    VeriHaptics.emphasis();
+    setState(() => _error = AppLocalizations.of(context).verifyFailedRetry);
+  }
+
+  /// 忘记密钥时的唯一出路：密钥只存加盐哈希、无法找回，只能清空本地数据并关闭应用锁。
+  /// 用两步破坏性确认，避免误触清空账目。
+  Future<void> _forgotSecret() async {
+    final controller = VeriFinScope.of(context);
+    final l10n = AppLocalizations.of(context);
+    if (!await confirmResetAllData(context) || !mounted) {
+      return;
+    }
+    // 顺序不能反：先关锁会让本页在对话框还开着时就被移除。
+    if (!await controller.resetAllData()) {
+      VeriHaptics.emphasis();
+      if (mounted) {
+        setState(() => _error = l10n.saveFailed);
+      }
+      return;
+    }
+    // 无法找回密钥，只能清空本地数据并关锁：属于不可逆命令。
+    VeriHaptics.emphasis();
+    if (!await controller.disableAppLock()) {
+      // 密钥没删掉就解锁，只会在下次回前台再次上锁，而用户仍然进不去。
+      if (mounted) {
+        setState(() => _error = l10n.appLockDisableFailed);
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    widget.onUnlocked();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final config = widget.config;
+    final kind = config?.kind ?? VeriFinScope.of(context).appLockKind;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  Icons.lock_outline,
+                  size: 40,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  AppLocalizations.of(context).enterPassword,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  kind == AppLockKind.pattern
+                      ? AppLocalizations.of(context).drawPatternUnlock
+                      : AppLocalizations.of(context).enterPinUnlock,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                const SizedBox(height: 28),
+                buildAppLockInput(
+                  kind: kind,
+                  onCompleted: _submit,
+                  errorText: _error,
+                ),
+                if (_biometricAvailable) ...<Widget>[
+                  const SizedBox(height: 16),
+                  TextButton.icon(
+                    onPressed: _authInProgress ? null : _runBiometric,
+                    icon: const Icon(Icons.fingerprint),
+                    label: Text(AppLocalizations.of(context).bioUnlock),
+                  ),
+                ],
+                if (config != null) ...<Widget>[
+                  const SizedBox(height: 8),
+                  TextButton(
+                    key: const Key('app_lock_open_app'),
+                    onPressed: () => unawaited(AppWidgetBridge.openApp()),
+                    child: Text(AppLocalizations.of(context).widgetOpenApp),
+                  ),
+                ],
+                if (config == null) ...<Widget>[
+                  const SizedBox(height: 8),
+                  TextButton(
+                    key: const Key('app_lock_forgot'),
+                    onPressed: _forgotSecret,
+                    child: Text(AppLocalizations.of(context).appLockForgot),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 设置或修改密钥：输入两遍确认后保存。保存成功 pop(true)。支持数字密码与图案。
+class AppLockSetupPage extends StatefulWidget {
+  const AppLockSetupPage({super.key, this.kind = AppLockKind.pin});
+
+  final AppLockKind kind;
+
+  @override
+  State<AppLockSetupPage> createState() => _AppLockSetupPageState();
+}
+
+class _AppLockSetupPageState extends State<AppLockSetupPage> {
+  String? _first;
+  String? _error;
+  bool _saving = false;
+
+  bool get _isPattern => widget.kind == AppLockKind.pattern;
+
+  void _onCompleted(String secret) {
+    if (_saving) {
+      return;
+    }
+    final first = _first;
+    if (first == null) {
+      setState(() {
+        _first = secret;
+        _error = null;
+      });
+      return;
+    }
+    if (secret != first) {
+      VeriHaptics.emphasis();
+      setState(() {
+        _first = null;
+        _error = _isPattern
+            ? AppLocalizations.of(context).patternMismatch
+            : AppLocalizations.of(context).pinMismatch;
+      });
+      return;
+    }
+    unawaited(_save(secret));
+  }
+
+  Future<void> _save(String secret) async {
+    setState(() => _saving = true);
+    final saved = await VeriFinScope.of(
+      context,
+    ).setAppLock(kind: widget.kind, secret: secret);
+    if (!mounted) {
+      return;
+    }
+    if (saved) {
+      VeriHaptics.commit();
+      Navigator.of(context).pop(true);
+      return;
+    }
+    VeriHaptics.emphasis();
+    setState(() => _saving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final confirming = _first != null;
+    final String hint;
+    if (_isPattern) {
+      hint = confirming
+          ? AppLocalizations.of(context).drawAgainConfirm
+          : AppLocalizations.of(context).drawPatternHint;
+    } else {
+      hint = confirming
+          ? AppLocalizations.of(context).enterAgainConfirm
+          : AppLocalizations.of(context).setPinHint;
+    }
+    return Scaffold(
+      body: SafeArea(
+        child: VeriPage(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
+            children: <Widget>[
+              VeriHeader(
+                title: _isPattern
+                    ? AppLocalizations.of(context).setPatternTitle
+                    : AppLocalizations.of(context).setPinTitle,
+                showBack: true,
+              ),
+              const SizedBox(height: 30),
+              Text(
+                hint,
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 28),
+              buildAppLockInput(
+                kind: widget.kind,
+                onCompleted: _onCompleted,
+                errorText: _error,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 验证当前应用锁密钥。验证通过 pop(true)。用于关闭应用锁、修改密码前的校验。
+class AppLockVerifyPage extends StatefulWidget {
+  const AppLockVerifyPage({super.key, this.title});
+
+  /// 页面标题；空时用「验证密码」默认文案。
+  final String? title;
+
+  @override
+  State<AppLockVerifyPage> createState() => _AppLockVerifyPageState();
+}
+
+class _AppLockVerifyPageState extends State<AppLockVerifyPage> {
+  String? _error;
+
+  void _onCompleted(String secret) {
+    if (VeriFinScope.of(context).verifyAppLock(secret)) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    setState(() => _error = AppLocalizations.of(context).verifyFailedRetry);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = VeriFinScope.of(context);
+    final isPattern = controller.appLockKind == AppLockKind.pattern;
+    return Scaffold(
+      body: SafeArea(
+        child: VeriPage(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
+            children: <Widget>[
+              VeriHeader(
+                title:
+                    widget.title ??
+                    AppLocalizations.of(context).verifyPasswordTitle,
+                showBack: true,
+              ),
+              const SizedBox(height: 30),
+              Text(
+                isPattern
+                    ? AppLocalizations.of(context).drawCurrentPattern
+                    : AppLocalizations.of(context).enterCurrentPin,
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 28),
+              buildAppLockInput(
+                kind: controller.appLockKind,
+                onCompleted: _onCompleted,
+                errorText: _error,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 应用锁设置页：开关应用锁、修改锁定方式与密码、开关生物解锁。
+class AppLockSettingsPage extends StatefulWidget {
+  const AppLockSettingsPage({super.key});
+
+  @override
+  State<AppLockSettingsPage> createState() => _AppLockSettingsPageState();
+}
+
+class _AppLockSettingsPageState extends State<AppLockSettingsPage> {
+  final BiometricAuth _biometric = const BiometricAuth();
+  bool _biometricAvailable = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBiometricAvailability();
+  }
+
+  Future<void> _loadBiometricAvailability() async {
+    final available = await _biometric.isAvailable();
+    if (mounted) {
+      setState(() => _biometricAvailable = available);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = VeriFinScope.of(context);
+    final enabled = controller.appLockEnabled;
+
+    return Scaffold(
+      body: SafeArea(
+        child: VeriPage(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
+            children: <Widget>[
+              VeriHeader(
+                title: AppLocalizations.of(context).appLockLabel,
+                subtitle: AppLocalizations.of(context).appLockSubtitle,
+                showBack: true,
+              ),
+              const SizedBox(height: 10),
+              VeriCard(
+                child: Column(
+                  children: <Widget>[
+                    CompactSwitchRow(
+                      icon: Icons.lock_outline,
+                      title: Text(AppLocalizations.of(context).appLockLabel),
+                      value: enabled,
+                      onChanged: (value) => _toggle(controller, value),
+                    ),
+                    if (enabled) ...<Widget>[
+                      const Divider(height: 1),
+                      SettingsRow(
+                        icon: Icons.password_outlined,
+                        title: AppLocalizations.of(
+                          context,
+                        ).lockMethodAndPassword,
+                        trailing: controller.appLockKind.label(
+                          AppLocalizations.of(context),
+                        ),
+                        trailingIcon: Icons.chevron_right,
+                        onTap: () => _change(controller),
+                      ),
+                      if (_biometricAvailable) ...<Widget>[
+                        const Divider(height: 1),
+                        CompactSwitchRow(
+                          icon: Icons.fingerprint,
+                          title: Text(AppLocalizations.of(context).bioUnlock),
+                          value: controller.biometricUnlockEnabled,
+                          onChanged: (value) =>
+                              _toggleBiometric(controller, value),
+                        ),
+                      ],
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                AppLocalizations.of(context).appLockHelp,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleBiometric(
+    VeriFinController controller,
+    bool value,
+  ) async {
+    if (!value) {
+      await controller.setBiometricUnlockEnabled(false);
+      return;
+    }
+    // 开启前先验证一次生物识别，确认可用。
+    final l10n = AppLocalizations.of(context);
+    final ok = await _biometric.authenticate(
+      reason: l10n.bioEnableReason,
+      l10n: l10n,
+    );
+    if (ok) {
+      await controller.setBiometricUnlockEnabled(true);
+    } else if (mounted) {
+      unawaited(
+        VeriFeedbackHost.of(context).showMessage(
+          message: AppLocalizations.of(context).bioNotPassed,
+          tone: VeriFeedbackTone.warning,
+        ),
+      );
+    }
+  }
+
+  Future<void> _toggle(VeriFinController controller, bool value) async {
+    if (value) {
+      final kind = await _pickKind();
+      if (kind == null || !mounted) {
+        return;
+      }
+      await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (context) => AppLockSetupPage(kind: kind),
+        ),
+      );
+      return;
+    }
+    final verified = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) => AppLockVerifyPage(
+          title: AppLocalizations.of(context).closeAppLockTitle,
+        ),
+      ),
+    );
+    if (verified == true) {
+      await controller.disableAppLock();
+    }
+  }
+
+  Future<void> _change(VeriFinController controller) async {
+    final verified = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) => AppLockVerifyPage(
+          title: AppLocalizations.of(context).changeAppLockTitle,
+        ),
+      ),
+    );
+    if (verified != true || !mounted) {
+      return;
+    }
+    final kind = await _pickKind();
+    if (kind == null || !mounted) {
+      return;
+    }
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) => AppLockSetupPage(kind: kind),
+      ),
+    );
+    if (changed == true && mounted) {
+      unawaited(
+        VeriFeedbackHost.of(context).showMessage(
+          message: AppLocalizations.of(context).appLockUpdated,
+          tone: VeriFeedbackTone.success,
+        ),
+      );
+    }
+  }
+
+  /// 选择锁定方式（数字密码 / 图案）。
+  Future<AppLockKind?> _pickKind() {
+    return showVeriModalSheet<AppLockKind>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              key: const Key('pick_lock_pin'),
+              leading: const Icon(Icons.password_outlined),
+              title: Text(AppLockKind.pin.label(AppLocalizations.of(context))),
+              subtitle: Text(AppLocalizations.of(context).pinSubtitle),
+              onTap: () => Navigator.of(context).pop(AppLockKind.pin),
+            ),
+            ListTile(
+              key: const Key('pick_lock_pattern'),
+              leading: const Icon(Icons.pattern),
+              title: Text(
+                AppLockKind.pattern.label(AppLocalizations.of(context)),
+              ),
+              subtitle: Text(AppLocalizations.of(context).patternSubtitle),
+              onTap: () => Navigator.of(context).pop(AppLockKind.pattern),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

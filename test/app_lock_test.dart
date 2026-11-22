@@ -1,0 +1,370 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:verifin/app/app_lock.dart';
+import 'package:verifin/app/app_lock_session.dart';
+import 'package:verifin/app/veri_fin_scope.dart';
+import 'package:verifin/pages/app_lock_gate.dart';
+import 'package:verifin/local_storage/local_storage.dart';
+import 'package:verifin/main.dart';
+import 'package:verifin/pages/app_lock_page.dart';
+
+import 'support/test_harness.dart';
+
+Future<void> _enterPin(WidgetTester tester, String pin) async {
+  for (final digit in pin.split('')) {
+    await tester.tap(find.byKey(Key('pin_key_$digit')));
+    await tester.pump();
+  }
+  await tester.pumpAndSettle();
+}
+
+void main() {
+  useTestDatabases();
+  testWidgets('锁屏不绘制下层账目，解锁后保留原页面', (tester) async {
+    final controller = await makeController();
+    await controller.setAppLock(kind: AppLockKind.pin, secret: '123456');
+    await tester.pumpWidget(
+      VeriFinScope(
+        controller: controller,
+        child: zhMaterialApp(
+          home: AppLockGate(
+            child: const Scaffold(body: Text('private-ledger-content')),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('private-ledger-content'), findsNothing);
+    expect(
+      find.text('private-ledger-content', skipOffstage: false),
+      findsOneWidget,
+    );
+    await _enterPin(tester, '123456');
+    expect(find.text('private-ledger-content'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
+  testWidgets('外部入口等待锁屏解除后才继续', (tester) async {
+    final controller = await makeController();
+    await controller.setAppLock(kind: AppLockKind.pin, secret: '123456');
+    late BuildContext childContext;
+    var resumed = false;
+    await tester.pumpWidget(
+      VeriFinScope(
+        controller: controller,
+        child: zhMaterialApp(
+          home: AppLockGate(
+            child: Builder(
+              builder: (context) {
+                childContext = context;
+                return const Scaffold(body: Text('locked-content'));
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final waiting = AppLockSessionScope.waitUntilUnlocked(childContext).then((
+      _,
+    ) {
+      resumed = true;
+    });
+    await tester.pump();
+    expect(AppLockSessionScope.isLocked(childContext), isTrue);
+    expect(resumed, isFalse);
+
+    await _enterPin(tester, '123456');
+    expect(AppLockSessionScope.isLocked(childContext), isFalse);
+    await waiting;
+    expect(resumed, isTrue);
+    controller.dispose();
+  });
+
+  testWidgets('锁屏「忘记密码」两步确认后清空数据并关闭应用锁', (tester) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    await controller.setAppLock(kind: AppLockKind.pin, secret: '123456');
+    // 必须走真实 VeriFinApp 结构：AppLockGate 挂在 MaterialApp.builder，锁屏没有
+    // 根 Navigator 祖先；用 `home:` 直接挂 AppLockGate 会掩盖这个差异。
+    await tester.pumpWidget(VeriFinApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('app_lock_forgot')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('app_lock_forgot')));
+    await tester.pumpAndSettle();
+
+    // 第一步确认：说明会清空什么。
+    expect(find.text('初始化所有数据？'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '继续'));
+    await tester.pumpAndSettle();
+
+    // 第二步确认：真正执行。
+    expect(find.text('再次确认初始化'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, '确认初始化'));
+    await tester.pumpAndSettle();
+
+    expect(controller.appLockEnabled, isFalse);
+    expect(find.byKey(const Key('app_lock_forgot')), findsNothing);
+  });
+
+  group('AppLockConfig', () {
+    test('hashes secret with salt and verifies without storing plaintext', () {
+      final config = AppLockConfig.fromSecret(
+        kind: AppLockKind.pin,
+        secret: '123456',
+      );
+      expect(config.enabled, isTrue);
+      expect(config.secretHash, isNotEmpty);
+      expect(config.secretHash.contains('123456'), isFalse);
+      expect(config.verify('123456'), isTrue);
+      expect(config.verify('654321'), isFalse);
+    });
+
+    test('survives json round-trip', () {
+      final config = AppLockConfig.fromSecret(
+        kind: AppLockKind.pin,
+        secret: '111222',
+        biometricEnabled: true,
+      );
+      final restored = AppLockConfig.fromJson(config.toJson());
+      expect(restored.kind, AppLockKind.pin);
+      expect(restored.biometricEnabled, isTrue);
+      expect(restored.verify('111222'), isTrue);
+    });
+
+    test('none config is disabled and never verifies', () {
+      const config = AppLockConfig.none();
+      expect(config.enabled, isFalse);
+      expect(config.verify('123456'), isFalse);
+    });
+
+    test('corrupt storage fails closed for standalone entry points', () {
+      final config = AppLockConfig.fromStorage('{not-json');
+      expect(config.enabled, isTrue);
+      expect(config.verify('123456'), isFalse);
+      expect(AppLockConfig.fromStorage(null).enabled, isFalse);
+    });
+  });
+
+  test('设置/关闭应用锁触发 onAppLockChanged（驱动 FLAG_SECURE）', () async {
+    final controller = await makeController();
+    final events = <bool>[];
+    controller.onAppLockChanged = events.add;
+
+    await controller.setAppLock(kind: AppLockKind.pin, secret: '135790');
+    await controller.disableAppLock();
+
+    expect(events, <bool>[true, false]);
+    controller.dispose();
+  });
+
+  test('应用锁 KV 写入失败时不提交内存状态', () async {
+    final store = _FailingKeyValueStore();
+    final controller = await makeController(store);
+    final errors = <Object>[];
+    controller.onPersistError = errors.add;
+
+    expect(
+      await controller.setAppLock(kind: AppLockKind.pin, secret: '135790'),
+      isFalse,
+    );
+    expect(controller.appLockEnabled, isFalse);
+    expect(errors, hasLength(1));
+
+    store.failWrites = false;
+    expect(
+      await controller.setAppLock(kind: AppLockKind.pin, secret: '135790'),
+      isTrue,
+    );
+    store.failDeletes = true;
+    expect(await controller.disableAppLock(), isFalse);
+    expect(controller.appLockEnabled, isTrue);
+    controller.dispose();
+  });
+
+  group('controller app lock', () {
+    test('set, verify, disable and persist across reload', () async {
+      final store = LocalKeyValueStore();
+      final controller = await makeController(store);
+      expect(controller.appLockEnabled, isFalse);
+
+      await controller.setAppLock(kind: AppLockKind.pin, secret: '246810');
+      expect(controller.appLockEnabled, isTrue);
+      expect(controller.appLockKind, AppLockKind.pin);
+      expect(controller.verifyAppLock('246810'), isTrue);
+      expect(controller.verifyAppLock('000000'), isFalse);
+
+      // 同 store 重新载入（模拟重启）仍锁定。
+      final reloaded = await makeController(store);
+      expect(reloaded.appLockEnabled, isTrue);
+      expect(reloaded.verifyAppLock('246810'), isTrue);
+
+      await reloaded.disableAppLock();
+      expect(reloaded.appLockEnabled, isFalse);
+      final afterDisable = await makeController(store);
+      expect(afterDisable.appLockEnabled, isFalse);
+    });
+
+    test('reset keeps the app lock configured', () async {
+      final controller = await makeController();
+      await controller.setAppLock(kind: AppLockKind.pin, secret: '135790');
+      await controller.resetAllData();
+      expect(controller.appLockEnabled, isTrue);
+      expect(controller.verifyAppLock('135790'), isTrue);
+    });
+
+    test(
+      'biometric requires a lock and clears when lock is disabled',
+      () async {
+        final store = LocalKeyValueStore();
+        final controller = await makeController(store);
+
+        // 未启用应用锁时不能开启生物识别。
+        await controller.setBiometricUnlockEnabled(true);
+        expect(controller.biometricUnlockEnabled, isFalse);
+
+        await controller.setAppLock(kind: AppLockKind.pin, secret: '112233');
+        await controller.setBiometricUnlockEnabled(true);
+        expect(controller.biometricUnlockEnabled, isTrue);
+
+        // 持久化：重载后仍开启。
+        final reloaded = await makeController(store);
+        expect(reloaded.biometricUnlockEnabled, isTrue);
+
+        // 关闭应用锁同时关闭生物识别。
+        await reloaded.disableAppLock();
+        expect(reloaded.biometricUnlockEnabled, isFalse);
+      },
+    );
+  });
+
+  testWidgets('enables PIN lock from settings', (WidgetTester tester) async {
+    final controller = await pumpApp(tester);
+
+    await tapBottomTab(tester, 3);
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('应用锁'), 120);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('应用锁'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('pick_lock_pin')));
+    await tester.pumpAndSettle();
+
+    await _enterPin(tester, '123456'); // 首次输入
+    await _enterPin(tester, '123456'); // 确认
+
+    expect(controller.appLockEnabled, isTrue);
+    expect(controller.appLockKind, AppLockKind.pin);
+    expect(controller.verifyAppLock('123456'), isTrue);
+  });
+
+  testWidgets('hides fingerprint switch when biometrics unavailable', (
+    WidgetTester tester,
+  ) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    await controller.setAppLock(kind: AppLockKind.pin, secret: '778899');
+    await pumpApp(tester, store);
+    await tester.pumpAndSettle();
+    await _enterPin(tester, '778899'); // 先解锁冷启动锁屏
+
+    await tapBottomTab(tester, 3);
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('应用锁'), 120);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('应用锁'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('锁定方式与密码'), findsOneWidget);
+    // 测试宿主没有生物识别，生物解锁开关不应出现。
+    expect(find.text('生物解锁'), findsNothing);
+  });
+
+  testWidgets('unlocks with a pattern gesture', (WidgetTester tester) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    await controller.setAppLock(kind: AppLockKind.pattern, secret: '0-1-2-4-8');
+    await pumpApp(tester, store);
+    await tester.pumpAndSettle();
+
+    expect(find.text('输入密码'), findsOneWidget);
+    expect(find.text('请绘制图案解锁'), findsOneWidget);
+
+    final area = find.byKey(const Key('pattern_area'));
+    final topLeft = tester.getTopLeft(area);
+    Offset dot(int index) =>
+        topLeft + patternDotCenter(index, kPatternAreaSize);
+
+    final gesture = await tester.startGesture(dot(0));
+    // 先移出触摸 slop（仍在 0 号点命中范围内）触发 panStart。
+    await gesture.moveBy(const Offset(20, 0));
+    await tester.pump();
+    for (final index in <int>[1, 2, 4, 8]) {
+      await gesture.moveTo(dot(index));
+      await tester.pump();
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(find.text('输入密码'), findsNothing);
+  });
+
+  testWidgets('locks on background and unlocks with correct PIN', (
+    WidgetTester tester,
+  ) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store);
+    await controller.setAppLock(kind: AppLockKind.pin, secret: '424242');
+    await pumpApp(tester, store);
+    await tester.pumpAndSettle();
+
+    // 冷启动即锁定。
+    expect(find.text('输入密码'), findsOneWidget);
+
+    // 错误密码给出提示，仍锁定。
+    await _enterPin(tester, '000000');
+    expect(find.text('验证失败，请重试'), findsOneWidget);
+    expect(find.text('输入密码'), findsOneWidget);
+
+    // 正确密码解锁。
+    await _enterPin(tester, '424242');
+    expect(find.text('输入密码'), findsNothing);
+
+    // 退到后台再回前台重新锁定。
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(find.text('输入密码'), findsOneWidget);
+  });
+}
+
+class _FailingKeyValueStore extends LocalKeyValueStore {
+  bool failWrites = true;
+  bool failDeletes = false;
+
+  @override
+  Future<void> writeAndFlush(String key, String value) async {
+    if (failWrites) {
+      throw StateError('simulated preference write failure');
+    }
+    await super.writeAndFlush(key, value);
+  }
+
+  @override
+  Future<void> deleteAndFlush(String key) async {
+    if (failDeletes) {
+      throw StateError('simulated preference delete failure');
+    }
+    await super.deleteAndFlush(key);
+  }
+}

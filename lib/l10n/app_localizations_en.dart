@@ -1,0 +1,5287 @@
+// ignore: unused_import
+import 'package:intl/intl.dart' as intl;
+import 'app_localizations.dart';
+
+// ignore_for_file: type=lint
+
+/// The translations for English (`en`).
+class AppLocalizationsEn extends AppLocalizations {
+  AppLocalizationsEn([String locale = 'en']) : super(locale);
+
+  @override
+  String sameFileSkipped(int count) {
+    return 'Skipped $count transactions already imported from this file into this book.';
+  }
+
+  @override
+  String get appTitle => 'Veri Fin';
+
+  @override
+  String get statRangeLabel => 'Range';
+
+  @override
+  String get backupInvalidFile => 'The backup file is invalid or corrupted.';
+
+  @override
+  String get fileEmptyError => 'The file is empty.';
+
+  @override
+  String get dbErrorTitle => 'Couldn\'t open your data';
+
+  @override
+  String get dbErrorBody =>
+      'Your data is most likely still safe on this device. Please do not clear the app\'s data or uninstall the app.';
+
+  @override
+  String get dbErrorHint =>
+      'If you just installed an older version, please reinstall the latest version and try again. If the problem persists, take a screenshot of this page to report it.';
+
+  @override
+  String get dbErrorDetail => 'Error details';
+
+  @override
+  String get startupPreparingTitle => 'Preparing your ledger';
+
+  @override
+  String get startupPreparingBody =>
+      'Loading your data for the first time can take a moment.';
+
+  @override
+  String get startupStagePreferences => 'Reading local settings';
+
+  @override
+  String get startupStageDatabase => 'Opening the ledger database';
+
+  @override
+  String get startupStageController => 'Loading ledger data';
+
+  @override
+  String get startupStageRecurring => 'Posting due recurring entries';
+
+  @override
+  String get startupStageWarmUp => 'Preparing interface resources';
+
+  @override
+  String get startupStageReady => 'Almost ready';
+
+  @override
+  String startupElapsed(int seconds) {
+    return 'Waiting ${seconds}s';
+  }
+
+  @override
+  String get startupSlowTitle => 'Startup is slower than usual';
+
+  @override
+  String startupSlowBody(String stage) {
+    return 'Still working on: $stage. Your ledger data will not be changed. You can keep waiting or retry.';
+  }
+
+  @override
+  String get startupFailedTitle => 'Startup didn\'t finish';
+
+  @override
+  String startupFailedBody(String stage) {
+    return 'The \"$stage\" step didn\'t finish. Your ledger data is still on this device — please do not clear the app\'s data or uninstall it.';
+  }
+
+  @override
+  String get startupRetry => 'Retry';
+
+  @override
+  String get startupCopyDiagnostics => 'Copy diagnostics';
+
+  @override
+  String get startupDiagnosticsCopied => 'Copied';
+
+  @override
+  String get tabHome => 'Home';
+
+  @override
+  String get tabAssets => 'Assets';
+
+  @override
+  String get tabReports => 'Reports';
+
+  @override
+  String get periodPickWeekTitle => 'Pick a date to view its week';
+
+  @override
+  String get calendarPrevWeek => 'Previous week';
+
+  @override
+  String get calendarNextWeek => 'Next week';
+
+  @override
+  String get panelWeekSummaryLabel => 'Weekly summary';
+
+  @override
+  String get panelWeekSummaryDesc =>
+      'Income, spending, balance and entry counts for the selected week';
+
+  @override
+  String get reportTabWeekly => 'Weekly';
+
+  @override
+  String get reportTabMonthly => 'Monthly';
+
+  @override
+  String get reportTabYearly => 'Yearly';
+
+  @override
+  String get tabProfile => 'Me';
+
+  @override
+  String get navigationStyleLabel => 'Navigation bar style';
+
+  @override
+  String get navigationStylePickerHint =>
+      'The four destinations stay the same in every style';
+
+  @override
+  String get navigationStyleInUse => 'In use';
+
+  @override
+  String get navigationStyleDockedName => 'Docked bar';
+
+  @override
+  String get navigationStyleDockedDesc =>
+      'Full-width opaque bar pinned to the bottom; icons sweep as you switch';
+
+  @override
+  String get navigationStyleLiquidGlassName => 'Liquid glass';
+
+  @override
+  String get navigationStyleLiquidGlassDesc =>
+      'Floating capsule with live backdrop blur and refraction';
+
+  @override
+  String get quickEntry => 'Quick Entry';
+
+  @override
+  String get pressBackAgainToExit => 'Press back again to exit';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get languagePickerTitle => 'Select language';
+
+  @override
+  String get localeFollowSystem => 'Follow system';
+
+  @override
+  String get commonCancel => 'Cancel';
+
+  @override
+  String get commonConfirm => 'Confirm';
+
+  @override
+  String get commonEdit => 'Edit';
+
+  @override
+  String get commonDelete => 'Delete';
+
+  @override
+  String get commonBack => 'Back';
+
+  @override
+  String get commonProcessing => 'Processing…';
+
+  @override
+  String get badgeRefunded => 'Received';
+
+  @override
+  String get badgeReimbursable => 'Reimbursable';
+
+  @override
+  String get reimbursementFilterName => 'Reimbursement';
+
+  @override
+  String get reimbursementFilterTitle => 'Reimbursement status';
+
+  @override
+  String get reimbursementStatusAll => 'All';
+
+  @override
+  String get reimbursementNotReimbursable => 'Not reimbursable';
+
+  @override
+  String get reimbursementReimbursed => 'Received';
+
+  @override
+  String get excludedFromBudget => 'Excluded from budget';
+
+  @override
+  String get excludedFromBudgetHint =>
+      'Marking changes no amount: this expense still counts toward account balances and income/expense stats, it just stops using up your budget.';
+
+  @override
+  String get budgetScopeFilterName => 'Budget';
+
+  @override
+  String get budgetScopeFilterTitle => 'Budget inclusion';
+
+  @override
+  String get budgetScopeAll => 'All';
+
+  @override
+  String get budgetScopeIncluded => 'In budget';
+
+  @override
+  String get calendarTitle => 'Calendar';
+
+  @override
+  String get calendarPrevMonth => 'Previous month';
+
+  @override
+  String get calendarNextMonth => 'Next month';
+
+  @override
+  String get calendarPrevYear => 'Previous year';
+
+  @override
+  String get calendarNextYear => 'Next year';
+
+  @override
+  String get periodPickMonthTitle => 'Pick a month';
+
+  @override
+  String get periodPickYearTitle => 'Pick a year';
+
+  @override
+  String get weekdayMon => 'Mon';
+
+  @override
+  String get weekdayTue => 'Tue';
+
+  @override
+  String get weekdayWed => 'Wed';
+
+  @override
+  String get weekdayThu => 'Thu';
+
+  @override
+  String get weekdayFri => 'Fri';
+
+  @override
+  String get weekdaySat => 'Sat';
+
+  @override
+  String get weekdaySun => 'Sun';
+
+  @override
+  String get entryAddTags => 'Add tags';
+
+  @override
+  String get iconGroupGeneric => 'General icons';
+
+  @override
+  String get accountIconPickerTitle => 'Choose account icon';
+
+  @override
+  String get accountIconSearchHint =>
+      'Search icons, banks, or payment platforms';
+
+  @override
+  String get accountIconSearchEmpty => 'No icon found';
+
+  @override
+  String get accountIconSearchEmptyDesc =>
+      'Try a full name, common abbreviation, or acronym.';
+
+  @override
+  String get accountHandleTitle => 'Manage this account?';
+
+  @override
+  String accountHandleMessage(String name, int count) {
+    return 'Account \"$name\" already has $count related transactions. You can hide the account, or delete it together with those transactions.';
+  }
+
+  @override
+  String get accountHide => 'Hide account';
+
+  @override
+  String get accountDeleteWithEntries => 'Delete account & transactions';
+
+  @override
+  String get accountDeleteTitle => 'Delete this account?';
+
+  @override
+  String accountDeleteMessage(String name) {
+    return 'Account \"$name\" cannot be restored once deleted.';
+  }
+
+  @override
+  String accountRecurringRulesDisabled(int count) {
+    return 'Disabled $count recurring rule(s) that used this account and cleared their account; please review them';
+  }
+
+  @override
+  String get tagCreateTitle => 'New tag';
+
+  @override
+  String get tagNameLabel => 'Tag name';
+
+  @override
+  String get entryTypeExpense => 'Expense';
+
+  @override
+  String get entryTypeIncome => 'Income';
+
+  @override
+  String get entryTypeTransfer => 'Transfer';
+
+  @override
+  String get entryTypeDebt => 'Debt';
+
+  @override
+  String get entryDebtBorrow => 'Borrow';
+
+  @override
+  String get entryDebtLend => 'Lend';
+
+  @override
+  String get entryAddDebtAccount => 'Add debt account';
+
+  @override
+  String get entryDebtAccountName => 'Counterparty name';
+
+  @override
+  String get entrySwapTransferAccounts => 'Swap transfer accounts';
+
+  @override
+  String get entryTypeRefund => 'Refund';
+
+  @override
+  String get themeSystem => 'Follow system';
+
+  @override
+  String get themeLight => 'Light';
+
+  @override
+  String get themeDark => 'Dark';
+
+  @override
+  String get accountTypeOnlinePayment => 'Online payment';
+
+  @override
+  String get accountTypeCreditAccount => 'Credit account';
+
+  @override
+  String get accountTypeCreditCard => 'Credit card';
+
+  @override
+  String get accountTypeDebitCard => 'Debit card';
+
+  @override
+  String get accountTypeInvestment => 'Investment';
+
+  @override
+  String get accountTypeCash => 'Cash';
+
+  @override
+  String get accountTypeReceivable => 'Receivable';
+
+  @override
+  String get accountTypePayable => 'Payable';
+
+  @override
+  String get accountTypeBasicHint => 'Basic balance account';
+
+  @override
+  String get accountTypeCardHint => 'Supports card number and last four digits';
+
+  @override
+  String get accountTypeCreditHint =>
+      'Supports credit limit, billing dates, and repayment';
+
+  @override
+  String get accountTypeCardCreditHint =>
+      'Supports card number, credit limit, billing dates, and repayment';
+
+  @override
+  String get assetViewGroup => 'Group view';
+
+  @override
+  String get assetViewType => 'Type view';
+
+  @override
+  String get assetViewToggleToType => 'Switch to type view';
+
+  @override
+  String get assetViewToggleToGroup => 'Switch to group view';
+
+  @override
+  String get recurringDaily => 'Daily';
+
+  @override
+  String get recurringWeekly => 'Weekly';
+
+  @override
+  String get recurringMonthly => 'Monthly';
+
+  @override
+  String get recurringYearly => 'Yearly';
+
+  @override
+  String get genderUnset => 'Not set';
+
+  @override
+  String get genderMale => 'Male';
+
+  @override
+  String get genderFemale => 'Female';
+
+  @override
+  String get panelTrendLabel => 'Spending trend';
+
+  @override
+  String get panelTrendDesc => 'Customizable data and trend chart';
+
+  @override
+  String get trendCustomizeTitle => 'Customize trend card';
+
+  @override
+  String get trendCustomizeEntry => 'Customize';
+
+  @override
+  String get trendCustomizeDisplayData => 'Displayed data';
+
+  @override
+  String get trendCustomizeChart => 'Chart';
+
+  @override
+  String get trendCustomizeTitleField => 'Card title';
+
+  @override
+  String get trendCustomizeTitleHint => 'Leave empty to show \"Overview\"';
+
+  @override
+  String get trendDefaultTitle => 'Overview';
+
+  @override
+  String get trendSlotBig => 'Headline number';
+
+  @override
+  String trendShowSlot(String slot) {
+    return 'Show $slot';
+  }
+
+  @override
+  String get trendSlotPill => 'Balance chip';
+
+  @override
+  String get trendSlotCard1 => 'Tile 1';
+
+  @override
+  String get trendSlotCard2 => 'Tile 2';
+
+  @override
+  String get trendSlotCard3 => 'Tile 3';
+
+  @override
+  String get trendSlotChart => 'Chart data';
+
+  @override
+  String get trendResetTitle => 'Reset trend card?';
+
+  @override
+  String get trendResetMessage =>
+      'Restores the card title and all displayed data to defaults.';
+
+  @override
+  String get trendResetConfirm => 'Reset';
+
+  @override
+  String get pickMetricTitle => 'Pick data';
+
+  @override
+  String get pickChartSeriesTitle => 'Pick chart data';
+
+  @override
+  String get metricSeriesNet => 'Balance';
+
+  @override
+  String get metricGroupMonth => 'This month';
+
+  @override
+  String get metricGroupToday => 'Today';
+
+  @override
+  String get metricGroupWeek => 'This week';
+
+  @override
+  String get metricGroupYear => 'This year';
+
+  @override
+  String get metricGroupTotal => 'Total';
+
+  @override
+  String get metricGroupAssets => 'Assets';
+
+  @override
+  String get metricGroupReimburse => 'Reimbursement';
+
+  @override
+  String get metricMonthExpense => 'This month spending';
+
+  @override
+  String get metricMonthIncome => 'This month income';
+
+  @override
+  String get metricMonthNet => 'This month balance';
+
+  @override
+  String get metricIncome => 'Income';
+
+  @override
+  String get metricExpense => 'Spending';
+
+  @override
+  String get metricNet => 'Balance';
+
+  @override
+  String get metricDailyAvgExpense => 'Daily avg spending';
+
+  @override
+  String get metricDailyAvgIncome => 'Daily avg income';
+
+  @override
+  String get metricTodayExpense => 'Today spending';
+
+  @override
+  String get metricTodayIncome => 'Today income';
+
+  @override
+  String get metricTodayNet => 'Today balance';
+
+  @override
+  String get metricWeekExpense => 'This week spending';
+
+  @override
+  String get metricWeekIncome => 'This week income';
+
+  @override
+  String get metricWeekNet => 'This week balance';
+
+  @override
+  String get metricYearExpense => 'This year spending';
+
+  @override
+  String get metricYearIncome => 'This year income';
+
+  @override
+  String get metricTotalExpense => 'Total spending';
+
+  @override
+  String get metricTotalIncome => 'Total income';
+
+  @override
+  String get metricTotalNet => 'Total balance';
+
+  @override
+  String get metricTotalAssets => 'Total assets';
+
+  @override
+  String get metricTotalLiabilities => 'Liabilities';
+
+  @override
+  String get metricNetAssets => 'Net assets';
+
+  @override
+  String get metricReimbursablePending => 'Reimbursable';
+
+  @override
+  String get metricReimbursed => 'Received';
+
+  @override
+  String get panelRecentLabel => 'Recent transactions';
+
+  @override
+  String get panelRecentDesc => 'Shows the 5 most recent transactions';
+
+  @override
+  String get panelBudgetLabel => 'Monthly budget';
+
+  @override
+  String get panelBudgetDesc =>
+      'This month\'s budget progress and category overspend alerts';
+
+  @override
+  String get panelCalendarDesc =>
+      'View daily income and spending on a calendar';
+
+  @override
+  String get panelSummaryLabel => 'This month';
+
+  @override
+  String get panelSummaryDesc => 'Income, spending and balance for this month';
+
+  @override
+  String get panelRecentDailyLabel => 'Daily activity';
+
+  @override
+  String get panelRecentDailyDesc =>
+      'Daily activity, totals and averages for the selected week';
+
+  @override
+  String get panelThisWeekLabel => 'This week';
+
+  @override
+  String get recentTotalExpense => 'Total spending';
+
+  @override
+  String get recentDailyAvgExpense => 'Daily avg spending';
+
+  @override
+  String get recentTotalIncome => 'Total income';
+
+  @override
+  String get recentDailyAvgIncome => 'Daily avg income';
+
+  @override
+  String recentStatLine(String label, String amount) {
+    return '$label: $amount';
+  }
+
+  @override
+  String get panelAssetSummaryLabel => 'Assets';
+
+  @override
+  String get panelAssetSummaryDesc =>
+      'Current account shares for positive or negative assets, shown in the current week';
+
+  @override
+  String get panelCategoryStatsLabel => 'Category breakdown';
+
+  @override
+  String get panelCategoryStatsDesc =>
+      'Income or spending share by top-level category, with top 5 or all';
+
+  @override
+  String get categoryStatsModeLabel => 'Category display range';
+
+  @override
+  String get categoryStatsModeTop5 => 'Top 5';
+
+  @override
+  String get categoryStatsModeAll => 'All';
+
+  @override
+  String get panelRankingLabel => 'Categories & tags';
+
+  @override
+  String get panelRankingDesc =>
+      'Rank by top category, subcategory or tag; tap a row to drill down';
+
+  @override
+  String get panelYearSummaryLabel => 'This year';
+
+  @override
+  String get panelYearSummaryPeriodLabel => 'Income & spending';
+
+  @override
+  String get panelYearSummaryDesc =>
+      'Income, spending and balance for this year';
+
+  @override
+  String get metricYearNet => 'This year balance';
+
+  @override
+  String get panelYearTrendLabel => 'Income & spending';
+
+  @override
+  String get panelYearTrendDesc =>
+      'Income against spending for each month this year';
+
+  @override
+  String get panelYearHeatmapLabel => 'Daily heatmap';
+
+  @override
+  String get panelYearHeatmapDesc =>
+      'Spending or income intensity for every day of the year';
+
+  @override
+  String get assetPositive => 'Positive assets';
+
+  @override
+  String get assetNegative => 'Negative assets';
+
+  @override
+  String get assetSummaryAmount => 'Amount';
+
+  @override
+  String get assetSummaryShare => 'Share';
+
+  @override
+  String assetSummaryShowAll(int count) {
+    return 'Show all ($count)';
+  }
+
+  @override
+  String get assetSummaryCollapse => 'Show less';
+
+  @override
+  String incomeAmountLabel(String amount) {
+    return 'Income $amount';
+  }
+
+  @override
+  String get panelBudgetExecutionLabel => 'Budget execution';
+
+  @override
+  String get panelBudgetExecutionDesc =>
+      'This month\'s budget, spending and category budget execution';
+
+  @override
+  String get panelDailyTrendLabel => 'Daily trend';
+
+  @override
+  String get panelDailyTrendDesc =>
+      'Daily income or spending for the selected month';
+
+  @override
+  String panelCountLabel(int count, String page) {
+    return '$count $page panels';
+  }
+
+  @override
+  String panelPageTitle(String page) {
+    return '$page panels';
+  }
+
+  @override
+  String get panelSortHint => 'Drag the handles to reorder';
+
+  @override
+  String get panelToggleHint => 'Toggle and reorder';
+
+  @override
+  String get panelSortDone => 'Done sorting';
+
+  @override
+  String get panelSortStart => 'Reorder panels';
+
+  @override
+  String panelResetTitle(String page) {
+    return 'Restore default $page panels?';
+  }
+
+  @override
+  String get panelResetMessage =>
+      'Restores the default order and enables all panels.';
+
+  @override
+  String get panelResetConfirm => 'Restore defaults';
+
+  @override
+  String panelKeepOneMessage(String page) {
+    return 'Keep at least one $page panel enabled';
+  }
+
+  @override
+  String get iconLabelCategory => 'Category';
+
+  @override
+  String get iconLabelDining => 'Dining';
+
+  @override
+  String get iconLabelTransport => 'Transport';
+
+  @override
+  String get iconLabelShopping => 'Shopping';
+
+  @override
+  String get iconLabelHousing => 'Housing';
+
+  @override
+  String get iconLabelEntertainment => 'Entertainment';
+
+  @override
+  String get iconLabelMedical => 'Medical';
+
+  @override
+  String get iconLabelSalary => 'Income';
+
+  @override
+  String get iconLabelInterest => 'Interest';
+
+  @override
+  String get iconLabelBonus => 'Bonus';
+
+  @override
+  String get iconLabelWork => 'Work';
+
+  @override
+  String get iconLabelTransferOut => 'Transfer out';
+
+  @override
+  String get iconLabelTransferIn => 'Transfer in';
+
+  @override
+  String get iconLabelRepayment => 'Repayment';
+
+  @override
+  String get iconLabelAdjust => 'Adjust';
+
+  @override
+  String get iconLabelCredit => 'Credit';
+
+  @override
+  String get iconLabelBank => 'Bank';
+
+  @override
+  String get iconLabelCash => 'Cash';
+
+  @override
+  String get iconLabelInvestment => 'Investment';
+
+  @override
+  String get iconLabelSavings => 'Savings';
+
+  @override
+  String get iconLabelCard => 'Card';
+
+  @override
+  String get iconLabelWallet => 'Wallet';
+
+  @override
+  String get iconGroupCredit => 'Credit accounts';
+
+  @override
+  String get iconGroupPayment => 'Payment platforms';
+
+  @override
+  String get iconGroupInvestment => 'Investments';
+
+  @override
+  String get iconGroupCard => 'Card networks';
+
+  @override
+  String get iconGroupDigital => 'Cross-border & digital';
+
+  @override
+  String get iconGroupBank => 'Banks';
+
+  @override
+  String get balanceAdjustNote => 'Balance adjustment';
+
+  @override
+  String get commonNone => 'None';
+
+  @override
+  String get commonDone => 'Done';
+
+  @override
+  String get homeNoEntriesTitle => 'No transactions yet';
+
+  @override
+  String get homeNoEntriesDesc =>
+      'Tap the plus button to record your first entry.';
+
+  @override
+  String dateMonthDay(DateTime date) {
+    final intl.DateFormat dateDateFormat = intl.DateFormat('MMM d', localeName);
+    final String dateString = dateDateFormat.format(date);
+
+    return '$dateString';
+  }
+
+  @override
+  String dateYearMonthDay(DateTime date) {
+    final intl.DateFormat dateDateFormat = intl.DateFormat(
+      'MMM d, yyyy',
+      localeName,
+    );
+    final String dateString = dateDateFormat.format(date);
+
+    return '$dateString';
+  }
+
+  @override
+  String monthBudgetTitle(DateTime month) {
+    final intl.DateFormat monthDateFormat = intl.DateFormat.MMM(localeName);
+    final String monthString = monthDateFormat.format(month);
+
+    return '$monthString budget';
+  }
+
+  @override
+  String get budgetRemaining => 'Remaining';
+
+  @override
+  String get budgetDailyRemaining => 'Daily remaining';
+
+  @override
+  String budgetTotalLabel(String amount) {
+    return 'Budget $amount';
+  }
+
+  @override
+  String get incomeExpenseTitle => 'Income & expense';
+
+  @override
+  String get homeNoStatsTitle => 'No data';
+
+  @override
+  String get homeNoStatsDesc => 'No records for this month.';
+
+  @override
+  String get statTypeTitle => 'Statistic type';
+
+  @override
+  String get previousSevenDays => 'Previous 7 days';
+
+  @override
+  String get nextSevenDays => 'Next 7 days';
+
+  @override
+  String get statLastSevenDays => '7 days';
+
+  @override
+  String get metricRecentExpense => 'Spending · last 7 days';
+
+  @override
+  String get metricRecentIncome => 'Income · last 7 days';
+
+  @override
+  String get metricRecentNet => 'Net · last 7 days';
+
+  @override
+  String lastSevenDaysSeries(String series) {
+    return 'Last 7 days · $series';
+  }
+
+  @override
+  String get personalEditionName => 'Daily Ledger · Personal Edition';
+
+  @override
+  String get statPeriodWeek => 'Week';
+
+  @override
+  String get statPeriodMonth => 'Month';
+
+  @override
+  String get statPeriodQuarter => 'Quarter';
+
+  @override
+  String get statPeriodYear => 'Year';
+
+  @override
+  String statQuarterRange(int year, int quarter) {
+    return '$year Q$quarter';
+  }
+
+  @override
+  String budgetCatOver(String category, String amount) {
+    return '$category over by $amount';
+  }
+
+  @override
+  String budgetCatUsed(String category, String percent) {
+    return '$category used $percent%';
+  }
+
+  @override
+  String entriesCount(int count) {
+    return '$count entries';
+  }
+
+  @override
+  String get categoryAll => 'All categories';
+
+  @override
+  String get tagPickerTitle => 'Select tags';
+
+  @override
+  String get coverBlueCity => 'Blue city';
+
+  @override
+  String get coverAurora => 'Aurora night';
+
+  @override
+  String get coverFinanceOffice => 'Finance office';
+
+  @override
+  String get coverDeepBlue => 'Deep blue';
+
+  @override
+  String get assetsUngrouped => 'Ungrouped';
+
+  @override
+  String get netAssets => 'Net worth';
+
+  @override
+  String get assetsActions => 'Asset actions';
+
+  @override
+  String get hideAssetAmounts => 'Hide asset amounts';
+
+  @override
+  String get showAssetAmounts => 'Show asset amounts';
+
+  @override
+  String get totalAssetsLabel => 'Total assets';
+
+  @override
+  String get totalLiabilitiesLabel => 'Debt';
+
+  @override
+  String assetsAmount(String amount) {
+    return 'Total assets $amount';
+  }
+
+  @override
+  String liabilitiesAmount(String amount) {
+    return 'Debt $amount';
+  }
+
+  @override
+  String get assetCreditDebt => 'Credit balances owed';
+
+  @override
+  String get assetDebtEmptyTitle => 'No debt to show';
+
+  @override
+  String get assetDebtEmptyDesc =>
+      'Borrowing, lending, and credit balances owed will appear here.';
+
+  @override
+  String netAssetsAmount(String amount) {
+    return 'Net worth $amount';
+  }
+
+  @override
+  String monthNumber(int month) {
+    return 'M$month';
+  }
+
+  @override
+  String get assetsEmptyTitle => 'No accounts yet';
+
+  @override
+  String get assetsEmptyDesc =>
+      'Add an account from the top right; you can then view assets by type or group here.';
+
+  @override
+  String get assetsEmptyAddAction => 'Add your first account';
+
+  @override
+  String hiddenAccountsCount(int count) {
+    return '$count hidden accounts';
+  }
+
+  @override
+  String get assetsCoverTitle => 'Asset card background';
+
+  @override
+  String get assetDisplaySettingsTitle => 'Asset display settings';
+
+  @override
+  String get assetViewModeLabel => 'Account grouping';
+
+  @override
+  String get assetOrderHint =>
+      'Drag section handles or long-press accounts to reorder';
+
+  @override
+  String get coverUseOnline => 'Use online image';
+
+  @override
+  String get coverEnterUrl => 'Enter image URL';
+
+  @override
+  String get coverPickLocal => 'Choose local image';
+
+  @override
+  String get coverClear => 'Clear background image';
+
+  @override
+  String get coverCustomTitle => 'Custom image';
+
+  @override
+  String get coverUrlLabel => 'Image URL';
+
+  @override
+  String get coverCropTitle => 'Crop background';
+
+  @override
+  String get coverGenerating => 'Generating background…';
+
+  @override
+  String get accountAdd => 'Add account';
+
+  @override
+  String get groupManage => 'Manage groups';
+
+  @override
+  String get sortLabel => 'Sort';
+
+  @override
+  String get hiddenAccountsTitle => 'Hidden accounts';
+
+  @override
+  String get hiddenAccountsEmptyTitle => 'No hidden accounts';
+
+  @override
+  String get hiddenAccountsEmptyDesc => 'Hidden accounts appear here.';
+
+  @override
+  String get accountGroupsTitle => 'Account groups';
+
+  @override
+  String get groupAdd => 'New group';
+
+  @override
+  String get groupsEmptyTitle => 'No account groups yet';
+
+  @override
+  String get groupsEmptyDesc =>
+      'Tap the plus at top right to create groups for organizing accounts.';
+
+  @override
+  String accountsCount(int count) {
+    return '$count accounts';
+  }
+
+  @override
+  String get commonRename => 'Rename';
+
+  @override
+  String get commonIcon => 'Icon';
+
+  @override
+  String get groupRenameTitle => 'Rename group';
+
+  @override
+  String get groupNameLabel => 'Group name';
+
+  @override
+  String get groupDeleteTitle => 'Delete group';
+
+  @override
+  String groupDeleteMessage(String name) {
+    return 'Delete the group “$name”?';
+  }
+
+  @override
+  String groupDeleteInUseMessage(String name, int count) {
+    return 'Deleting “$name” will move its $count accounts to Ungrouped. Accounts and transactions will not be deleted.';
+  }
+
+  @override
+  String get accountIconLabel => 'Account icon';
+
+  @override
+  String get accountTypeLabel => 'Account type';
+
+  @override
+  String get accountNameLabel => 'Account name';
+
+  @override
+  String get accountNameRequired => 'Account name is required';
+
+  @override
+  String get cardLast4Label => 'Last 4 digits';
+
+  @override
+  String get cardLast4Invalid => 'Enter 1-4 digits';
+
+  @override
+  String get cardLabel => 'Card number';
+
+  @override
+  String get cardNumberLabel => 'Full card number (optional)';
+
+  @override
+  String get cardNumberTitle => 'Full card number';
+
+  @override
+  String get cardLast4Follow => 'Follow number';
+
+  @override
+  String get copiedToClipboard => 'Copied to clipboard';
+
+  @override
+  String get accountSectionBasic => 'Basic info';
+
+  @override
+  String get accountSectionCard => 'Card details';
+
+  @override
+  String get accountSectionCredit => 'Credit';
+
+  @override
+  String get accountSectionDisplay => 'Display & bookkeeping';
+
+  @override
+  String get accountSectionDanger => 'Danger zone';
+
+  @override
+  String get accountBalanceLabel => 'Account balance';
+
+  @override
+  String get accountNoteLabel => 'Account note';
+
+  @override
+  String get accountGroupLabel => 'Account group';
+
+  @override
+  String get accountTypePickerTitle => 'Choose account type';
+
+  @override
+  String get accountGroupPickerTitle => 'Choose account group';
+
+  @override
+  String get balanceAdjustTooltip => 'Adjust balance';
+
+  @override
+  String get currentBalance => 'Current balance';
+
+  @override
+  String get balanceTrend => 'Balance trend';
+
+  @override
+  String get dayShort => 'Day';
+
+  @override
+  String get monthShort => 'Month';
+
+  @override
+  String balanceAmount(String amount) {
+    return 'Balance $amount';
+  }
+
+  @override
+  String get viewReport => 'View report';
+
+  @override
+  String get addEntryTooltip => 'Add entry';
+
+  @override
+  String get noEntriesTitle => 'No transactions';
+
+  @override
+  String get accountNoEntriesDesc => 'This account has no transactions yet.';
+
+  @override
+  String accountEntriesTitle(String name) {
+    return '$name transactions';
+  }
+
+  @override
+  String get allEntries => 'All transactions';
+
+  @override
+  String get includeInAssets => 'Count in assets';
+
+  @override
+  String get commonType => 'Type';
+
+  @override
+  String get commonName => 'Name';
+
+  @override
+  String get notSet => 'Not set';
+
+  @override
+  String get clearOption => 'Don\'t set';
+
+  @override
+  String get statementDay => 'Statement day';
+
+  @override
+  String get dueDay => 'Due day';
+
+  @override
+  String get creditLimitLabel => 'Credit limit';
+
+  @override
+  String get creditLimitEditTitle => 'Set credit limit';
+
+  @override
+  String get creditUsedLabel => 'Used';
+
+  @override
+  String get creditAvailableLabel => 'Available';
+
+  @override
+  String get currentBillLabel => 'This cycle';
+
+  @override
+  String get creditRepayTitle => 'Repayment';
+
+  @override
+  String get creditRepayAction => 'Repay';
+
+  @override
+  String get creditRepayAmountLabel => 'Repayment amount';
+
+  @override
+  String get creditRepayFromAccount => 'Payment account';
+
+  @override
+  String get creditRepayNoAccountLabel => 'No account (paid by others)';
+
+  @override
+  String get creditRepayNoAccountHint =>
+      'Paid by someone else; no account deducted';
+
+  @override
+  String get creditRepayDefaultNote => 'Repayment';
+
+  @override
+  String get creditRepaySuccess => 'Repayment recorded';
+
+  @override
+  String monthlyDayLabel(int day) {
+    return 'Day $day of each month';
+  }
+
+  @override
+  String get commonCurrency => 'Currency';
+
+  @override
+  String get commonNote => 'Note';
+
+  @override
+  String get commonNoneShort => 'None';
+
+  @override
+  String get commonGroup => 'Group';
+
+  @override
+  String get accountDelete => 'Delete account';
+
+  @override
+  String get deletableLabel => 'Deletable';
+
+  @override
+  String get hasEntriesLabel => 'Has transactions';
+
+  @override
+  String get balanceEditConfirmTitle => 'Confirm balance change?';
+
+  @override
+  String get balanceEditNegativeHint =>
+      'A negative balance means money owed — credit cards and loans usually sit below zero.';
+
+  @override
+  String balanceEditConfirmMessage(String name, String amount) {
+    return 'This sets the balance of \"$name\" to $amount.';
+  }
+
+  @override
+  String get balanceEditRecord => 'Record as entry';
+
+  @override
+  String get balanceEditRecordDesc =>
+      'Creates a balance-adjustment entry; if unchecked, the initial balance is changed directly without affecting statistics.';
+
+  @override
+  String get accountNameEditTitle => 'Edit account name';
+
+  @override
+  String get pickDueDay => 'Choose due day';
+
+  @override
+  String get pickStatementDay => 'Choose statement day';
+
+  @override
+  String get accountNoteEditTitle => 'Edit account note';
+
+  @override
+  String get accountReportTitle => 'Account report';
+
+  @override
+  String get thisMonth => 'This month';
+
+  @override
+  String get dueToday => 'due today';
+
+  @override
+  String dueInDays(int days) {
+    return '$days days left';
+  }
+
+  @override
+  String monthlyRepayLine(int day) {
+    return 'Repay on day $day of each month';
+  }
+
+  @override
+  String get attachTakePhoto => 'Take photo';
+
+  @override
+  String get attachFromGallery => 'Choose from gallery';
+
+  @override
+  String get attachTitle => 'Attachments';
+
+  @override
+  String attachCount(int count) {
+    return '$count images';
+  }
+
+  @override
+  String get attachUnsupported =>
+      'Adding attachments isn\'t supported on this platform';
+
+  @override
+  String get attachDeleteTooltip => 'Remove this image';
+
+  @override
+  String get entryDetailSubtitle => 'Entry detail';
+
+  @override
+  String get entryMoreInfo => 'More details';
+
+  @override
+  String get entrySaveAndContinue => 'Save & add';
+
+  @override
+  String get entrySaveReasonAmount => 'Enter an amount first';
+
+  @override
+  String get entrySaveReasonAccount =>
+      'Add an account first, or choose \"No account\"';
+
+  @override
+  String get entrySaveReasonTransferAccount =>
+      'Choose a destination account (must differ from the source)';
+
+  @override
+  String get entrySaveReasonTransferAmount =>
+      'Enter both the source and destination amounts';
+
+  @override
+  String get refundSaveReasonOverCap =>
+      'Refund can\'t exceed the refundable amount';
+
+  @override
+  String entryTagCount(int count) {
+    return 'Tags $count';
+  }
+
+  @override
+  String entryAttachmentCount(int count) {
+    return 'Attachments $count';
+  }
+
+  @override
+  String entryCategoryBranchTitle(String category) {
+    return 'Choose a $category category';
+  }
+
+  @override
+  String get commonCategory => 'Category';
+
+  @override
+  String get allLabel => 'All';
+
+  @override
+  String get transferOutAccount => 'From account';
+
+  @override
+  String get transferInAccount => 'To account';
+
+  @override
+  String get pleaseSelect => 'Select';
+
+  @override
+  String get feeLabel => 'Fee';
+
+  @override
+  String get feeNoneTapToFill => 'None (tap to set)';
+
+  @override
+  String get accountLabel => 'Account';
+
+  @override
+  String get noAccountLabel => 'No account';
+
+  @override
+  String get noAccountHint =>
+      'Record just an amount; it won\'t affect any account balance';
+
+  @override
+  String get noUsableAccountTitle => 'No available account';
+
+  @override
+  String get noUsableAccountDesc =>
+      'Add an account to start recording; if you already have hidden accounts, unhide one on the Assets page.';
+
+  @override
+  String get noteHint => 'Tap to add a note';
+
+  @override
+  String get commonSave => 'Save';
+
+  @override
+  String get unsavedChangesTitle => 'Save changes?';
+
+  @override
+  String get unsavedChangesMessage => 'This page has unsaved changes.';
+
+  @override
+  String get discardChanges => 'Don\'t save';
+
+  @override
+  String get autoSaveFailedMessage =>
+      'Your latest changes haven\'t been saved. Retry, or discard them and leave.';
+
+  @override
+  String get autoSaveRetry => 'Retry';
+
+  @override
+  String get autoSaveDiscardAndLeave => 'Discard changes and leave';
+
+  @override
+  String get amountEditTitle => 'Edit amount';
+
+  @override
+  String get transferFeeTitle => 'Transfer fee';
+
+  @override
+  String get pickTransferOutAccount => 'Choose source account';
+
+  @override
+  String get pickAccountTitle => 'Choose account';
+
+  @override
+  String get pickTransferInAccount => 'Choose destination account';
+
+  @override
+  String get timeAll => 'All time';
+
+  @override
+  String get timeYear => 'This year';
+
+  @override
+  String get timeQuarter => 'This quarter';
+
+  @override
+  String get timeWeek => 'This week';
+
+  @override
+  String get timeLast12Months => 'Last 12 months';
+
+  @override
+  String get timeLast30Days => 'Last 30 days';
+
+  @override
+  String get timeLast6Weeks => 'Last 6 weeks';
+
+  @override
+  String get sortDateDesc => 'Date, newest first';
+
+  @override
+  String get sortDateAsc => 'Date, oldest first';
+
+  @override
+  String get sortAmountDesc => 'Amount, high to low';
+
+  @override
+  String get sortAmountAsc => 'Amount, low to high';
+
+  @override
+  String selectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get dayEntriesTitle => 'Day\'s transactions';
+
+  @override
+  String get entriesListTitle => 'Transactions';
+
+  @override
+  String get exitMultiSelect => 'Exit multi-select';
+
+  @override
+  String get multiSelect => 'Multi-select';
+
+  @override
+  String entriesCountFull(int count) {
+    return '$count transactions';
+  }
+
+  @override
+  String get netLabel => 'Net';
+
+  @override
+  String get noMatchTitle => 'No matching transactions';
+
+  @override
+  String get noMatchDesc => 'Try a different keyword, account, or category.';
+
+  @override
+  String get emptyEntriesDesc => 'Saved transactions appear here by date.';
+
+  @override
+  String get filterTimeTitle => 'Filter by time';
+
+  @override
+  String get sortTitle => 'Sort order';
+
+  @override
+  String get filterAccountTitle => 'Filter by account';
+
+  @override
+  String get allAccounts => 'All accounts';
+
+  @override
+  String get filterCategoryTitle => 'Filter by category';
+
+  @override
+  String get filterTagTitle => 'Filter by tag';
+
+  @override
+  String get allTags => 'All tags';
+
+  @override
+  String get noTagFilter => 'No tags';
+
+  @override
+  String get hasTagFilter => 'Has tags';
+
+  @override
+  String get tagFilterQuickSection => 'Quick filters';
+
+  @override
+  String get tagFilterTagSection => 'Tags';
+
+  @override
+  String get unknownTag => 'Unknown tag';
+
+  @override
+  String get tagLabel => 'Tag';
+
+  @override
+  String deleteEntriesTitle(int count) {
+    return 'Delete $count transactions?';
+  }
+
+  @override
+  String get deleteEntriesMessage =>
+      'This cannot be undone; related attachments are removed too.';
+
+  @override
+  String get changeCategoryTitle => 'Change category (same-type entries only)';
+
+  @override
+  String changedCategoryCount(int count) {
+    return 'Changed category of $count transactions';
+  }
+
+  @override
+  String get changeAccountTitle => 'Change account';
+
+  @override
+  String changedAccountCount(int count) {
+    return 'Changed account of $count transactions';
+  }
+
+  @override
+  String get batchAccountChangeUnsafe =>
+      'Batch account changes require transactions with the same existing account currency and an actual account amount. Edit cross-currency, no-account, or conflicting transfers individually.';
+
+  @override
+  String yearLabel(int year) {
+    return '$year';
+  }
+
+  @override
+  String quarterLabel(int quarter) {
+    return 'Q$quarter';
+  }
+
+  @override
+  String weekNumber(int week) {
+    return 'W$week';
+  }
+
+  @override
+  String yearWeek(int year, int week) {
+    return '$year W$week';
+  }
+
+  @override
+  String get prevRange => 'Previous';
+
+  @override
+  String get nextRange => 'Next';
+
+  @override
+  String get searchHint => 'Search notes, categories, accounts, or amounts';
+
+  @override
+  String get clearFilters => 'Clear filters';
+
+  @override
+  String get prevDay => 'Previous day';
+
+  @override
+  String get nextDay => 'Next day';
+
+  @override
+  String get entryMissing => 'Transaction not found';
+
+  @override
+  String get deleteEntryTooltip => 'Delete transaction';
+
+  @override
+  String get amountLabel => 'Amount';
+
+  @override
+  String get dateLabel => 'Date';
+
+  @override
+  String get timeLabel => 'Time';
+
+  @override
+  String get markReimbursable => 'Mark reimbursable';
+
+  @override
+  String get reimbursableHint =>
+      'Marking moves no money; a refund offsets the net amount once it arrives.';
+
+  @override
+  String get refundRecordsTitle => 'Refunds';
+
+  @override
+  String get refundAdd => 'Add refund';
+
+  @override
+  String get refundEditTitle => 'Edit refund';
+
+  @override
+  String get refundStatusSettled => 'Received';
+
+  @override
+  String get refundStatusPending => 'Pending';
+
+  @override
+  String get refundToAccountLabel => 'Destination account';
+
+  @override
+  String get refundArrivalDateLabel => 'Arrival date';
+
+  @override
+  String get refundInitiatedDateLabel => 'Initiated date';
+
+  @override
+  String get refundAmountShort => 'Refund amount';
+
+  @override
+  String get refundIsSettledLabel => 'Received (money is back)';
+
+  @override
+  String get refundMarkSettled => 'Mark as received';
+
+  @override
+  String get refundEmpty => 'No refunds yet — add one below';
+
+  @override
+  String get refundDeleteConfirm =>
+      'Delete this refund? The original expense\'s net will be restored.';
+
+  @override
+  String refundRemainingLabel(String amount) {
+    return 'Refundable: $amount';
+  }
+
+  @override
+  String refundNetLabel(String amount) {
+    return 'Net expense $amount';
+  }
+
+  @override
+  String refundPendingTotal(String amount) {
+    return 'Pending $amount';
+  }
+
+  @override
+  String get pendingRefundsTitle => 'Pending refunds';
+
+  @override
+  String get pendingRefundsSubtitle => 'Refunds requested but not yet received';
+
+  @override
+  String get pendingRefundsEmpty => 'No pending refunds';
+
+  @override
+  String pendingRefundsCount(int count) {
+    return '$count on the way';
+  }
+
+  @override
+  String get pickTypeTitle => 'Choose type';
+
+  @override
+  String get noteEditTitle => 'Edit note';
+
+  @override
+  String noAccountTransferCurrencyChangeTitle(String from, String to) {
+    return 'Destination currency changes from $from to $to';
+  }
+
+  @override
+  String noAccountTransferNoRateTitle(String from, String to) {
+    return 'Missing $from → $to rate';
+  }
+
+  @override
+  String noAccountTransferConvert(String amount) {
+    return 'Convert to $amount';
+  }
+
+  @override
+  String noAccountTransferReinterpret(String currency) {
+    return 'Keep the number and reinterpret it as $currency';
+  }
+
+  @override
+  String get deleteEntryTitle => 'Delete this transaction?';
+
+  @override
+  String get deleteEntryMessage =>
+      'This cannot be undone; the locally saved record will be removed.';
+
+  @override
+  String get todayLabel => 'Today';
+
+  @override
+  String get yesterdayLabel => 'Yesterday';
+
+  @override
+  String get selectAll => 'Select all';
+
+  @override
+  String get changeCategoryShort => 'Category';
+
+  @override
+  String get changeAccountShort => 'Account';
+
+  @override
+  String get budgetSettingsTitle => 'Budget settings';
+
+  @override
+  String yearMonth(DateTime month) {
+    final intl.DateFormat monthDateFormat = intl.DateFormat(
+      'MMM y',
+      localeName,
+    );
+    final String monthString = monthDateFormat.format(month);
+
+    return '$monthString';
+  }
+
+  @override
+  String yearNumber(DateTime year) {
+    final intl.DateFormat yearDateFormat = intl.DateFormat.y(localeName);
+    final String yearString = yearDateFormat.format(year);
+
+    return '$yearString';
+  }
+
+  @override
+  String get budgetUsed => 'Used';
+
+  @override
+  String get budgetOverspentThisMonth => 'Over budget this month';
+
+  @override
+  String get budgetAvailableThisMonth => 'Available this month';
+
+  @override
+  String get budgetMonthExpense => 'This month\'s spending';
+
+  @override
+  String get budgetOverspentThisPeriod => 'Over budget this period';
+
+  @override
+  String get budgetAvailableThisPeriod => 'Available this period';
+
+  @override
+  String get budgetPeriodExpense => 'This period\'s spending';
+
+  @override
+  String get budgetCycleStartDayTitle => 'Budget cycle start day';
+
+  @override
+  String budgetCycleStartDayOption(int day) {
+    return 'Day $day of each month';
+  }
+
+  @override
+  String get budgetCycleNaturalMonth => 'Day 1 (calendar month)';
+
+  @override
+  String budgetCycleRange(DateTime start, DateTime end) {
+    final intl.DateFormat startDateFormat = intl.DateFormat.MMMd(localeName);
+    final String startString = startDateFormat.format(start);
+    final intl.DateFormat endDateFormat = intl.DateFormat.MMMd(localeName);
+    final String endString = endDateFormat.format(end);
+
+    return '$startString – $endString';
+  }
+
+  @override
+  String get periodExpenseCategories => 'This period\'s expense categories';
+
+  @override
+  String get periodEnded => 'Period ended';
+
+  @override
+  String periodTotalDays(int days) {
+    return '$days days this period';
+  }
+
+  @override
+  String get lastPeriodExpense => 'Last period\'s spending';
+
+  @override
+  String budgetUsageLinePeriod(String percent, String delta) {
+    return 'Budget usage $percent%, $delta vs last period';
+  }
+
+  @override
+  String get deltaFlatVsLastPeriod => 'Same as last period';
+
+  @override
+  String deltaMoreVsLastPeriod(String amount) {
+    return '$amount more than last period';
+  }
+
+  @override
+  String deltaLessVsLastPeriod(String amount) {
+    return '$amount less than last period';
+  }
+
+  @override
+  String get budgetOverAmountLabel => 'Over budget';
+
+  @override
+  String get budgetRemainingQuota => 'Remaining';
+
+  @override
+  String get budgetAmountLabel => 'Budget amount';
+
+  @override
+  String get categoryBudgetTitle => 'Category budgets';
+
+  @override
+  String get monthExpenseCategories => 'This month\'s expense categories';
+
+  @override
+  String get noExpenseCategories => 'No expense categories yet';
+
+  @override
+  String get setMonthBudgetTitle => 'Set this month\'s budget';
+
+  @override
+  String get dailyBudgetTitle => 'Daily budget';
+
+  @override
+  String get dailyBudgetNotSet => 'No daily limit set — tap to configure';
+
+  @override
+  String dailyBudgetLimitLabel(String amount) {
+    return 'Daily limit $amount';
+  }
+
+  @override
+  String get dailyBudgetTodaySpent => 'Spent today';
+
+  @override
+  String get dailyBudgetTodayLeft => 'Left today';
+
+  @override
+  String get dailyBudgetTodayOver => 'Over today';
+
+  @override
+  String get setDailyBudgetTitle => 'Set daily budget';
+
+  @override
+  String get budgetHistoryTitle => 'Budget history';
+
+  @override
+  String get last12MonthsSub => 'Last 12 months';
+
+  @override
+  String get monthSummary => 'Monthly summary';
+
+  @override
+  String get last6MonthsTrend => '6-month trend';
+
+  @override
+  String get budgetLegend => 'Budget';
+
+  @override
+  String expenseAmountLabel(String amount) {
+    return 'Spent $amount';
+  }
+
+  @override
+  String get historyCompare => 'History comparison';
+
+  @override
+  String get lastMonthExpense => 'Last month\'s spending';
+
+  @override
+  String get noExpenseYet => 'No spending';
+
+  @override
+  String get compareBaseline => 'Comparison baseline';
+
+  @override
+  String budgetUsageLine(String percent, String delta) {
+    return 'Budget usage $percent%, $delta vs last month';
+  }
+
+  @override
+  String get notSetBudget => 'No budget set';
+
+  @override
+  String overBy(String amount) {
+    return 'Over by $amount';
+  }
+
+  @override
+  String remainingAmount(String amount) {
+    return '$amount left';
+  }
+
+  @override
+  String budgetHistoryLine(String budget, String expense, String percent) {
+    return 'Budget $budget · Spent $expense · $percent% used';
+  }
+
+  @override
+  String get categoryBudgetOk => 'Category budgets on track';
+
+  @override
+  String categoryOverspent(String category) {
+    return '$category over budget';
+  }
+
+  @override
+  String categoryNearBudget(String category) {
+    return '$category near budget';
+  }
+
+  @override
+  String categoryBudgetOkDesc(int count) {
+    return '$count category budgets set; none is close to overspending.';
+  }
+
+  @override
+  String categoryOverspentDesc(String amount, String percent) {
+    return 'Over by $amount; $percent% used this month.';
+  }
+
+  @override
+  String categoryNearDesc(String amount, String percent) {
+    return '$amount left; $percent% used this month.';
+  }
+
+  @override
+  String catNoBudgetLine(String amount) {
+    return 'No budget · spent $amount this month';
+  }
+
+  @override
+  String catRemainLine(String amount, String percent) {
+    return '$amount left · $percent% used';
+  }
+
+  @override
+  String catOverLine(String amount, String percent) {
+    return 'Over by $amount · $percent% used';
+  }
+
+  @override
+  String get lastMonthNone => 'No spending last month';
+
+  @override
+  String lastMonthAmount(String amount) {
+    return 'Last month $amount';
+  }
+
+  @override
+  String get setLabel => 'Set';
+
+  @override
+  String get monthEnded => 'Month ended';
+
+  @override
+  String remainingDaysInclToday(int days) {
+    return '$days days left incl. today';
+  }
+
+  @override
+  String monthTotalDays(int days) {
+    return '$days days this month';
+  }
+
+  @override
+  String get budgetTipNoneTitle => 'No budget yet';
+
+  @override
+  String get budgetTipNoneDesc =>
+      'Once you set this month\'s budget, progress, remaining quota, and daily allowance show here and on Home.';
+
+  @override
+  String get budgetTipOverTitle => 'Budget exceeded';
+
+  @override
+  String budgetTipOverDesc(String amount) {
+    return 'Spending exceeds the budget by $amount; further spending still counts toward this month.';
+  }
+
+  @override
+  String get budgetTipNearTitle => 'Budget nearly used up';
+
+  @override
+  String budgetTipNearDesc(String percent, String amount) {
+    return '$percent% of this month\'s budget used; $amount left.';
+  }
+
+  @override
+  String get budgetTipOkTitle => 'Budget on track';
+
+  @override
+  String budgetTipOkDesc(String amount) {
+    return 'At the current pace, about $amount per day is available for the rest of the month.';
+  }
+
+  @override
+  String get budgetTipEndedTitle => 'Month settled';
+
+  @override
+  String get budgetTipEndedDesc =>
+      'This month has ended; switch months to review or adjust budgets.';
+
+  @override
+  String get deltaFlatVsLastMonth => 'Same as last month';
+
+  @override
+  String deltaMoreVsLastMonth(String amount) {
+    return '$amount more than last month';
+  }
+
+  @override
+  String deltaLessVsLastMonth(String amount) {
+    return '$amount less than last month';
+  }
+
+  @override
+  String get usageFlat => 'flat';
+
+  @override
+  String usageUp(String points) {
+    return 'up $points pts';
+  }
+
+  @override
+  String usageDown(String points) {
+    return 'down $points pts';
+  }
+
+  @override
+  String get okLabel => 'OK';
+
+  @override
+  String get rankGroupCategory => 'Category';
+
+  @override
+  String get rankGroupSubCategory => 'Subcategory';
+
+  @override
+  String get rankGroupTag => 'Tag';
+
+  @override
+  String get rankGroupingLabel => 'Ranking dimension';
+
+  @override
+  String get tagRankOverlapNote =>
+      'An entry can carry multiple tags, so the percentages may add up to more than 100%';
+
+  @override
+  String subCategoryOf(String name) {
+    return 'Subcategories of \"$name\"';
+  }
+
+  @override
+  String noDimData(String dim) {
+    return 'No $dim data';
+  }
+
+  @override
+  String chartTrendSemantics(int count) {
+    return 'Line chart with $count data points; tap or swipe to read each value.';
+  }
+
+  @override
+  String chartBarSemantics(int count) {
+    return 'Bar chart with $count items; tap or swipe to read each value.';
+  }
+
+  @override
+  String noDimDesc(String dim) {
+    return 'No $dim records in this time range.';
+  }
+
+  @override
+  String get reportsSubtitle => 'Budget & stats';
+
+  @override
+  String get thisYearLabel => 'This year';
+
+  @override
+  String get overBudgetLabel => 'Over budget';
+
+  @override
+  String get remainingBudgetLabel => 'Remaining budget';
+
+  @override
+  String get expenseOnlyNote => 'Expenses only';
+
+  @override
+  String usedPercent(String percent) {
+    return '$percent% used';
+  }
+
+  @override
+  String get monthBudgetLabel => 'This month\'s budget';
+
+  @override
+  String countItems(int count) {
+    return '$count';
+  }
+
+  @override
+  String overCountLabel(int count) {
+    return '$count over budget';
+  }
+
+  @override
+  String get normalLabel => 'OK';
+
+  @override
+  String get othersLabel => 'Others';
+
+  @override
+  String get bookkeepingDays => 'Days tracked';
+
+  @override
+  String get bookkeepingYears => 'Years tracked';
+
+  @override
+  String get reminderPickTime => 'Choose reminder time';
+
+  @override
+  String get reminderTitle => 'Daily reminder';
+
+  @override
+  String get reminderDaily => 'Daily reminder';
+
+  @override
+  String get reminderTimeLabel => 'Reminder time';
+
+  @override
+  String get reminderDescSupported =>
+      'When enabled, a local notification arrives daily at the set time to remind you to record the day\'s spending. Some phones (Xiaomi / Huawei / OPPO / vivo, etc.) restrict background apps; if it never arrives, allow notifications in system settings and add this app to the battery / autostart allowlists. Use \"Send a test notification\" below to check that notifications can appear.';
+
+  @override
+  String get reminderDescUnsupported =>
+      'Local notifications aren\'t supported on this platform; this setting only works on Android / iOS phones.';
+
+  @override
+  String reminderDailyAt(String time) {
+    return 'Daily $time';
+  }
+
+  @override
+  String get recurringTitle => 'Recurring';
+
+  @override
+  String get recurringSubtitle =>
+      'Due entries are recorded automatically when the app opens';
+
+  @override
+  String get recurringAddTooltip => 'New rule';
+
+  @override
+  String get recurringEmpty =>
+      'No recurring rules yet. Tap + at top right to add one,\ne.g. monthly rent or salary.';
+
+  @override
+  String nextRun(String date) {
+    return 'Next $date';
+  }
+
+  @override
+  String get recurringNewTitle => 'New recurring rule';
+
+  @override
+  String get recurringEditTitle => 'Edit recurring rule';
+
+  @override
+  String get recurringDeleteTooltip => 'Delete rule';
+
+  @override
+  String get recurringDeleteTitle => 'Delete this recurring rule?';
+
+  @override
+  String get recurringDeleteMessage =>
+      'This rule cannot be restored once deleted.';
+
+  @override
+  String get tapToFill => 'Tap to set';
+
+  @override
+  String get addAccountFirst => 'Add an account first';
+
+  @override
+  String get frequencyLabel => 'Frequency';
+
+  @override
+  String get startDateLabel => 'Start date';
+
+  @override
+  String get pickFrequencyTitle => 'Choose frequency';
+
+  @override
+  String get skipLabel => 'Skip';
+
+  @override
+  String get startBookkeeping => 'Start';
+
+  @override
+  String get nextStep => 'Next';
+
+  @override
+  String get onboardWelcomeTitle => 'Welcome to Veri Fin';
+
+  @override
+  String get onboardWelcomeDesc =>
+      'A completely free, local-first budgeting app where your data stays yours.\n\nYour records live only on this device and are never uploaded; you can export a JSON backup anytime or encrypt and upload it to your own WebDAV.\n\nA few quick steps will get you started.';
+
+  @override
+  String get onboardAccountTitle => 'Create your first account';
+
+  @override
+  String get onboardAccountDesc =>
+      'Accounts are the basis of bookkeeping, e.g. \"Cash\" or \"Salary card\". Just enter a name and current balance — you can also add accounts later on the Assets page.';
+
+  @override
+  String get onboardAccountNameLabel => 'Account name (optional)';
+
+  @override
+  String get onboardAccountNameHint => 'e.g. Cash / Salary card';
+
+  @override
+  String get onboardBudgetDesc =>
+      'With a monthly budget set, Home and Reports show budget progress to help control spending. Leave blank to skip; you can change it anytime from the budget card on Home.';
+
+  @override
+  String get onboardBudgetLabel => 'This month\'s budget (optional)';
+
+  @override
+  String get onboardDoneTitle => 'All set';
+
+  @override
+  String get onboardDoneDesc =>
+      'Tap the + button at the bottom right of Home to record an entry.\n\nOn the Me page you can manage ledgers, categories, tags and recurring entries, and set reminders and backups. Income and expense stats and every chart live in the Reports tab at the bottom.\n\nHappy budgeting!';
+
+  @override
+  String legalUpdated(String date) {
+    return 'Updated: $date';
+  }
+
+  @override
+  String get privacyAndTerms => 'Privacy Policy & Terms';
+
+  @override
+  String get agreeContinue => 'Agree and continue';
+
+  @override
+  String get disagreeExit => 'Disagree and exit';
+
+  @override
+  String get legalPrivacyPolicy => 'Privacy Policy';
+
+  @override
+  String get legalUserAgreement => 'Terms of Service';
+
+  @override
+  String get profileCenterSubtitle => 'Profile';
+
+  @override
+  String get settingsTooltip => 'Settings';
+
+  @override
+  String get entryCountStat => 'Transactions';
+
+  @override
+  String get bookkeepingMgmt => 'Bookkeeping';
+
+  @override
+  String get ledgerLabel => 'Ledgers';
+
+  @override
+  String get categoryMgmt => 'Categories';
+
+  @override
+  String get tagMgmt => 'Tags';
+
+  @override
+  String countRules(int count) {
+    return '$count rules';
+  }
+
+  @override
+  String get subscriptionExpenses => 'Subscriptions';
+
+  @override
+  String get recognizedFromNotes => 'From entry notes';
+
+  @override
+  String get subscriptionEmptyHint =>
+      'Expenses with a subscription or membership in their notes appear here, including JD PLUS and 88VIP.';
+
+  @override
+  String get dataAndTools => 'Data & tools';
+
+  @override
+  String get notEnabled => 'Off';
+
+  @override
+  String get dataManagement => 'Data management';
+
+  @override
+  String get backupRestoreShort => 'Backup / restore';
+
+  @override
+  String currentBookLabel(String name) {
+    return 'Current: $name';
+  }
+
+  @override
+  String get bookAdd => 'New ledger';
+
+  @override
+  String get bookNameLabel => 'Ledger name';
+
+  @override
+  String get defaultBookLabel => 'Default ledger';
+
+  @override
+  String get bookActions => 'Ledger actions';
+
+  @override
+  String get defaultBookUndeletable => 'Default ledger can\'t be deleted';
+
+  @override
+  String get bookRenameTitle => 'Rename ledger';
+
+  @override
+  String get bookDeleteTitle => 'Delete ledger?';
+
+  @override
+  String bookDeleteMessage(String name) {
+    return 'Ledger \"$name\" and its transactions will be deleted. This cannot be undone.';
+  }
+
+  @override
+  String get categoryMgmtSubtitle =>
+      'Multi-level categories for entries and statistics';
+
+  @override
+  String get addTopCategory => 'New top-level category';
+
+  @override
+  String addCategoryTitle(String type) {
+    return 'New $type category';
+  }
+
+  @override
+  String addSubCategoryTitle(String parent) {
+    return 'New subcategory under \"$parent\"';
+  }
+
+  @override
+  String get categoryNameLabel => 'Category name';
+
+  @override
+  String get categoryNameDuplicate =>
+      'A category with this name already exists under the same parent';
+
+  @override
+  String get viewCategoryEntries => 'View transactions';
+
+  @override
+  String get changeIcon => 'Change icon';
+
+  @override
+  String get addSubCategory => 'New subcategory';
+
+  @override
+  String get moveTo => 'Move to…';
+
+  @override
+  String get deleteCategory => 'Delete category';
+
+  @override
+  String get noMoveTarget => 'No available destination';
+
+  @override
+  String moveCategoryTitle(String name) {
+    return 'Move \"$name\" to';
+  }
+
+  @override
+  String get topCategory => 'Top level';
+
+  @override
+  String get cannotMoveHere => 'Can\'t move the category here';
+
+  @override
+  String get mergeCategory => 'Merge into another category';
+
+  @override
+  String mergeCategoryPickTitle(String name) {
+    return 'Merge \"$name\" into';
+  }
+
+  @override
+  String get mergeCategoryConfirmTitle => 'Merge category?';
+
+  @override
+  String mergeCategoryConfirmMessage(String source, int count, String target) {
+    return '$count transactions in \"$source\" will be moved into \"$target\", then \"$source\" will be deleted. This can\'t be undone.';
+  }
+
+  @override
+  String get mergeCategoryConfirmButton => 'Merge';
+
+  @override
+  String mergedCategoryResult(int count, String target) {
+    return 'Moved $count transactions into \"$target\"';
+  }
+
+  @override
+  String get mergeCategoryFailed => 'Can\'t merge this category';
+
+  @override
+  String get renameCategoryTitle => 'Rename category';
+
+  @override
+  String get tagNameDuplicate => 'A tag with this name already exists';
+
+  @override
+  String get pickIconTitle => 'Choose icon';
+
+  @override
+  String get iconSectionBuiltin => 'Built-in icons';
+
+  @override
+  String get iconSectionEmoji => 'Emoji';
+
+  @override
+  String get iconEmojiHint => 'Type or paste an emoji';
+
+  @override
+  String get iconEmojiUse => 'Use';
+
+  @override
+  String get systemCategoryUndeletable => 'System categories can\'t be deleted';
+
+  @override
+  String categoryInUse(int count) {
+    return '$count transactions use this category; it can\'t be deleted';
+  }
+
+  @override
+  String categoryUsedByRecurring(int count) {
+    return 'This category is used by $count recurring rule(s); update or delete them first';
+  }
+
+  @override
+  String get moveSubFirst => 'Move or delete its subcategories first';
+
+  @override
+  String get keepOneCategory => 'Keep at least one category';
+
+  @override
+  String get deleteCategoryTitle => 'Delete category?';
+
+  @override
+  String deleteCategoryMessage(String name) {
+    return 'Category \"$name\" cannot be restored once deleted.';
+  }
+
+  @override
+  String get categoryUndeletable => 'This category can\'t be deleted right now';
+
+  @override
+  String catSubChildren(String type, int children, int count) {
+    return '$type · $children subcategories · $count entries';
+  }
+
+  @override
+  String catSubPlain(String type, int count) {
+    return '$type · $count transactions';
+  }
+
+  @override
+  String get tagMgmtSubtitle => 'Add multiple tags to entries';
+
+  @override
+  String get tagAdd => 'New tag';
+
+  @override
+  String get tagsEmpty => 'No tags yet; tap + at top right';
+
+  @override
+  String get deleteTag => 'Delete tag';
+
+  @override
+  String get tagRenameTitle => 'Rename tag';
+
+  @override
+  String get tagDeleteTitle => 'Delete tag?';
+
+  @override
+  String tagDeleteInUse(String name, int count) {
+    return 'Tag \"$name\" is used by $count transactions; deleting removes it from them.';
+  }
+
+  @override
+  String tagDeleteMessage(String name) {
+    return 'Tag \"$name\" cannot be restored once deleted.';
+  }
+
+  @override
+  String get personalInfo => 'Personal info';
+
+  @override
+  String get nicknameLabel => 'Nickname';
+
+  @override
+  String get bioLabel => 'Bio';
+
+  @override
+  String get genderLabel => 'Gender';
+
+  @override
+  String get birthdayLabel => 'Birthday';
+
+  @override
+  String get birthdayClear => 'Clear birthday';
+
+  @override
+  String get cityLabel => 'City';
+
+  @override
+  String get occupationLabel => 'Occupation';
+
+  @override
+  String get pickGenderTitle => 'Choose gender';
+
+  @override
+  String get cropAvatarTitle => 'Crop avatar';
+
+  @override
+  String get avatarGenerating => 'Generating avatar…';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsSectionAppearance => 'Appearance';
+
+  @override
+  String get settingsSectionAmountDisplay => 'Amount display';
+
+  @override
+  String get settingsSectionGeneral => 'General';
+
+  @override
+  String get settingsSectionBookkeeping => 'Bookkeeping';
+
+  @override
+  String get settingsSectionAbout => 'About';
+
+  @override
+  String get settingsSectionMore => 'More';
+
+  @override
+  String get creditsTitle => 'Credits';
+
+  @override
+  String get creditsIntro =>
+      'Veri Fin stays free and clean thanks to these people.';
+
+  @override
+  String creditsSupporterCount(int count) {
+    return '$count people';
+  }
+
+  @override
+  String get creditsSupportNote =>
+      'No memberships, no locked features — you are supporting the software itself.';
+
+  @override
+  String get creditsSupportAction => 'Support Veri Fin on Afdian';
+
+  @override
+  String get openLinkFailed => 'Could not open the browser. Please try again.';
+
+  @override
+  String get themeMode => 'Theme';
+
+  @override
+  String get themeColorLabel => 'Theme style';
+
+  @override
+  String get themeColorWarmPaper => 'Warm Paper (Default)';
+
+  @override
+  String get themeColorHyperCrisp => 'Hyper Crisp';
+
+  @override
+  String get themeColorObsidianBento => 'Obsidian Bento';
+
+  @override
+  String get themeColorDefault => 'Classic Blue';
+
+  @override
+  String get themeColorSystem => 'System dynamic color';
+
+  @override
+  String get themeColorCustom => 'Custom color';
+
+  @override
+  String get themeColorPickerTitle => 'Adjust theme color';
+
+  @override
+  String get themeColorEffectivePrimary => 'Selected theme color';
+
+  @override
+  String get themeColorHex => 'HEX color';
+
+  @override
+  String get themeColorHue => 'Hue';
+
+  @override
+  String get themeColorSaturation => 'Saturation';
+
+  @override
+  String get themeColorBrightness => 'Brightness';
+
+  @override
+  String get hapticsLabel => 'Haptic feedback';
+
+  @override
+  String get hapticsSubtitle =>
+      'Light vibration for keys, selections and drag sorting';
+
+  @override
+  String get numberPadLayoutLabel => 'Number pad layout';
+
+  @override
+  String get numberPadLayoutPickerTitle => 'Choose number pad layout';
+
+  @override
+  String get numberPadLayoutStandard => 'Standard layout';
+
+  @override
+  String get numberPadLayoutPhone => 'Phone layout';
+
+  @override
+  String get amountTwoDecimalsLabel => 'Currency precision';
+
+  @override
+  String get amountTwoDecimalsDesc =>
+      'Show each currency at its standard precision (CNY 12.00, JPY 12, KWD 12.000); off trims trailing zeros';
+
+  @override
+  String get moneyUnitStyleLabel => 'Currency unit style';
+
+  @override
+  String get moneyUnitStyleSymbol => 'Symbol after (100 \$)';
+
+  @override
+  String get moneyUnitStyleCode => 'Code before (USD 100)';
+
+  @override
+  String get hideSingleCurrencyUnitLabel => 'Hide unit for one currency';
+
+  @override
+  String get hideSingleCurrencyUnitDesc =>
+      'Hide the currency unit when a ledger uses only one currency (amounts, headers, card badges, AI answers)';
+
+  @override
+  String get runningBalanceLabel => 'Show running balance';
+
+  @override
+  String get runningBalanceDesc =>
+      'Show the account balance after each entry in the transaction list';
+
+  @override
+  String runningBalancePrefix(Object amount) {
+    return 'Balance $amount';
+  }
+
+  @override
+  String moneyUnitLabel(String unit) {
+    return 'Unit: $unit';
+  }
+
+  @override
+  String get autoSuggestLabel => 'Auto-fill from history';
+
+  @override
+  String get autoSuggestDesc =>
+      'Fill in type, category, tags and note for a new entry based on your past entries';
+
+  @override
+  String get appLockLabel => 'App lock';
+
+  @override
+  String get enabledLabel => 'On';
+
+  @override
+  String get checkUpdate => 'Check for updates';
+
+  @override
+  String get githubRepositoryLabel => 'GitHub repository';
+
+  @override
+  String get viewLabel => 'View';
+
+  @override
+  String get themePickerTitle => 'Choose theme';
+
+  @override
+  String get dataMgmtSubtitle => 'Back up and restore local data';
+
+  @override
+  String get exportData => 'Export to file';
+
+  @override
+  String get jsonBackup => 'Save to system Downloads';
+
+  @override
+  String get importData => 'Restore from file';
+
+  @override
+  String get restoreFromFile => 'Pick a backup file';
+
+  @override
+  String get importFromSheets => 'Import bills';
+
+  @override
+  String get dataSectionLocalBackup => 'Local backup';
+
+  @override
+  String get dataSectionMaintenance => 'Maintenance';
+
+  @override
+  String get downloadCsvTemplate => 'Download CSV template';
+
+  @override
+  String get excelHint => 'Excel can save as CSV';
+
+  @override
+  String get importBillFile => 'Import bill file';
+
+  @override
+  String get importBillFileHint => 'Alipay / WeChat / Mint';
+
+  @override
+  String get selectBillSource => 'Choose bill source';
+
+  @override
+  String get selectBillSourceHint =>
+      'Pick the platform first, then its exported file — avoids format mis-detection';
+
+  @override
+  String get selectBillSourceNotice =>
+      'Limited by each platform\'s export fields, some account details (balance, type, card number) may not exactly match the original app. You can review and adjust them on the import preview page.';
+
+  @override
+  String get platformAlipay => 'Alipay';
+
+  @override
+  String get platformAlipayHint => 'Transaction detail CSV';
+
+  @override
+  String get platformWechat => 'WeChat Pay';
+
+  @override
+  String get platformWechatHint => 'Payment bill xlsx';
+
+  @override
+  String get platformMint => 'Mint (Bohe)';
+
+  @override
+  String get platformMintHint => 'Bill CSV';
+
+  @override
+  String get platformYimuBill => 'YiMu · Bills';
+
+  @override
+  String get platformYimuBillHint => 'Bill export (.xls)';
+
+  @override
+  String get platformYimuTransfer => 'YiMu · Transfers';
+
+  @override
+  String get platformYimuTransferHint => 'Transfer export (.xls)';
+
+  @override
+  String get platformQianji => 'Qianji';
+
+  @override
+  String get platformQianjiHint => 'Detail export CSV';
+
+  @override
+  String get platformSuishouji => 'Suishouji';
+
+  @override
+  String get platformSuishoujiHint => 'Bill export (.xlsx)';
+
+  @override
+  String get platformTally => 'Tally';
+
+  @override
+  String get platformTallyHint => 'Backup zip';
+
+  @override
+  String get platformCsvTemplate => 'CSV template';
+
+  @override
+  String get platformCsvTemplateHint => 'Veri Fin CSV template';
+
+  @override
+  String get importGroupSoftware => 'Apps / payment platforms';
+
+  @override
+  String get importGroupCsv => 'CSV file';
+
+  @override
+  String billImportGuideTitle(String source) {
+    return 'How to export $source bills';
+  }
+
+  @override
+  String get alipayImportGuide =>
+      'In Alipay: Me → Bills → top-right \"…\" → Issue transaction statement → For personal reconciliation → pick a date range. The CSV arrives by email; download it to your phone, then choose it here.\n\nNon-income/expense rows (repayments, investments, transfers) are skipped automatically to avoid double counting. Menu paths may vary by app version.';
+
+  @override
+  String get wechatImportGuide =>
+      'In WeChat: Me → Services → Wallet → Bills → top-right FAQ → Download bill → For personal reconciliation → pick a date range. The xlsx arrives by email; download it to your phone, then choose it here.\n\nNeutral transactions (withdrawals, investments, repayments) are skipped automatically. Menu paths may vary by app version.';
+
+  @override
+  String get mintImportGuide =>
+      'In Mint (Bohe): Me → ledger/data settings → Export bill (CSV), save it to your phone, then choose it here. Menu paths may vary by app version.';
+
+  @override
+  String get yimuBillImportGuide =>
+      'In YiMu (一木记账): Me → Import/Export → Export data → Export bills, choose Excel (.xls) and save it to your phone, then choose it here.\n\nImports income/expense bills only; categories use the second-level category. For transfers, use the separate \"YiMu · Transfers\" entry. Menu paths may vary by app version.';
+
+  @override
+  String get yimuTransferImportGuide =>
+      'In YiMu (一木记账): Me → Import/Export → Export data → Export transfers, choose Excel (.xls) and save it to your phone, then choose it here.\n\nImports transfer records, keeping both accounts and the fee. For income/expense bills, use the separate \"YiMu · Bills\" entry. Menu paths may vary by app version.';
+
+  @override
+  String get qianjiImportGuide =>
+      'In Qianji (钱迹): Me → Settings → Backup & export → Export bills → choose the \"CSV\" (detail) format with the \"All\" time range. You get a .csv file starting with \"QianJi\"; save it to your phone, then choose it here.\n\nExpense, income, transfer, credit-card repayment, refund and reimbursement are all imported: refunds offset the original expense via their linked bill (net = original − refund); categories restore the two-level hierarchy and tags are imported too. Qianji\'s debt/loan records (lend, collect, interest, etc.) are skipped. Menu paths may vary by app version.';
+
+  @override
+  String get suishoujiImportGuide =>
+      'In Suishouji (随手记): Me → Data export / Export bills → choose Excel (.xlsx), save it to your phone, then choose it here.\n\nThe single workbook contains expense, income, transfer and refund sheets: first- and second-level categories keep their hierarchy, and accounts keep their source currency. Refunds have no original-expense link in the export, so they are imported as income (account balances stay correct, but the original expense is not offset); \"balance change\" rows become \"balance adjustment\" entries based on their sign. Debt sheets (collect debt, lend, repay debt, borrow) and \"liability change\" are skipped. Member, project and bookkeeper fields are ignored; merchant is merged into the note. Accounts are created as cash accounts; adjust their type in Assets after import. Menu paths may vary by app version.';
+
+  @override
+  String get tallyImportGuide =>
+      'In Tally (记账): Settings → Data backup & restore → Export backup, which produces a .zip file starting with \"Tally\". Save it to your phone, then choose it here.\n\nPick the backup zip rather than the CSV bill export: the backup keeps exact transaction times, and income/expense/transfers, first- and second-level categories, accounts and notes are all imported (categories use the second-level category). Menu paths may vary by app version.';
+
+  @override
+  String get csvTemplateImportGuide =>
+      'Download the CSV template first. For a foreign-currency transaction, provide its currency plus either the base amount or rate; cross-currency transfers also need the actual amount at both ends. Columns from other apps are rejected.';
+
+  @override
+  String get billImportCommonNote =>
+      'Transactions are appended to the current ledger; unmatched accounts and categories are created by name. Nothing is deleted.';
+
+  @override
+  String get backupDirLabel => 'Backup folder';
+
+  @override
+  String get notChosen => 'Not chosen';
+
+  @override
+  String get backupNow => 'Back up now';
+
+  @override
+  String get clearBackupDir => 'Clear backup folder';
+
+  @override
+  String get clearBackupDirConfirm =>
+      'You will need to pick a backup folder again. Backup files already exported are not deleted.';
+
+  @override
+  String get stopLocalBackup => 'Stops local backups';
+
+  @override
+  String get autoBackup => 'Auto backup';
+
+  @override
+  String get backupFrequencyLabel => 'Backup frequency';
+
+  @override
+  String get backupIntervalLabel => 'Backup interval';
+
+  @override
+  String everyNHoursLabel(int n) {
+    return 'Every $n hours';
+  }
+
+  @override
+  String get retentionLabel => 'Copies to keep';
+
+  @override
+  String latestNCopies(int n) {
+    return 'Latest $n';
+  }
+
+  @override
+  String get backupEncryption => 'Backup encryption';
+
+  @override
+  String get encryptionKey => 'Encryption key';
+
+  @override
+  String get clearEncryptionKey => 'Clear encryption key';
+
+  @override
+  String get noEncryptHint => 'Future backups unencrypted';
+
+  @override
+  String get webdavSection => 'WebDAV cloud backup';
+
+  @override
+  String get webdavServer => 'WebDAV server';
+
+  @override
+  String get configuredLabel => 'Configured';
+
+  @override
+  String get notConfigured => 'Not configured';
+
+  @override
+  String get uploadToWebdav => 'Upload to WebDAV';
+
+  @override
+  String get uploadNow => 'Upload now';
+
+  @override
+  String get restoreFromWebdav => 'Restore from WebDAV';
+
+  @override
+  String get chooseBackup => 'Choose backup';
+
+  @override
+  String get autoUploadWebdav => 'Auto-upload to WebDAV';
+
+  @override
+  String get clearWebdav => 'Clear WebDAV config';
+
+  @override
+  String get disconnectLabel => 'Disconnect';
+
+  @override
+  String get resetData => 'Reset data';
+
+  @override
+  String get deleteAllLocal => 'Deletes all local data';
+
+  @override
+  String get neverBackedUp => 'Never backed up';
+
+  @override
+  String lastBackupAt(String time) {
+    return 'Last $time';
+  }
+
+  @override
+  String chosenBackupDir(String label) {
+    return 'Backup folder selected: $label';
+  }
+
+  @override
+  String backedUpFile(String name) {
+    return 'Backed up: $name';
+  }
+
+  @override
+  String get backupFailedRetry => 'Backup failed; please try again later';
+
+  @override
+  String get backupVerifyFailed =>
+      'Backup verification failed after writing (the file may be corrupted); please retry or choose another folder';
+
+  @override
+  String get pickBackupFrequency => 'Choose auto-backup frequency';
+
+  @override
+  String get backupIntervalTitle => 'How often to back up';
+
+  @override
+  String get retentionTitle => 'How many backups to keep';
+
+  @override
+  String get encryptedSuffix => ' (encrypted)';
+
+  @override
+  String exportedTo(String hint) {
+    return 'Exported local backup$hint to the Downloads folder';
+  }
+
+  @override
+  String get exportFailed => 'Export failed; please try again later';
+
+  @override
+  String get enterBackupKeyTitle => 'Enter backup key';
+
+  @override
+  String get enterBackupKeyMessage =>
+      'This backup is encrypted; enter the key set when it was exported.';
+
+  @override
+  String get backupKeyLabel => 'Backup key';
+
+  @override
+  String get changeKeyTitle => 'Change encryption key';
+
+  @override
+  String get setKeyTitle => 'Set encryption key';
+
+  @override
+  String get setKeyMessage =>
+      'Exports and backups will be encrypted with this key; the same key is required to import. The key is stored only on this device — if forgotten, it can only be cleared and reset.';
+
+  @override
+  String get keyMinLabel => 'Key (at least 4 characters)';
+
+  @override
+  String get keyRepeatLabel => 'Repeat key';
+
+  @override
+  String get keyTooShort => 'Key must be at least 4 characters';
+
+  @override
+  String get keyMismatch => 'Keys don\'t match';
+
+  @override
+  String get keySet => 'Backup encryption key set';
+
+  @override
+  String get clearKeyTitle => 'Clear encryption key?';
+
+  @override
+  String get clearKeyMessage =>
+      'New exports and backups will no longer be encrypted. Backups already encrypted with the old key still require it when importing.';
+
+  @override
+  String get clearLabel => 'Clear';
+
+  @override
+  String get webdavUrlLabel => 'Server folder URL';
+
+  @override
+  String get webdavUserLabel => 'Username';
+
+  @override
+  String get webdavPassLabel => 'Password';
+
+  @override
+  String get testingConnection => 'Testing connection…';
+
+  @override
+  String get connectionOk => 'Connection OK';
+
+  @override
+  String connectionFailed(String error) {
+    return 'Connection failed: $error';
+  }
+
+  @override
+  String get testConnection => 'Test connection';
+
+  @override
+  String get fillServerUrl => 'Enter the server URL';
+
+  @override
+  String get webdavSaved => 'WebDAV config saved';
+
+  @override
+  String get fabActionTitle => 'Quick-entry button';
+
+  @override
+  String get fabActionPickerTitle => 'Quick-entry button action';
+
+  @override
+  String get fabModeManual => 'Manual entry';
+
+  @override
+  String get fabModeAi => 'AI entry';
+
+  @override
+  String get fabModeManualTapAiLongPress => 'Tap: manual · Long-press: AI';
+
+  @override
+  String get defaultAccountTitle => 'Default account';
+
+  @override
+  String get defaultAccountPickerTitle => 'Default payment account';
+
+  @override
+  String get defaultAccountNone => 'No default';
+
+  @override
+  String get defaultAccountNoneHint =>
+      'No account preselected when adding entries';
+
+  @override
+  String get setAsDefaultAccount => 'Set as default account';
+
+  @override
+  String get setAsDefaultAccountHint =>
+      'Used as the default payment account for entries';
+
+  @override
+  String get calcIncomplete => 'Incomplete expression';
+
+  @override
+  String get numberPadAmountHint => 'Enter amount';
+
+  @override
+  String get numberPadClear => 'Clear';
+
+  @override
+  String numberPadMax(String amount) {
+    return 'Max $amount';
+  }
+
+  @override
+  String get aiSettingsTitle => 'AI settings';
+
+  @override
+  String get aiConfigured => 'Configured';
+
+  @override
+  String get aiNotConfigured => 'Not set';
+
+  @override
+  String get aiProviderCurrent => 'Current provider';
+
+  @override
+  String get aiProviderPickerTitle => 'Choose AI provider';
+
+  @override
+  String get aiProviderPickerSubtitle =>
+      'The provider\'s fixed endpoint will be used';
+
+  @override
+  String get aiProviderChange => 'Change';
+
+  @override
+  String get aiProviderSearchHint => 'Search provider, description, or domain';
+
+  @override
+  String get aiProviderSearchEmpty => 'No provider found';
+
+  @override
+  String get aiProviderSearchEmptyDesc =>
+      'Try a vendor name, platform, or domain';
+
+  @override
+  String get aiProviderGroupAll => 'All';
+
+  @override
+  String get aiProviderGroupChinaOfficial => 'China official';
+
+  @override
+  String get aiProviderGroupGlobalOfficial => 'Global official';
+
+  @override
+  String get aiProviderGroupAggregator => 'Aggregators';
+
+  @override
+  String get aiProviderGroupLocal => 'Local';
+
+  @override
+  String get aiProviderGroupCustom => 'Custom';
+
+  @override
+  String get aiProviderDescDeepSeek =>
+      'DeepSeek official OpenAI-compatible endpoint';
+
+  @override
+  String get aiProviderDescVolcengine => 'Volcengine Ark model service';
+
+  @override
+  String get aiProviderDescKimi => 'Moonshot Kimi official endpoint';
+
+  @override
+  String get aiProviderDescZhipu => 'Zhipu GLM official endpoint';
+
+  @override
+  String get aiProviderDescDashscope =>
+      'Alibaba Cloud Bailian compatible endpoint';
+
+  @override
+  String get aiProviderDescOpenai => 'OpenAI official endpoint';
+
+  @override
+  String get aiProviderDescOpenrouter => 'Multi-model routing platform';
+
+  @override
+  String get aiProviderDescOllama => 'Local Ollama service';
+
+  @override
+  String get aiProviderDescCustom => 'Any OpenAI-compatible endpoint';
+
+  @override
+  String get aiProviderCustomBaseUrlHint =>
+      'Enter through /v1, or a full /chat/completions URL';
+
+  @override
+  String get aiProviderModelListUrlLabel => 'Model list URL (optional)';
+
+  @override
+  String get aiProviderModelListUrlHint =>
+      'Leave empty to derive it from the endpoint';
+
+  @override
+  String get aiProviderApiKeyLabel => 'API Key (optional)';
+
+  @override
+  String get aiProviderModelLabel => 'Model';
+
+  @override
+  String get aiProviderModelHint =>
+      'Fetch the model list or enter a model manually';
+
+  @override
+  String get aiProviderFetchModels => 'Fetch model list';
+
+  @override
+  String get aiProviderFetchingModels => 'Fetching model list…';
+
+  @override
+  String get aiProviderModelPickerTitle => 'Choose model';
+
+  @override
+  String get aiProviderModelSearchHint => 'Search model or vendor';
+
+  @override
+  String get aiProviderModelEmpty => 'No models available';
+
+  @override
+  String get aiProviderModelEmptyDesc =>
+      'Try another filter or enter a model ID manually';
+
+  @override
+  String get aiProviderModelOtherGroup => 'Other';
+
+  @override
+  String aiProviderModelFetchFailed(String message) {
+    return 'Could not fetch models: $message';
+  }
+
+  @override
+  String get aiProviderModelFetchEmpty =>
+      'Connected, but no models were returned';
+
+  @override
+  String get aiProviderMissingBaseUrl => 'Enter the provider endpoint first';
+
+  @override
+  String get aiChatTitle => 'AI Assistant';
+
+  @override
+  String get aiChatClearHistory => 'Clear chat history';
+
+  @override
+  String get aiChatClearMessage =>
+      'This deletes the current conversation and cannot be undone.';
+
+  @override
+  String get aiChatClearConfirm => 'Clear';
+
+  @override
+  String get aiChatChooseBook => 'Choose conversation ledger';
+
+  @override
+  String get aiChatClearCurrent => 'Clear chat';
+
+  @override
+  String get aiSendQuestion => 'Send';
+
+  @override
+  String get aiStopGenerating => 'Stop generating';
+
+  @override
+  String aiChatCurrentBook(String book) {
+    return 'Current ledger: $book';
+  }
+
+  @override
+  String get aiChatUnconfiguredHint =>
+      'Configure AI first to start asking about your finances';
+
+  @override
+  String get aiChatUnconfiguredTitle => 'Connect your AI';
+
+  @override
+  String get aiChatGoConfigure => 'Configure AI';
+
+  @override
+  String get aiChatEmptyTitle => 'Ask AI about your finances';
+
+  @override
+  String get aiChatInputHint => 'Ask about your finances…';
+
+  @override
+  String get aiChatHintTopCategory =>
+      'Which categories did I spend the most on this month?';
+
+  @override
+  String get aiChatHintLargeExpense =>
+      'What are my large expenses in the last 3 months?';
+
+  @override
+  String get aiChatHintMonthSummary =>
+      'How\'s my income and spending this month?';
+
+  @override
+  String get aiChatNoData => 'No data';
+
+  @override
+  String get aiChatNoMatchingTx => 'No matching transactions';
+
+  @override
+  String get aiImageBlocked => 'Image not loaded for privacy';
+
+  @override
+  String get aiClearConfig => 'Clear configuration';
+
+  @override
+  String get aiClearConfigMessage =>
+      'This clears the base URL, API key and model. You\'ll need to re-enter them to use AI features.';
+
+  @override
+  String get aiSwitchProviderTitle => 'Switch AI provider?';
+
+  @override
+  String get aiSwitchProviderMessage =>
+      'Switching providers clears the current API key and model, and you\'ll need to enter them again.';
+
+  @override
+  String get aiConfigCleared => 'Configuration cleared';
+
+  @override
+  String get aiBaseUrlLabel => 'Request URL (base)';
+
+  @override
+  String get aiBaseUrlHint => 'e.g. https://api.openai.com/v1';
+
+  @override
+  String get aiFillAllFields => 'Choose a provider and enter a model';
+
+  @override
+  String get aiToolModeTitle => 'Tool calling protocol';
+
+  @override
+  String get aiToolModeAuto => 'Auto (recommended)';
+
+  @override
+  String get aiToolModeNative => 'Native Tool Calls';
+
+  @override
+  String get aiToolModePrompt => 'Compatibility mode';
+
+  @override
+  String get aiToolModeAutoHint =>
+      'Prefer native tools and fall back when unsupported';
+
+  @override
+  String get aiToolModeNativeHint => 'Always use structured Tool Calls';
+
+  @override
+  String get aiToolModePromptHint =>
+      'For models or gateways without native tool support';
+
+  @override
+  String get aiDetectCapabilities => 'Detect capabilities';
+
+  @override
+  String get aiDetectingCapabilities =>
+      'Checking connection, streaming, and Tool Calls…';
+
+  @override
+  String get aiConnectionReady => 'Connection successful';
+
+  @override
+  String get aiStreamingReady => 'Streaming successful';
+
+  @override
+  String get aiNativeToolsSupported => 'Native Tool Calls: supported';
+
+  @override
+  String get aiNativeToolsUnsupported =>
+      'Native Tool Calls: unsupported; compatibility mode will be used';
+
+  @override
+  String get aiActualProtocolNative => 'Active protocol: native Tool Calls';
+
+  @override
+  String get aiActualProtocolPrompt => 'Active protocol: compatibility mode';
+
+  @override
+  String get aiActualProtocolAuto => 'Active protocol: automatic detection';
+
+  @override
+  String get aiStepRunning => 'Running';
+
+  @override
+  String get aiStepSucceeded => 'Done';
+
+  @override
+  String get aiStepFailed => 'Failed';
+
+  @override
+  String get aiStepRetrying => 'Retrying';
+
+  @override
+  String get aiToolSummary => 'Query cash-flow summary';
+
+  @override
+  String get aiToolCategoryRanking => 'Query category ranking';
+
+  @override
+  String get aiToolTagRanking => 'Query tag ranking';
+
+  @override
+  String get aiToolQueryTransactions => 'Query transactions';
+
+  @override
+  String get aiToolLargestTransactions => 'Query large transactions';
+
+  @override
+  String get aiToolTrend => 'Query cash-flow trend';
+
+  @override
+  String get aiToolCompare => 'Query month-over-month comparison';
+
+  @override
+  String get aiToolAccountsOverview => 'Query account balances';
+
+  @override
+  String get aiToolNetWorth => 'Query net worth';
+
+  @override
+  String get aiToolCreditCardBill => 'Query credit card bill';
+
+  @override
+  String get aiToolBudgetStatus => 'Query budget status';
+
+  @override
+  String get aiToolUnknown => 'Call read-only tool';
+
+  @override
+  String get aiAgentRetryTitle => 'Reconnecting';
+
+  @override
+  String get aiAgentRetryNetwork =>
+      'The connection was interrupted; retrying safely';
+
+  @override
+  String get aiAgentRetryProtocol =>
+      'Native Tool Calls are unsupported; switching to compatibility mode';
+
+  @override
+  String get aiAgentRetryResource =>
+      'The service is temporarily busy; retrying';
+
+  @override
+  String aiStepKeyword(String keyword) {
+    return 'Keyword “$keyword”';
+  }
+
+  @override
+  String aiStepLimit(int count) {
+    return 'Up to $count items';
+  }
+
+  @override
+  String aiStepTransactionsFound(int count) {
+    return 'Found $count transactions';
+  }
+
+  @override
+  String aiStepItemsFound(int count) {
+    return 'Received $count results';
+  }
+
+  @override
+  String get aiStepDataReady => 'Data ready';
+
+  @override
+  String get aiRangeLastMonth => 'Last month';
+
+  @override
+  String get aiRangeThisYear => 'This year';
+
+  @override
+  String get aiRangeLastYear => 'Last year';
+
+  @override
+  String get aiRangeLast7Days => 'Last 7 days';
+
+  @override
+  String get aiRangeLast30Days => 'Last 30 days';
+
+  @override
+  String get aiRangeLast3Months => 'Last 3 months';
+
+  @override
+  String get aiRangeLast6Months => 'Last 6 months';
+
+  @override
+  String get aiRangeLast12Months => 'Last 12 months';
+
+  @override
+  String get aiTypeExpense => 'Expense';
+
+  @override
+  String get aiTypeIncome => 'Income';
+
+  @override
+  String get aiTypeTransfer => 'Transfer';
+
+  @override
+  String get aiRetryAnswer => 'Answer again';
+
+  @override
+  String get aiPrivacyNotice =>
+      'AI features send your text and the read-only financial summaries needed to answer your questions to your configured third-party service. The configuration and full ledger remain on this device.';
+
+  @override
+  String get aiEntryTitle => 'AI entry';
+
+  @override
+  String get aiEntryInputHint =>
+      'Describe it in one sentence, e.g. \"taxi 32 yesterday\"';
+
+  @override
+  String get aiEntryParse => 'Parse';
+
+  @override
+  String get aiEntryParsing => 'Parsing…';
+
+  @override
+  String get aiEntryEmptyInput => 'Please enter a description first';
+
+  @override
+  String get aiEntryNotConfiguredTitle => 'AI not configured';
+
+  @override
+  String get aiEntryNotConfiguredBody =>
+      'Please set the request URL, API key and model in Profile → Settings → AI Settings first.';
+
+  @override
+  String get aiEntryGoToSettings => 'Go to settings';
+
+  @override
+  String get aiEntryReviewHint =>
+      'Parsed into a draft by AI — review or edit, then save';
+
+  @override
+  String get aiEntryNoResult =>
+      'AI returned no recognizable result — try rephrasing';
+
+  @override
+  String get aiEntryNoAmount =>
+      'Couldn\'t recognize an amount — include it, e.g. \"taxi 32\"';
+
+  @override
+  String get aiWarningCategoryUnmatched =>
+      'Category not matched — a default was used, please confirm';
+
+  @override
+  String get aiWarningAccountUnmatched =>
+      'Account not matched — set to no account, please confirm';
+
+  @override
+  String get aiWarningCurrencyUnmatched =>
+      'Currency not recognized — using the account or base currency, please confirm';
+
+  @override
+  String get screenshotEntryButton => 'Scan a screenshot';
+
+  @override
+  String get screenshotEntryUnsupported =>
+      'Image text recognition is not supported on this device';
+
+  @override
+  String get screenshotEntryNoText =>
+      'No text was recognized in the image — try a clearer screenshot';
+
+  @override
+  String get captureEntryRecognizing => 'Reading the bill…';
+
+  @override
+  String get captureEntryNoTransaction =>
+      'No transaction was found — make sure the content is a bill screenshot or bill text';
+
+  @override
+  String get captureEntryFailedTitle => 'Recognition failed';
+
+  @override
+  String get uploadingWebdav => 'Uploading to WebDAV…';
+
+  @override
+  String uploadedFile(String name) {
+    return 'Uploaded: $name';
+  }
+
+  @override
+  String uploadFailed(String error) {
+    return 'Upload failed: $error';
+  }
+
+  @override
+  String readFailed(String error) {
+    return 'Read failed: $error';
+  }
+
+  @override
+  String get noWebdavBackups => 'No backups found on WebDAV';
+
+  @override
+  String get chooseRestoreBackup => 'Choose a backup to restore';
+
+  @override
+  String get restoreFromThisTitle => 'Restore from this backup?';
+
+  @override
+  String restoreFromThisMessage(String name) {
+    return '\"$name\" will replace the current local data. Consider backing up first.';
+  }
+
+  @override
+  String get restoreLabel => 'Restore';
+
+  @override
+  String get restoredFromWebdav => 'Data restored from WebDAV';
+
+  @override
+  String get restoreFailedFormat => 'Restore failed: invalid backup format';
+
+  @override
+  String restoreFailedError(String error) {
+    return 'Restore failed: $error';
+  }
+
+  @override
+  String get clearWebdavTitle => 'Clear WebDAV config?';
+
+  @override
+  String get clearWebdavMessage =>
+      'Auto-upload will stop; backups already on the server are not deleted.';
+
+  @override
+  String get csvTemplateSaved => 'CSV template saved to the Downloads folder';
+
+  @override
+  String get csvTemplateSaveFailed =>
+      'Failed to save the template; try again later';
+
+  @override
+  String get exportTransactionsCsv => 'Export transactions CSV';
+
+  @override
+  String get transactionsCsvExported =>
+      'Transactions CSV exported to Downloads';
+
+  @override
+  String get transactionsCsvExportFailed =>
+      'Failed to export transactions CSV; try again later';
+
+  @override
+  String get chooseFile => 'Choose file';
+
+  @override
+  String importedEntries(int count) {
+    return 'Imported $count transactions';
+  }
+
+  @override
+  String skippedRows(int count) {
+    return ', $count rows skipped';
+  }
+
+  @override
+  String importFailedWithMessage(String message) {
+    return 'Import failed: $message';
+  }
+
+  @override
+  String get importFailedCheckFile => 'Import failed; check the file and retry';
+
+  @override
+  String lineError(int line, String message) {
+    return 'Line $line: $message';
+  }
+
+  @override
+  String moreLines(int count) {
+    return '\n… $count more rows';
+  }
+
+  @override
+  String importDoneTitle(int count) {
+    return 'Import finished ($count succeeded)';
+  }
+
+  @override
+  String get importNothingTitle => 'No transactions were imported';
+
+  @override
+  String get allImported => 'All rows imported.';
+
+  @override
+  String skippedFollowing(String lines) {
+    return 'These rows were skipped:\n$lines';
+  }
+
+  @override
+  String get gotIt => 'Got it';
+
+  @override
+  String get importPreviewTitle => 'Import preview';
+
+  @override
+  String importPreviewTargetBook(String book) {
+    return 'Import into \"$book\"';
+  }
+
+  @override
+  String ledgerBookSwitched(String book) {
+    return 'Switched to \"$book\"';
+  }
+
+  @override
+  String get importPreviewHint =>
+      'Tap to exclude / restore, long-press to edit';
+
+  @override
+  String importPreviewSelectedOf(int selected, int total) {
+    return 'Importing $selected / $total';
+  }
+
+  @override
+  String importPreviewSkipped(int count) {
+    return '$count row(s) couldn\'t be parsed';
+  }
+
+  @override
+  String get importPreviewSkippedTitle => 'Skipped rows';
+
+  @override
+  String get importPreviewSelectAll => 'Select all';
+
+  @override
+  String get importPreviewDeselectAll => 'Deselect all';
+
+  @override
+  String importPreviewConfirm(int count) {
+    return 'Import ($count)';
+  }
+
+  @override
+  String importPreviewConfirmAccountsOnly(int count) {
+    return 'Import ($count accounts)';
+  }
+
+  @override
+  String get importPreviewNothingSelected => 'Nothing selected to import';
+
+  @override
+  String get importPreviewNothingToImport => 'No data to import';
+
+  @override
+  String importedAccounts(int count) {
+    return 'Imported $count accounts';
+  }
+
+  @override
+  String get importAccountMapping => 'Import accounts';
+
+  @override
+  String get importCategoryMapping => 'Import categories';
+
+  @override
+  String get importTagMapping => 'Import tags';
+
+  @override
+  String mappingSummary(int newCount, int mappedCount) {
+    return '$newCount new · $mappedCount mapped';
+  }
+
+  @override
+  String get mappingRowNew => 'Create new';
+
+  @override
+  String mappingRowRenamed(String name) {
+    return 'New · renamed to \"$name\"';
+  }
+
+  @override
+  String mappingRowMapped(String name) {
+    return 'Mapped to \"$name\"';
+  }
+
+  @override
+  String mappingAccountSheetTitle(String name) {
+    return 'Account \"$name\"';
+  }
+
+  @override
+  String mappingCategorySheetTitle(String name) {
+    return 'Category \"$name\"';
+  }
+
+  @override
+  String mappingTagSheetTitle(String name) {
+    return 'Tag \"$name\"';
+  }
+
+  @override
+  String get mappingKeepNewAccount => 'Create this account';
+
+  @override
+  String get mappingKeepNewCategory => 'Create this category';
+
+  @override
+  String get mappingKeepNewTag => 'Create this tag';
+
+  @override
+  String get mappingMapToExistingAccount => 'Map to existing account';
+
+  @override
+  String get mappingMapToExistingCategory => 'Map to existing category';
+
+  @override
+  String get mappingMapToExistingTag => 'Map to existing tag';
+
+  @override
+  String get mappingRenameAccount => 'Rename new account';
+
+  @override
+  String get mappingRenameCategory => 'Rename new category';
+
+  @override
+  String get mappingRenameTag => 'Rename new tag';
+
+  @override
+  String get mappingRenameTooltip => 'Rename';
+
+  @override
+  String get mappingNewNameLabel => 'New name';
+
+  @override
+  String get importLocalTitle => 'Import local backup?';
+
+  @override
+  String get importLocalMessage =>
+      'Importing replaces current local transactions, accounts, ledgers, budgets, profile and settings. Consider exporting current data first.';
+
+  @override
+  String get importedLocal => 'Local data imported';
+
+  @override
+  String get resetAllTitle => 'Reset all data?';
+
+  @override
+  String get resetAllMessage =>
+      'This deletes local transactions, accounts, ledgers, budgets, profile and theme preference. It cannot be undone.';
+
+  @override
+  String get continueLabel => 'Continue';
+
+  @override
+  String get resetConfirmTitle => 'Confirm reset';
+
+  @override
+  String get resetConfirmMessage =>
+      'Confirming immediately clears all local data and restores defaults. This cannot be undone.';
+
+  @override
+  String get resetConfirmAction => 'Confirm reset';
+
+  @override
+  String get checkingLabel => 'Checking…';
+
+  @override
+  String get updateCheckFailed => 'Update check failed; try again later.';
+
+  @override
+  String get updateAvailableTitle => 'Update available';
+
+  @override
+  String updateAvailableMessage(String current, String latest) {
+    return 'Current version: v$current\nLatest version: v$latest';
+  }
+
+  @override
+  String get updateUpToDate => 'You\'re on the latest version';
+
+  @override
+  String get updateOpenRelease => 'Open';
+
+  @override
+  String get closeLabel => 'Close';
+
+  @override
+  String get backupFreqManual => 'Manual only';
+
+  @override
+  String get backupFreqOnOpen => 'On app open';
+
+  @override
+  String get backupFreqOnEntry => 'After each entry';
+
+  @override
+  String get backupFreqEveryN => 'At intervals';
+
+  @override
+  String patternTooShort(int count) {
+    return 'Connect at least $count dots';
+  }
+
+  @override
+  String get bioUnlockReason => 'Verify biometrics to unlock Veri Fin';
+
+  @override
+  String get verifyFailedRetry => 'Verification failed; try again';
+
+  @override
+  String get enterPassword => 'Enter password';
+
+  @override
+  String get drawPatternUnlock => 'Draw your pattern to unlock';
+
+  @override
+  String get enterPinUnlock => 'Enter your 6-digit PIN to unlock';
+
+  @override
+  String get bioUnlock => 'Biometric unlock';
+
+  @override
+  String get patternMismatch => 'Patterns don\'t match; draw again';
+
+  @override
+  String get pinMismatch => 'PINs don\'t match; set again';
+
+  @override
+  String get drawAgainConfirm => 'Draw again to confirm';
+
+  @override
+  String get drawPatternHint => 'Draw an unlock pattern (at least 4 dots)';
+
+  @override
+  String get enterAgainConfirm => 'Enter again to confirm';
+
+  @override
+  String get setPinHint => 'Set a 6-digit PIN';
+
+  @override
+  String get setPatternTitle => 'Set pattern';
+
+  @override
+  String get setPinTitle => 'Set PIN';
+
+  @override
+  String get verifyPasswordTitle => 'Verify password';
+
+  @override
+  String get drawCurrentPattern => 'Draw your current unlock pattern';
+
+  @override
+  String get enterCurrentPin => 'Enter your current 6-digit PIN';
+
+  @override
+  String get appLockSubtitle =>
+      'Verified on launch and on return to foreground';
+
+  @override
+  String get lockMethodAndPassword => 'Lock method & password';
+
+  @override
+  String get appLockHelp =>
+      'Supports a 6-digit PIN or a 3×3 pattern. The secret is stored on this device only as a salted hash — never uploaded and unrecoverable; if forgotten, choose \"Forgot password\" on the lock screen to reset all local data and set it again. Biometric unlock uses the system biometrics (fingerprint / face, as supported by the device); this app stores no biometric data, and re-verification is required after system biometrics change.';
+
+  @override
+  String get appLockForgot => 'Forgot password?';
+
+  @override
+  String get appLockDisableFailed =>
+      'Could not turn off the app lock. Please try again.';
+
+  @override
+  String get bioEnableReason => 'Verify biometrics to enable biometric unlock';
+
+  @override
+  String get bioNotPassed => 'Biometric verification failed; not enabled';
+
+  @override
+  String get closeAppLockTitle => 'Turn off app lock';
+
+  @override
+  String get changeAppLockTitle => 'Change app lock';
+
+  @override
+  String get appLockUpdated => 'App lock updated';
+
+  @override
+  String get pinSubtitle => '6-digit PIN';
+
+  @override
+  String get patternSubtitle => '3×3 pattern';
+
+  @override
+  String get lockKindPin => 'PIN';
+
+  @override
+  String get lockKindPattern => 'Pattern';
+
+  @override
+  String get bioSignInTitle => 'Biometric unlock';
+
+  @override
+  String get bioHint => 'Verify identity';
+
+  @override
+  String get widgetGalleryTitle => 'Desktop widgets';
+
+  @override
+  String get widgetGallerySubtitle =>
+      'Preview the fixed VeriFin widget templates';
+
+  @override
+  String get widgetGalleryShort => 'Template preview';
+
+  @override
+  String get widgetHowToAddDesc =>
+      'Long-press an empty spot on your home screen → choose Widgets → find Veri Fin → drag the widget you want onto the screen.';
+
+  @override
+  String get widgetConfigureHint =>
+      'After adding it, tap \"Tap to set up\" on the widget to choose a book and an appearance.';
+
+  @override
+  String get widgetTemplateQuickEntry => 'Quick entry';
+
+  @override
+  String get widgetTemplateBudget => 'Budget progress';
+
+  @override
+  String get widgetTemplateTrend => 'Cash flow trend';
+
+  @override
+  String get widgetTemplateNetWorth => 'Net worth';
+
+  @override
+  String get widgetTemplateDualMetric => 'Dual metrics';
+
+  @override
+  String get widgetTapAction => 'Widget tap action';
+
+  @override
+  String get widgetTapQuickEntry => 'Quick entry';
+
+  @override
+  String get widgetTapHome => 'Open home';
+
+  @override
+  String get widgetTapStats => 'Open stats';
+
+  @override
+  String get widgetLeftMetric => 'Left metric';
+
+  @override
+  String get widgetRightMetric => 'Right metric';
+
+  @override
+  String get widgetConfigTitle => 'Configure widget';
+
+  @override
+  String get widgetSaveConfig => 'Save';
+
+  @override
+  String get widgetBook => 'Book';
+
+  @override
+  String get widgetAppearance => 'Appearance';
+
+  @override
+  String get widgetBookPlaceholder => 'Choose a book';
+
+  @override
+  String get widgetNoLedgerYet =>
+      'No book is available yet. Open the Veri Fin app once to create your book, then come back to configure this widget.';
+
+  @override
+  String get widgetOpenApp => 'Open app';
+
+  @override
+  String get widgetPreview => 'Preview';
+
+  @override
+  String get reminderNotifBody => 'Don\'t forget to record today\'s spending!';
+
+  @override
+  String get reminderChannelDesc => 'Daily bookkeeping reminder notifications';
+
+  @override
+  String get reminderTestButton => 'Send a test notification';
+
+  @override
+  String get reminderTestBody =>
+      'This is a test notification — if you can see it, notifications work.';
+
+  @override
+  String get reminderTestSent =>
+      'Test notification sent — check your notification shade. If daily reminders never arrive, it\'s usually background restrictions: allow notifications for this app and add it to battery / autostart allowlists in system settings.';
+
+  @override
+  String get reminderTestFailed =>
+      'The test notification could not be sent. Check notification permission and system background restrictions, then try again.';
+
+  @override
+  String get cropAdjustHint => 'Adjust image position';
+
+  @override
+  String get cropDone => 'Finish cropping';
+
+  @override
+  String get zoomLabel => 'Zoom';
+
+  @override
+  String get horizontalLabel => 'Horizontal';
+
+  @override
+  String get verticalLabel => 'Vertical';
+
+  @override
+  String get resetLabel => 'Reset';
+
+  @override
+  String get saveFailed => 'Save failed, please try again';
+
+  @override
+  String get appLog => 'App logs';
+
+  @override
+  String get appLogSubtitle =>
+      'Records errors and key events; copy and send to the developer when reporting issues';
+
+  @override
+  String get appLogEmpty => 'No log records yet';
+
+  @override
+  String get appLogCopyAll => 'Copy all';
+
+  @override
+  String get appLogCopied => 'Copied to clipboard';
+
+  @override
+  String get appLogCopyRecord => 'Copy this entry';
+
+  @override
+  String get appLogDetails => 'Technical details';
+
+  @override
+  String get appLogClear => 'Clear logs';
+
+  @override
+  String get appLogClearConfirm => 'Clear all logs?';
+
+  @override
+  String appLogCount(int count) {
+    return '$count records';
+  }
+
+  @override
+  String get cleartextWarnTitle => 'Cleartext transmission risk';
+
+  @override
+  String get cleartextWarnBody =>
+      'This address uses unencrypted http; your key/username and password will be sent in cleartext and could be intercepted by a third party on the same network or link. Continue only if you trust this network (e.g. a local/self-hosted service).';
+
+  @override
+  String get cleartextWarnContinue => 'Save anyway';
+
+  @override
+  String get reminderPermissionDenied =>
+      'Notification permission denied; reminders won\'t show. Please allow notifications in system settings and try again.';
+
+  @override
+  String get backingUp => 'Backing up…';
+
+  @override
+  String get backupPhasePreparing => 'Preparing data';
+
+  @override
+  String get backupPhasePacking => 'Packing backup';
+
+  @override
+  String get backupPhaseEncrypting => 'Encrypting backup';
+
+  @override
+  String get backupPhaseWriting => 'Writing file';
+
+  @override
+  String get backupPhaseVerifying => 'Verifying backup';
+
+  @override
+  String get backupPhaseReading => 'Reading backup';
+
+  @override
+  String get backupPhaseDecrypting => 'Decrypting backup';
+
+  @override
+  String get backupPhaseUnpacking => 'Unpacking backup';
+
+  @override
+  String get backupPhaseImporting => 'Importing data';
+
+  @override
+  String get backupPhaseCleaning => 'Cleaning up';
+
+  @override
+  String get backupCancelled => 'Cancelled';
+
+  @override
+  String get attachmentMigrationDone => 'Image attachments organized';
+
+  @override
+  String get attachmentMigrationFailed =>
+      'Some attachments could not be organized; will retry on next launch';
+
+  @override
+  String get aiErrNotConfigured =>
+      'AI not configured: please fill in the base URL, API key and model first';
+
+  @override
+  String get aiErrNotSupported =>
+      'AI requests are not supported on this platform';
+
+  @override
+  String get aiErrTimeout =>
+      'Request timed out; check your network or try again later';
+
+  @override
+  String get aiErrNetwork => 'Cannot connect to the server';
+
+  @override
+  String get aiErrTls =>
+      'TLS handshake failed; check whether the base URL uses https';
+
+  @override
+  String get aiErrBadUrl => 'Invalid request URL; check the base URL format';
+
+  @override
+  String get aiErrAuthFailed =>
+      'Invalid API key or unauthorized; check your key';
+
+  @override
+  String get aiErrNotFound =>
+      'Endpoint not found; check the base URL and model name';
+
+  @override
+  String get aiErrRateLimited => 'Too many requests or insufficient quota';
+
+  @override
+  String get aiErrServer => 'The server returned an error';
+
+  @override
+  String get aiErrBadResponse => 'Could not parse the server response';
+
+  @override
+  String get aiErrResponseTooLarge =>
+      'The AI response was too large and has been stopped.';
+
+  @override
+  String get aiErrModelListUnsupported =>
+      'This provider does not expose a model list. Enter a model manually.';
+
+  @override
+  String get aiErrUpstream => 'The server returned an error';
+
+  @override
+  String get aiErrUnknown => 'Request failed';
+
+  @override
+  String get budgetTitle => 'Budget';
+
+  @override
+  String budgetInheritChip(String amount) {
+    return 'Using default $amount';
+  }
+
+  @override
+  String get budgetOverrideScopeMonth => 'this month';
+
+  @override
+  String get budgetOverrideScopePeriod => 'this period';
+
+  @override
+  String budgetOverrideChip(String scope) {
+    return 'Custom for $scope · tap to adjust';
+  }
+
+  @override
+  String budgetSetChip(String scope) {
+    return 'Tap to set a budget for $scope';
+  }
+
+  @override
+  String get budgetSettingsSectionOverall => 'Overall budget & cycle';
+
+  @override
+  String get budgetSettingsSectionCategory => 'Default category budgets';
+
+  @override
+  String get defaultMonthlyBudgetTitle => 'Default monthly budget';
+
+  @override
+  String get setDefaultMonthlyBudgetTitle => 'Set default monthly budget';
+
+  @override
+  String get defaultCategoryBudgetDesc =>
+      'Set once, applied every month; tap a category to set its default';
+
+  @override
+  String setDefaultCategoryBudgetTitle(String category) {
+    return 'Set default budget for $category';
+  }
+
+  @override
+  String get budgetClearAction => 'Clear budget';
+
+  @override
+  String budgetOverrideSheetTitle(String subject, String period) {
+    return '$subject · $period';
+  }
+
+  @override
+  String budgetOverrideSetAmount(String scope) {
+    return 'Set a custom amount for $scope';
+  }
+
+  @override
+  String budgetOverrideAdjustAmount(String scope) {
+    return 'Adjust the amount for $scope';
+  }
+
+  @override
+  String budgetOverrideRestore(String amount) {
+    return 'Restore default (uses $amount)';
+  }
+
+  @override
+  String budgetOverrideClear(String scope) {
+    return 'Clear the custom amount for $scope';
+  }
+
+  @override
+  String budgetOverrideAmountTitle(String scope) {
+    return 'Set budget for $scope';
+  }
+
+  @override
+  String get budgetCycleNotSet => 'Not set';
+
+  @override
+  String get commonClear => 'Clear';
+
+  @override
+  String get currencySearchHint => 'Search by code, name, or symbol';
+
+  @override
+  String get currencySearchEmpty => 'No currency found';
+
+  @override
+  String get currencySearchEmptyDesc =>
+      'Try an ISO code or another currency name.';
+
+  @override
+  String currencyPickerMeta(String symbol, int digits) {
+    return 'Symbol $symbol · $digits decimal places';
+  }
+
+  @override
+  String get ledgerBaseCurrency => 'Ledger base currency';
+
+  @override
+  String get ledgerBaseCurrencyDesc =>
+      'Budgets, reports, and total assets use this currency.';
+
+  @override
+  String get selectBaseCurrency => 'Select ledger base currency';
+
+  @override
+  String get selectAccountCurrency => 'Select account currency';
+
+  @override
+  String get selectRateCurrency => 'Select a currency for exchange rates';
+
+  @override
+  String get ledgerCurrencyLocked =>
+      'This ledger contains financial data, so its base currency is locked. Create another ledger to use a different base currency.';
+
+  @override
+  String get ledgerCurrencyLockedShort => 'Locked by financial data';
+
+  @override
+  String get ledgerCurrencyChangeTitle => 'Change base currency?';
+
+  @override
+  String ledgerCurrencyChangeMessage(String code, String name) {
+    return 'This empty ledger will use $code ($name); its zero-balance accounts will change to the same currency.';
+  }
+
+  @override
+  String get legacyCurrencySetupTitle =>
+      'Confirm the currency of existing amounts';
+
+  @override
+  String get legacyCurrencySetupDesc =>
+      'This ledger was created before multi-currency support. Confirm what its existing numbers represent before adding foreign-currency accounts or rates.';
+
+  @override
+  String get legacyCurrencyStart => 'Confirm currency';
+
+  @override
+  String legacyCurrencyConfirmCurrent(String code) {
+    return 'Existing amounts are $code';
+  }
+
+  @override
+  String get legacyCurrencyChooseAnother =>
+      'Existing amounts are another currency';
+
+  @override
+  String legacyCurrencyConfirmTitle(String code) {
+    return 'Interpret existing amounts as $code?';
+  }
+
+  @override
+  String legacyCurrencyConfirmMessage(
+    int accounts,
+    int entries,
+    int rules,
+    int budgets,
+    String code,
+  ) {
+    return 'This updates $accounts accounts, $entries transactions, $rules recurring rules, and $budgets budget settings. Every number stays unchanged; only its currency is interpreted as $code. This cannot be reinterpreted again.';
+  }
+
+  @override
+  String get legacyCurrencyApply => 'Confirm and apply';
+
+  @override
+  String legacyCurrencySaved(String code) {
+    return 'Existing amounts are now interpreted as $code';
+  }
+
+  @override
+  String accountBalanceCurrencyLabel(String code) {
+    return 'Opening balance ($code)';
+  }
+
+  @override
+  String get accountCurrencyLocked =>
+      'The account currency is locked because it has a balance, credit limit, or transaction history.';
+
+  @override
+  String get entryCurrencyLockedByRefund =>
+      'The original currency is locked because this transaction has refunds. Resolve the linked refunds first.';
+
+  @override
+  String get entrySaveValidationFailed =>
+      'The transaction amounts, currencies, or linked data are incomplete. Review them and try again.';
+
+  @override
+  String get entrySaveStaleDraft =>
+      'This transaction was changed or deleted elsewhere. Go back and reopen it.';
+
+  @override
+  String get entrySaveInvalidRefund =>
+      'The refund data is incomplete. Check the refund amount and receiving account, then try again.';
+
+  @override
+  String get entrySaveRefundExceedsExpense =>
+      'Total refunds cannot exceed the original expense amount.';
+
+  @override
+  String get entrySaveInvalidAttachments =>
+      'The attachment data is invalid. Re-add the attachments and try again.';
+
+  @override
+  String get entrySaveInvalidRememberedRate =>
+      'The exchange rate is invalid. Check it or turn off Remember as rate for this date, then try again.';
+
+  @override
+  String get entrySaveInvalidScope =>
+      'The category or tag does not belong to the current ledger. Select it again.';
+
+  @override
+  String get importValidationFailed =>
+      'The imported amounts, currencies, or links are incomplete. No ledger data was written.';
+
+  @override
+  String entryConversionRateTrace(String date, String status) {
+    return 'Using local rates effective $date$status';
+  }
+
+  @override
+  String assetValuationRateTrace(String date, String status) {
+    return 'Oldest asset valuation rate: $date$status';
+  }
+
+  @override
+  String homeRecurringRatePending(int count) {
+    return '$count recurring entries are waiting for rates';
+  }
+
+  @override
+  String homeRecurringRatePendingDesc(String codes) {
+    return 'Missing $codes. Tap to resolve.';
+  }
+
+  @override
+  String balanceAdjustMissingRate(String code) {
+    return 'No valid $code-to-base exchange rate is available, so the balance adjustment transaction cannot be created.';
+  }
+
+  @override
+  String get currencyRatesTitle => 'Currencies & rates';
+
+  @override
+  String get currencyRatesHelpTitle => 'About exchange rates';
+
+  @override
+  String get currencyRatesOfflineDesc =>
+      'Rates are stored on this device and maintained by you. The app never downloads or refreshes them, and changing a rate does not rewrite historical transaction reports.';
+
+  @override
+  String get exchangeRateCurrencies => 'Foreign currency rates';
+
+  @override
+  String get exchangeRateAdd => 'Add exchange rate';
+
+  @override
+  String get exchangeRateEmpty => 'No foreign exchange rates yet';
+
+  @override
+  String get exchangeRateEmptyDesc =>
+      'Add a currency and maintain its rate against the ledger base currency by date.';
+
+  @override
+  String exchangeRateEquation(String currency, String rate, String base) {
+    return '1 $currency = $rate $base';
+  }
+
+  @override
+  String get exchangeRateNotSet => 'No rate set';
+
+  @override
+  String get creditRepayMissingRateHint =>
+      'No exchange rate set — tap “Transferred out” above to enter the amount actually debited, or maintain the rate first.';
+
+  @override
+  String exchangeRateDateAndStatus(String date, String status) {
+    return '$date · $status';
+  }
+
+  @override
+  String get exchangeRateStale => 'May be outdated';
+
+  @override
+  String get exchangeRateNotEffective => 'Not yet effective';
+
+  @override
+  String exchangeRateFutureCount(int count) {
+    return 'Plus $count future rate(s)';
+  }
+
+  @override
+  String get exchangeRateSourceManual => 'Manual';
+
+  @override
+  String get exchangeRateSourceImported => 'Imported';
+
+  @override
+  String exchangeRateHistory(String currency) {
+    return '$currency rate history';
+  }
+
+  @override
+  String exchangeRateAgainst(String base) {
+    return 'Against $base';
+  }
+
+  @override
+  String get exchangeRateHistoryEmpty => 'No rate history yet';
+
+  @override
+  String get exchangeRateHistoryEmptyDesc =>
+      'Use the add button to create the first effective rate.';
+
+  @override
+  String get exchangeRateDeleteTitle => 'Delete this exchange rate?';
+
+  @override
+  String get exchangeRateDeleteMessage =>
+      'Saved transactions will not change, but asset valuation or pending recurring transactions may later be missing a rate.';
+
+  @override
+  String get exchangeRateEffectiveDate => 'Select effective date';
+
+  @override
+  String exchangeRateInputTitle(String currency, String base) {
+    return 'How many $base equal 1 $currency?';
+  }
+
+  @override
+  String get exchangeRateSaved => 'Exchange rate saved';
+
+  @override
+  String get entryCurrencyLabel => 'Transaction currency';
+
+  @override
+  String get entryCurrencyPickTitle => 'Choose transaction currency';
+
+  @override
+  String get entryOriginalAmountLabel => 'Original amount';
+
+  @override
+  String get entryAccountAmountExpense => 'Actual account charge';
+
+  @override
+  String get entryAccountAmountIncome => 'Actual account credit';
+
+  @override
+  String get entryLedgerAmountLabel => 'Recorded in ledger';
+
+  @override
+  String get entryTransferOutAmount => 'Amount sent';
+
+  @override
+  String get entryTransferInAmount => 'Amount received';
+
+  @override
+  String get entryRateLabel => 'Conversion rate';
+
+  @override
+  String entryRateEquation(String source, String rate, String target) {
+    return '1 $source = $rate $target';
+  }
+
+  @override
+  String entryRateEditTitle(String source, String target) {
+    return 'How many $target equal 1 $source?';
+  }
+
+  @override
+  String entryMissingRate(String currencies) {
+    return 'A local rate for $currencies is missing. Enter the actual amount or add a rate first.';
+  }
+
+  @override
+  String get entryRememberRate => 'Remember as rate for this date';
+
+  @override
+  String get entryRememberRateHint =>
+      'Off by default. When enabled, this transaction\'s rate is saved to the current ledger rate table.';
+
+  @override
+  String get entryConversionSourceRateTable =>
+      'Calculated from a local rate. Tap an amount to adjust it.';
+
+  @override
+  String get entryConversionSourceManual =>
+      'Amounts were adjusted for this transaction and will be frozen for historical reports.';
+
+  @override
+  String entryAmountInputTitle(String label, String currency) {
+    return 'Enter $label ($currency)';
+  }
+
+  @override
+  String get refundAccountAmountLabel => 'Actual account credit';
+
+  @override
+  String get refundBaseAmountLabel => 'Base-currency offset';
+
+  @override
+  String get refundCurrencyLockedHint =>
+      'The refund keeps the original expense currency and cannot be changed.';
+
+  @override
+  String get recurringRatePolicyLabel => 'Multi-currency conversion';
+
+  @override
+  String get recurringRatePolicyLatest => 'Use latest local rate each time';
+
+  @override
+  String get recurringRatePolicyFixed => 'Keep current amounts fixed';
+
+  @override
+  String get recurringMissingRate => 'Rate required';
+
+  @override
+  String recurringMissingRateCount(int count) {
+    return '$count rules are waiting for a rate before they can be posted';
+  }
+
+  @override
+  String get recurringRetryNow => 'Post due entries now';
+
+  @override
+  String recurringGeneratedCount(int count) {
+    return 'Posted $count due transactions';
+  }
+
+  @override
+  String get recurringGenerateFailed => 'Catch-up failed, please retry';
+
+  @override
+  String assetValuationMissing(int count) {
+    return '$count accounts need an exchange rate';
+  }
+
+  @override
+  String assetValuationMissingDesc(String currencies) {
+    return 'A rate from $currencies to the base currency is missing, so an incomplete asset total is not shown.';
+  }
+
+  @override
+  String get assetTrendMissingRate =>
+      'There is no exchange rate available for valuation yet. Set a rate for today or earlier to show the asset trend.';
+
+  @override
+  String assetTrendPartialMissing(String currencies, String months) {
+    return 'Some months are missing $currencies rates ($months); those months are not drawn. Add rates for those months or earlier to show them.';
+  }
+
+  @override
+  String get exchangeRateSetAction => 'Set rate';
+
+  @override
+  String baseCurrencyAmountLabel(String currency) {
+    return 'Base currency $currency';
+  }
+
+  @override
+  String get importSaveExchangeRates => 'Save imported rates';
+
+  @override
+  String get importSaveExchangeRatesHint =>
+      'Off by default. When enabled, only rates used by included transactions are saved.';
+
+  @override
+  String aiTitleSummary(String range) {
+    return '$range · Income & expense summary';
+  }
+
+  @override
+  String aiTitleCategoryRanking(String range, String type) {
+    return '$range · $type category ranking';
+  }
+
+  @override
+  String aiTitleTagRanking(String range, String type) {
+    return '$range · $type tag ranking';
+  }
+
+  @override
+  String aiTitleTransactions(int count) {
+    return 'Transactions ($count)';
+  }
+
+  @override
+  String aiTitleLargestTransactions(
+    String range,
+    String extreme,
+    String type,
+    int count,
+  ) {
+    return '$range · Top $count $extreme $type';
+  }
+
+  @override
+  String aiTitleTrend(String range, String type) {
+    return '$range · $type trend';
+  }
+
+  @override
+  String aiTitleCompare(String label) {
+    return '$label · MoM & YoY';
+  }
+
+  @override
+  String get aiTitleCreditCards => 'Cards & credit accounts';
+
+  @override
+  String aiTitleBudgetExecution(String period) {
+    return '$period · Budget execution';
+  }
+
+  @override
+  String get aiStatNet => 'Net';
+
+  @override
+  String get aiStatSpent => 'Spent';
+
+  @override
+  String get aiStatTotalLiabilities => 'Total liabilities';
+
+  @override
+  String get aiStatLastYearMonthExpense => 'Same month last year (expense)';
+
+  @override
+  String get aiStatLastMonthIncome => 'Last month\'s income';
+
+  @override
+  String get aiStatLastYearMonthIncome => 'Same month last year (income)';
+
+  @override
+  String get aiHeaderCurrency => 'Currency';
+
+  @override
+  String get aiHeaderBalance => 'Balance';
+
+  @override
+  String get aiHeaderCurrentDebt => 'Current debt';
+
+  @override
+  String get aiExtremeMax => 'largest';
+
+  @override
+  String get aiExtremeMin => 'smallest';
+
+  @override
+  String get aiGranularityMonthly => 'monthly';
+
+  @override
+  String get aiGranularityDaily => 'daily';
+
+  @override
+  String get aiOverBudget => 'Over budget';
+
+  @override
+  String get aiNoBudgetAttention =>
+      'No categories over budget or near the limit.';
+
+  @override
+  String get aiNoAccounts => 'This book has no accounts yet.';
+
+  @override
+  String get aiNoCreditAccounts => 'This book has no credit accounts.';
+
+  @override
+  String get aiNoBudgetData => 'This book has no budget data.';
+
+  @override
+  String get aiNoMatchingTransactions => 'No matching transactions.';
+
+  @override
+  String get aiNoBaseline => 'Baseline is 0, so a ratio can\'t be computed';
+
+  @override
+  String aiMonthYearLabel(int year, int month) {
+    return '$year-$month';
+  }
+
+  @override
+  String aiBudgetPeriodLabel(int year, int month) {
+    return 'Budget period $year-$month';
+  }
+
+  @override
+  String get aiSepSemicolon => '; ';
+
+  @override
+  String get aiSepComma => ', ';
+
+  @override
+  String get aiSepEnum => ', ';
+
+  @override
+  String aiSummaryLine(
+    String range,
+    String income,
+    int incomeCount,
+    String expense,
+    int expenseCount,
+    String net,
+  ) {
+    return '$range income $income ($incomeCount entries), expense $expense ($expenseCount entries), net $net.';
+  }
+
+  @override
+  String aiRankingRowLine(
+    String label,
+    String amount,
+    String percent,
+    int count,
+  ) {
+    return '$label $amount ($percent%, $count entries)';
+  }
+
+  @override
+  String aiNoRecords(String range, String type) {
+    return '$range: no $type records.';
+  }
+
+  @override
+  String aiNoTagRecords(String range, String type) {
+    return '$range: no tagged $type records.';
+  }
+
+  @override
+  String aiCategoryRankingSummary(String range, String type, String detail) {
+    return '$range $type category ranking: $detail';
+  }
+
+  @override
+  String aiTagRankingSummary(String range, String type, String detail) {
+    return '$range $type tag ranking: $detail';
+  }
+
+  @override
+  String aiFoundTransactions(int count, String detail) {
+    return 'Found $count transactions: $detail';
+  }
+
+  @override
+  String aiEntryNote(String note) {
+    return ' ($note)';
+  }
+
+  @override
+  String aiLargestSummary(
+    String range,
+    String extreme,
+    int count,
+    String type,
+    String detail,
+  ) {
+    return '$range: $count $extreme $type — $detail';
+  }
+
+  @override
+  String aiTrendSummary(
+    String range,
+    String type,
+    String granularity,
+    int count,
+    String total,
+    String points,
+  ) {
+    return '$range $type trend ($granularity, $count points, total $total): $points';
+  }
+
+  @override
+  String aiCompareSummary(
+    String label,
+    String expense,
+    String expenseMom,
+    String expenseYoy,
+    String income,
+    String incomeMom,
+    String incomeYoy,
+  ) {
+    return '$label expense $expense (MoM $expenseMom, YoY $expenseYoy); income $income (MoM $incomeMom, YoY $incomeYoy).';
+  }
+
+  @override
+  String aiAccountsSummary(int count, String accounts, String total) {
+    return '$count accounts: $accounts. $total.';
+  }
+
+  @override
+  String aiAssetsTotalLine(String amount) {
+    return 'Total of asset accounts $amount';
+  }
+
+  @override
+  String aiTotalMissingRateLine(String codes) {
+    return 'Total unavailable, missing rates for $codes';
+  }
+
+  @override
+  String aiMissingRatesNetWorth(String codes, String page) {
+    return 'Some accounts are missing exchange rates ($codes), so total assets and net assets can\'t be shown. Add them under $page.';
+  }
+
+  @override
+  String aiNetWorthSummary(String assets, String liabilities, String net) {
+    return 'Total assets $assets, total liabilities $liabilities, net assets $net.';
+  }
+
+  @override
+  String aiCardDebtLine(String name, String amount) {
+    return '$name owes $amount';
+  }
+
+  @override
+  String aiCardAvailableLine(String amount) {
+    return ', available $amount';
+  }
+
+  @override
+  String aiCardBillLine(String amount) {
+    return ', this cycle $amount';
+  }
+
+  @override
+  String aiCardDueLine(int day, String due) {
+    return ', due on day $day ($due)';
+  }
+
+  @override
+  String aiBudgetNotSet(String period, String amount) {
+    return '$period has no budget set; $amount spent this period.';
+  }
+
+  @override
+  String aiBudgetAttention(String items) {
+    return 'Needs attention: $items.';
+  }
+
+  @override
+  String aiBudgetAttentionRow(
+    String label,
+    String spent,
+    String budget,
+    String status,
+  ) {
+    return '$label $spent/$budget ($status)';
+  }
+
+  @override
+  String aiDailyRemainingLine(String amount) {
+    return ', $amount/day remaining';
+  }
+
+  @override
+  String aiBudgetSummary(
+    String period,
+    String budget,
+    String spent,
+    String remaining,
+    String daily,
+    String attention,
+  ) {
+    return '$period budget $budget, spent $spent, remaining $remaining$daily. $attention';
+  }
+
+  @override
+  String aiCategoryNotFound(String name) {
+    return 'No category matches “$name” in this ledger. Check the name or full path.';
+  }
+
+  @override
+  String aiCategoryAmbiguous(String name, String paths) {
+    return 'Several categories match “$name”: $paths. Specify a full path and entry type.';
+  }
+
+  @override
+  String get aiNoMatchingCategories => 'No categories match in this ledger.';
+
+  @override
+  String aiCategoryListSummary(int count, String detail) {
+    return 'There are $count matching categories in this ledger: $detail.';
+  }
+
+  @override
+  String get aiTitleCategoryList => 'Ledger categories';
+
+  @override
+  String get aiCategoryTypeHeader => 'Entry type';
+
+  @override
+  String get aiCategoryPathHeader => 'Category path';
+
+  @override
+  String get aiSecondLevelCategories => 'Second-level categories';
+
+  @override
+  String aiChildCategoryScope(String path) {
+    return 'Subcategories of $path';
+  }
+
+  @override
+  String get categoryIconThemeTitle => 'Category icon theme';
+
+  @override
+  String get categoryIconThemeBuiltin => 'Built-in icons';
+
+  @override
+  String get categoryIconThemeLine => 'Thin line preset';
+
+  @override
+  String get categoryIconThemeColored => 'Colored preset';
+
+  @override
+  String get categoryIconThemeEmoji => 'Emoji preset';
+
+  @override
+  String get categoryIconThemeActive => 'Active';
+
+  @override
+  String aiAnswerProvenanceQueried(int count) {
+    return 'Based on $count ledger queries';
+  }
+
+  @override
+  String get aiAnswerProvenanceNoQuery => 'No ledger data queried';
+
+  @override
+  String get aiAnswerProvenanceUnverified =>
+      'No ledger data was queried; do not rely on this for account facts';
+
+  @override
+  String get aiErrRequestTooLarge =>
+      'The input or request is too large. Shorten it and try again.';
+
+  @override
+  String get widgetPreviewFailed => 'Widget preview unavailable';
+
+  @override
+  String get widgetConfigurationFailed =>
+      'Could not load this widget. Return to the home screen and try again.';
+}

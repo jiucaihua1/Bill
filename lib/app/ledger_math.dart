@@ -1,0 +1,431 @@
+import 'package:flutter/material.dart';
+
+import 'amount_format.dart';
+import 'app_theme.dart';
+import 'calendar_days.dart';
+import 'currency_math.dart';
+import 'models.dart';
+import '../l10n/app_localizations.dart';
+
+// 日历日算术（跨夏令时稳定）随 ledger_math 一并提供，调用点 import 不变。
+export 'calendar_days.dart';
+
+double signedAmount(LedgerEntry entry) {
+  switch (entry.type) {
+    case EntryType.expense:
+      // 退款/报销回款冲抵后的净支出。
+      return -entry.netBaseAmount;
+    case EntryType.income:
+      return entry.baseAmount;
+    case EntryType.transfer:
+      return 0;
+    case EntryType.refund:
+      // 退款不计入收支：冲减已体现在原支出的本位币净额里，若再计一次即重复。
+      return 0;
+  }
+}
+
+double accountDeltaForEntry(LedgerEntry entry, String accountId) {
+  switch (entry.type) {
+    case EntryType.expense:
+      // 支出按「全额」扣原账户；退款的回款由独立的退款条目（refund）单独入到账账户，
+      // 故此处不再扣净额——否则退款会被重复计（尤其退到不同账户时）。
+      return entry.accountId == accountId ? -(entry.accountAmount ?? 0) : 0;
+    case EntryType.income:
+      return entry.accountId == accountId ? (entry.accountAmount ?? 0) : 0;
+    case EntryType.transfer:
+      var delta = 0.0;
+      // 用累加而非 if/else return：兼容「转出=转入」的同账户转账（净额应为 −手续费，
+      // 而非把入账吞掉）。
+      if (entry.accountId == accountId) {
+        delta -= (entry.accountAmount ?? 0) + entry.fee; // 转出账户额外扣手续费
+      }
+      if (entry.toAccountId == accountId) {
+        delta += entry.toAccountAmount ?? 0;
+      }
+      return delta;
+    case EntryType.refund:
+      // 只有「已到账」退款影响余额，钱进到账账户（accountId）；待到账不动余额。
+      if (entry.settledAt == null) return 0;
+      return entry.accountId == accountId ? (entry.accountAmount ?? 0) : 0;
+  }
+}
+
+/// 账户余额真正发生变化的日期。退款在到账日才进入账户；其它交易沿用发生日。
+DateTime accountEffectDate(LedgerEntry entry) =>
+    entry.type == EntryType.refund && entry.settledAt != null
+    ? entry.settledAt!
+    : entry.occurredAt;
+
+bool entryTouchesAccount(LedgerEntry entry, String accountId) {
+  return entry.accountId == accountId || entry.toAccountId == accountId;
+}
+
+/// 某笔支出按原币计的剩余可退金额。
+///
+/// 计入该支出下所有退款（含待到账）；编辑已有退款时用 [excludeRefundId] 排除自身。
+/// 浮点减法的结果必须先按 [expense.currencyCode] 的 minor unit 归一化，再用于显示、
+/// 数字键盘上限或草稿金额——`250.89 - 202.0` 会得到 `48.889999999999986`，直接写入
+/// `LedgerEntry.amount` 会被保存校验判为未归一化金额。
+double remainingRefundableAmount(
+  LedgerEntry expense,
+  Iterable<LedgerEntry> entries, {
+  String? excludeRefundId,
+}) {
+  if (expense.type != EntryType.expense) {
+    return 0;
+  }
+  var refunded = 0.0;
+  for (final entry in entries) {
+    if (entry.bookId != expense.bookId ||
+        entry.type != EntryType.refund ||
+        entry.refundOf != expense.id ||
+        entry.id == excludeRefundId) {
+      continue;
+    }
+    refunded += entry.amount;
+  }
+  final remaining = (expense.amount - refunded).clamp(0.0, expense.amount);
+  return normalizeCurrencyAmount(remaining.toDouble(), expense.currencyCode);
+}
+
+Color colorForType(BuildContext context, EntryType type) {
+  switch (type) {
+    case EntryType.expense:
+      return veriSemantic(context, veriExpense);
+    case EntryType.income:
+      return veriSemantic(context, veriIncome);
+    case EntryType.transfer:
+      return Theme.of(context).colorScheme.primary;
+    case EntryType.refund:
+      // 退款是「钱回来」的正向流入，沿用收入的青绿色。
+      return veriSemantic(context, veriIncome);
+  }
+}
+
+double sumByType(Iterable<LedgerEntry> entries, EntryType type) {
+  return entries
+      .where((entry) => entry.type == type)
+      // 支出按净额（扣除退款/报销回款）统计。
+      .fold<double>(0, (sum, entry) => sum + statAmountForEntry(entry));
+}
+
+/// 统计图中单笔条目的金额。转账的本位币金额按设计恒为 0，展示统计时使用
+/// 原始转出金额，否则“转账”筛选会出现全 0 的图表和列表。
+double statAmountForEntry(LedgerEntry entry) {
+  return switch (entry.type) {
+    EntryType.expense => entry.netBaseAmount,
+    EntryType.income || EntryType.refund => entry.baseAmount,
+    EntryType.transfer => entry.amount,
+  };
+}
+
+/// 该交易是否计入**预算**口径：支出，且未标记「不计入预算」。
+///
+/// 预算口径与「实际发生」口径是两件事——账户余额、收支统计与报表算的是钱有没有
+/// 动，标记「不计入预算」的借款/垫付照样要算进去，它们不走这个判定。
+bool countsTowardBudget(LedgerEntry entry) =>
+    entry.type == EntryType.expense && !entry.excludedFromBudget;
+
+/// 预算口径的支出合计：排除标记为「不计入预算」的交易。
+///
+/// **所有预算取数都必须走这里**（预算页、首页与看板预算卡、桌面小组件预算、
+/// AI `budgetStatus` 工具）。直接用 `sumByType(entries, expense)` 会让同一笔
+/// 交易在一处算进预算、在另一处不算。
+double budgetExpenseTotal(Iterable<LedgerEntry> entries) => entries
+    .where(countsTowardBudget)
+    .fold<double>(0, (sum, entry) => sum + statAmountForEntry(entry));
+
+bool isZeroAmount(num value) =>
+    isZeroCurrencyAmount(value, activeBaseCurrencyCode);
+
+/// 将金额规整到最小货币单位（分），消除 `double` 连续加减留下的浮点残差。
+double normalizeAmount(num value) =>
+    normalizeCurrencyAmount(value, activeBaseCurrencyCode);
+
+class DateWindow {
+  const DateWindow({required this.start, required this.end});
+
+  final DateTime start;
+  final DateTime end;
+
+  List<DateTime> get days {
+    // 用「按日构造」而非 start.add(Duration(days:))，避免 DST 地区跨夏令时偏移一小时
+    // 导致标签/边界落到相邻日；count 下限 0 防 end<start 时 List.generate 抛异常。
+    final startDay = dateOnly(start);
+    final count = (calendarDaysBetween(startDay, end) + 1).clamp(0, 100000);
+    return List<DateTime>.generate(
+      count,
+      (index) => DateTime(startDay.year, startDay.month, startDay.day + index),
+    );
+  }
+
+  String get label {
+    if (start.year == end.year && start.month == end.month) {
+      return '${start.month}.${start.day}-${end.month}.${end.day}';
+    }
+    return '${start.year}.${start.month}.${start.day}-${end.year}.${end.month}.${end.day}';
+  }
+}
+
+DateTime dateOnly(DateTime date) {
+  return DateTime(date.year, date.month, date.day);
+}
+
+/// 累积展开的走势窗口：起点恒为当月 1 号，终点按 7 天为步长推进，直到覆盖整月。
+/// 即 1–7 号显示 1–7、8 号起显示 1–14、15 号起显示 1–21…… 满月为止（不再往后）。
+DateWindow cumulativeWeekWindowFor(DateTime date) {
+  final daysInMonth = DateUtils.getDaysInMonth(date.year, date.month);
+  final endDay = ((((date.day - 1) ~/ 7) + 1) * 7).clamp(1, daysInMonth);
+  return DateWindow(
+    start: DateTime(date.year, date.month, 1),
+    end: DateTime(date.year, date.month, endDay),
+  );
+}
+
+/// 整月窗口（1 号至当月最后一天），用于按月查看的走势详情。
+DateWindow monthWindowFor(DateTime date) {
+  final daysInMonth = DateUtils.getDaysInMonth(date.year, date.month);
+  return DateWindow(
+    start: DateTime(date.year, date.month, 1),
+    end: DateTime(date.year, date.month, daysInMonth),
+  );
+}
+
+/// 以指定日期为最后一天的连续七个自然日。
+DateWindow lastSevenDaysWindowFor(DateTime date) =>
+    DateWindow(start: addCalendarDays(dateOnly(date), -6), end: dateOnly(date));
+
+/// 自然周窗口（周一至周日，含 [date] 所在周），用于按周查看的走势。
+DateWindow weekWindowFor(DateTime date) {
+  final day = dateOnly(date);
+  // weekday: 周一=1 … 周日=7，回退到本周一。
+  final monday = DateTime(day.year, day.month, day.day - (day.weekday - 1));
+  return DateWindow(
+    start: monday,
+    end: DateTime(monday.year, monday.month, monday.day + 6),
+  );
+}
+
+/// 自然季窗口（季度首月 1 号至季度末月最后一天），用于按季查看的走势。
+DateWindow quarterWindowFor(DateTime date) {
+  final startMonth = ((date.month - 1) ~/ 3) * 3 + 1;
+  final endMonth = startMonth + 2;
+  return DateWindow(
+    start: DateTime(date.year, startMonth, 1),
+    end: DateTime(
+      date.year,
+      endMonth,
+      DateUtils.getDaysInMonth(date.year, endMonth),
+    ),
+  );
+}
+
+/// [date] 所在季度序号（1–4）。
+int quarterOfMonth(int month) => ((month - 1) ~/ 3) + 1;
+
+/// 某年 12 个月、指定类型的净额合计（按月聚合，用于按年查看的走势）。
+/// 下标 0–11 对应 1–12 月，无数据的月为 0。
+List<double> monthlyNetValuesForType(
+  Iterable<LedgerEntry> entries,
+  int year,
+  EntryType type,
+) {
+  final values = List<double>.filled(12, 0);
+  for (final entry in entries) {
+    if (entry.type == type && entry.occurredAt.year == year) {
+      values[entry.occurredAt.month - 1] += statAmountForEntry(entry);
+    }
+  }
+  return values;
+}
+
+List<LedgerEntry> entriesInWindow(
+  Iterable<LedgerEntry> entries,
+  DateWindow window,
+) {
+  final start = dateOnly(window.start);
+  final endExclusive = addCalendarDays(dateOnly(window.end), 1);
+  return entries.where((entry) {
+    final date = entry.occurredAt;
+    return !date.isBefore(start) && date.isBefore(endExclusive);
+  }).toList();
+}
+
+List<double> valuesForTypeInWindow(
+  Iterable<LedgerEntry> entries,
+  DateWindow window,
+  EntryType type,
+) {
+  final days = window.days;
+  final values = List<double>.filled(days.length, 0);
+  for (final entry in entries) {
+    if (entry.type != type) {
+      continue;
+    }
+    for (var i = 0; i < days.length; i += 1) {
+      if (DateUtils.isSameDay(entry.occurredAt, days[i])) {
+        values[i] += statAmountForEntry(entry);
+        break;
+      }
+    }
+  }
+  return values;
+}
+
+List<String> labelsForWindow(DateWindow window) {
+  return window.days.map((date) => '${date.month}.${date.day}').toList();
+}
+
+/// 稀疏的日期标签：天数不多（≤8）时全部展示；否则只在 1 号与每 [interval] 天
+/// 标注，其余留空，避免日期挤成一团（滑动时数据气泡仍显示具体某天）。季度等
+/// 跨月窗口可用 [anchorToWindowStart] 让间隔从窗口起点连续计算。
+List<String> sparseLabelsForWindow(
+  DateWindow window, {
+  int interval = 5,
+  bool anchorToWindowStart = false,
+}) {
+  assert(interval > 0);
+  final days = window.days;
+  if (days.length <= 8) {
+    return labelsForWindow(window);
+  }
+  return days
+      .map(
+        (date) =>
+            (anchorToWindowStart
+                ? calendarDaysBetween(window.start, date) % interval == 0
+                : date.day == 1 || date.day % interval == 0)
+            ? '${date.month}.${date.day}'
+            : '',
+      )
+      .toList();
+}
+
+/// 指定日期当天的支出净额合计（用于桌面小组件「今日支出」）。
+double dayExpenseTotal(Iterable<LedgerEntry> entries, DateTime day) {
+  return entries
+      .where(
+        (entry) =>
+            entry.type == EntryType.expense &&
+            DateUtils.isSameDay(entry.occurredAt, day),
+      )
+      .fold<double>(0, (sum, entry) => sum + entry.netBaseAmount);
+}
+
+/// 指定日期当天、**预算口径**的支出合计（用于按日预算的今日进度）。
+///
+/// 与 [dayExpenseTotal] 的差别只有一点：跳过「不计入预算」的交易。桌面小组件的
+/// 「今日支出」用的是前者——它展示实际花销，不受预算口径影响。
+double dayBudgetExpenseTotal(Iterable<LedgerEntry> entries, DateTime day) {
+  return entries
+      .where(
+        (entry) =>
+            countsTowardBudget(entry) &&
+            DateUtils.isSameDay(entry.occurredAt, day),
+      )
+      .fold<double>(0, (sum, entry) => sum + statAmountForEntry(entry));
+}
+
+List<double> monthlyExpenseValues(Iterable<LedgerEntry> entries) {
+  final now = DateTime.now();
+  final values = List<double>.filled(12, 0);
+  for (final entry in entries) {
+    if (entry.type == EntryType.expense && entry.occurredAt.year == now.year) {
+      values[entry.occurredAt.month - 1] += entry.netBaseAmount;
+    }
+  }
+  return values;
+}
+
+String formatAmount(num value) {
+  return formatCurrencyNumber(value, activeBaseCurrencyCode);
+}
+
+/// 支出金额的展示文本：**只给绝对值，不带负号**。
+///
+/// 支出方向由同屏的标签（「本月支出」「今日已超」）、类型色或图表序列表达，
+/// 重复一个负号会和旁边的正数柱、正数日均互相矛盾；与 [formatIncomeAmount]
+/// 对称（收入同样只给绝对值）。需要在**混合类型**的列表里用符号区分方向时，
+/// 用 [formatSignedAmount] / `formatSignedUserMoney`，或在需要「负的减少量」
+/// 语义的位置直接用 [formatAmount]（负数自带 `-`）。
+String formatExpenseAmount(num value) {
+  if (isZeroAmount(value)) {
+    return '0';
+  }
+  return formatAmount(value.abs());
+}
+
+String formatIncomeAmount(num value) {
+  if (isZeroAmount(value)) {
+    return '0';
+  }
+  return formatAmount(value.abs());
+}
+
+String formatSignedAmount(double value) {
+  if (isZeroAmount(value)) {
+    return '0';
+  }
+  return value > 0
+      ? '+${formatAmount(value)}'
+      : '-${formatAmount(value.abs())}';
+}
+
+/// 紧凑金额（日历单元格等窄处）。中文以「万」为单位，其他语言以 k 为单位——
+/// 两种语言的数量级习惯不同，无法用单一 ARB 键表达，故按 locale 分支。
+String formatCompactAmount(
+  AppLocalizations l10n,
+  num value, {
+  String? currencyCode,
+}) {
+  String formatSmall() => currencyCode == null
+      ? formatAmount(value)
+      : formatCurrencyNumber(value, currencyCode);
+  final abs = value.abs();
+  if (l10n.localeName.startsWith('zh')) {
+    if (abs >= 10000) {
+      final compact = value / 10000;
+      return '${compact.toStringAsFixed(compact.abs() >= 10 ? 0 : 1)}万';
+    }
+    if (abs >= 1000) {
+      return value.toStringAsFixed(0);
+    }
+    return formatSmall();
+  }
+  if (abs >= 1000) {
+    final compact = value / 1000;
+    return '${compact.toStringAsFixed(compact.abs() >= 10 ? 0 : 1)}k';
+  }
+  return formatSmall();
+}
+
+String formatTime(DateTime date) {
+  final hour = date.hour.toString().padLeft(2, '0');
+  final minute = date.minute.toString().padLeft(2, '0');
+  return '$hour:$minute';
+}
+
+/// 交易时间戳的智能展示：同一天只给时间，其余带日期。纯数字格式（中英通用、无需翻译）。
+///
+/// - 今天：`14:30`
+/// - 今年非今天：`07/08 14:30`
+/// - 往年：`2024/07/08 14:30`
+///
+/// [now] 可注入以便测试；缺省用 `DateTime.now()`。仅用于平铺、无日期分组头的列表
+/// （如首页「最近交易」）；带分组头的列表日期已在头部，无需逐行重复。
+String formatEntryStamp(DateTime when, {DateTime? now}) {
+  final ref = now ?? DateTime.now();
+  final time = formatTime(when);
+  final sameDay =
+      when.year == ref.year && when.month == ref.month && when.day == ref.day;
+  if (sameDay) {
+    return time;
+  }
+  final month = when.month.toString().padLeft(2, '0');
+  final day = when.day.toString().padLeft(2, '0');
+  if (when.year == ref.year) {
+    return '$month/$day $time';
+  }
+  return '${when.year}/$month/$day $time';
+}

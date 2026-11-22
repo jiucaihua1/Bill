@@ -1,0 +1,1983 @@
+// 数据管理页：从 profile_pages 拆出。集中导出/导入/初始化与备份子系统
+// （本地目录 SAF、加密、WebDAV、账单导入）的入口与流程。
+import 'dart:async';
+import 'dart:io';
+
+import 'package:anchored_menu/anchored_menu.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import '../app/app_theme.dart';
+import '../app/auto_save.dart';
+import '../app/backup/backup_service.dart';
+import '../app/backup/backup_settings.dart';
+import '../app/backup/payment_import.dart';
+import '../app/backup/transaction_import.dart';
+import '../app/backup/webdav_client.dart';
+import '../app/backup/webdav_config.dart';
+import '../app/common_widgets.dart';
+import '../app/currency_math.dart';
+import '../app/data_file_port.dart';
+import '../app/feedback.dart';
+import '../app/haptics.dart';
+import '../app/ledger_math.dart';
+import '../l10n/app_localizations.dart';
+import '../app/veri_fin_controller.dart';
+import '../app/veri_fin_scope.dart';
+import 'app_log_page.dart';
+import 'import_preview_page.dart';
+import 'sheets.dart';
+
+part 'data_management_dialogs.dart';
+
+const List<int> _backupIntervalOptions = <int>[1, 3, 6, 12, 24, 48, 72];
+const List<int> _backupRetentionOptions = <int>[3, 5, 10, 20, 50];
+
+class DataManagementPage extends StatefulWidget {
+  const DataManagementPage({super.key});
+
+  @override
+  State<DataManagementPage> createState() => _DataManagementPageState();
+}
+
+class _DataManagementPageState extends State<DataManagementPage> {
+  late final AutoSave _autoSave;
+  late BackupFrequency _draftFrequency;
+  late int _draftIntervalHours;
+  late int _draftRetention;
+  late bool _draftWebdavAutoUpload;
+  bool _initialized = false;
+
+  @override
+  void dispose() {
+    _autoSave.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) {
+      return;
+    }
+    _initialized = true;
+    final controller = VeriFinScope.of(context);
+    final backup = controller.backupSettings;
+    _draftFrequency = backup.frequency;
+    _draftIntervalHours = backup.intervalHours;
+    _draftRetention = backup.retention;
+    _draftWebdavAutoUpload = controller.webdavConfig.autoUpload;
+    _autoSave = AutoSave(save: _save, logger: controller.logger);
+  }
+
+  void _apply(VoidCallback update) {
+    setState(update);
+    _autoSave.schedule(immediate: true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = VeriFinScope.of(context);
+
+    return AutoSavePopScope(
+      autoSave: _autoSave,
+      child: Scaffold(
+        body: SafeArea(
+          child: VeriPage(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
+              children: <Widget>[
+                VeriHeader(
+                  title: AppLocalizations.of(context).dataManagement,
+                  subtitle: AppLocalizations.of(context).dataMgmtSubtitle,
+                  showBack: true,
+                ),
+                const SizedBox(height: 10),
+                AutoSaveFailureBanner(autoSave: _autoSave),
+                _sectionLabel(
+                  context,
+                  AppLocalizations.of(context).dataSectionLocalBackup,
+                ),
+                VeriCard(
+                  child: Column(
+                    children: <Widget>[
+                      SettingsRow(
+                        icon: Icons.folder_outlined,
+                        title: AppLocalizations.of(context).backupDirLabel,
+                        trailing: controller.backupSettings.hasDirectory
+                            ? controller.backupSettings.directoryLabel
+                            : AppLocalizations.of(context).notChosen,
+                        trailingIcon: Icons.chevron_right,
+                        onTap: () =>
+                            _chooseBackupDirectory(context, controller),
+                      ),
+                      const Divider(),
+                      SettingsRow(
+                        icon: Icons.backup_outlined,
+                        title: AppLocalizations.of(context).backupNow,
+                        trailing: _lastBackupLabel(
+                          AppLocalizations.of(context),
+                          controller.backupSettings,
+                        ),
+                        trailingIcon: Icons.chevron_right,
+                        onTap: () => _backupNow(context, controller),
+                      ),
+                      const Divider(),
+                      SettingsRow(
+                        icon: Icons.download_outlined,
+                        title: AppLocalizations.of(context).exportData,
+                        trailing: AppLocalizations.of(context).jsonBackup,
+                        trailingIcon: Icons.chevron_right,
+                        onTap: () => _exportData(context, controller),
+                      ),
+                      const Divider(),
+                      SettingsRow(
+                        icon: Icons.upload_file_outlined,
+                        title: AppLocalizations.of(context).importData,
+                        trailing: AppLocalizations.of(context).restoreFromFile,
+                        trailingIcon: Icons.chevron_right,
+                        onTap: () => _confirmImport(context, controller),
+                      ),
+                      if (controller.backupSettings.hasDirectory) ...<Widget>[
+                        const Divider(),
+                        SettingsRow(
+                          icon: Icons.link_off,
+                          title: AppLocalizations.of(context).clearBackupDir,
+                          trailing: AppLocalizations.of(
+                            context,
+                          ).stopLocalBackup,
+                          trailingIcon: Icons.chevron_right,
+                          contentColor: veriSemantic(context, veriExpense),
+                          onTap: () =>
+                              _clearBackupDirectory(context, controller),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (controller.backupSettings.hasDirectory) ...<Widget>[
+                  const SizedBox(height: 10),
+                  _sectionLabel(
+                    context,
+                    AppLocalizations.of(context).autoBackup,
+                  ),
+                  VeriCard(
+                    child: Column(
+                      children: <Widget>[
+                        AnchoredMenuChoice<BackupFrequency>(
+                          values: BackupFrequency.values,
+                          selected: _draftFrequency,
+                          idOf: (value) => 'backup_frequency_${value.name}',
+                          labelOf: (value) =>
+                              value.label(AppLocalizations.of(context)),
+                          iconOf: (value) => switch (value) {
+                            BackupFrequency.manual => Icons.touch_app_outlined,
+                            BackupFrequency.onOpen => Icons.launch_outlined,
+                            BackupFrequency.onEntry => Icons.post_add_outlined,
+                            BackupFrequency.everyNHours =>
+                              Icons.schedule_outlined,
+                          },
+                          onSelected: (value) =>
+                              _apply(() => _draftFrequency = value),
+                          semanticLabel: AppLocalizations.of(
+                            context,
+                          ).pickBackupFrequency,
+                          builder: (context, openMenu, menuOpen) => SettingsRow(
+                            icon: Icons.schedule_outlined,
+                            title: AppLocalizations.of(
+                              context,
+                            ).backupFrequencyLabel,
+                            trailing: _draftFrequency.label(
+                              AppLocalizations.of(context),
+                            ),
+                            trailingIcon: Icons.chevron_right,
+                            onTap: openMenu,
+                          ),
+                        ),
+                        if (_draftFrequency ==
+                            BackupFrequency.everyNHours) ...<Widget>[
+                          const Divider(),
+                          AnchoredMenuChoice<int>(
+                            values: _backupIntervalOptions,
+                            selected:
+                                _backupIntervalOptions.contains(
+                                  _draftIntervalHours,
+                                )
+                                ? _draftIntervalHours
+                                : 24,
+                            idOf: (value) => 'backup_interval_$value',
+                            labelOf: (value) => AppLocalizations.of(
+                              context,
+                            ).everyNHoursLabel(value),
+                            onSelected: (value) =>
+                                _apply(() => _draftIntervalHours = value),
+                            semanticLabel: AppLocalizations.of(
+                              context,
+                            ).backupIntervalTitle,
+                            builder: (context, openMenu, menuOpen) =>
+                                SettingsRow(
+                                  icon: Icons.hourglass_bottom_outlined,
+                                  title: AppLocalizations.of(
+                                    context,
+                                  ).backupIntervalLabel,
+                                  trailing: AppLocalizations.of(
+                                    context,
+                                  ).everyNHoursLabel(_draftIntervalHours),
+                                  trailingIcon: Icons.chevron_right,
+                                  onTap: openMenu,
+                                ),
+                          ),
+                        ],
+                        const Divider(),
+                        AnchoredMenuChoice<int>(
+                          values: _backupRetentionOptions,
+                          selected:
+                              _backupRetentionOptions.contains(_draftRetention)
+                              ? _draftRetention
+                              : 10,
+                          idOf: (value) => 'backup_retention_$value',
+                          labelOf: (value) =>
+                              AppLocalizations.of(context).latestNCopies(value),
+                          onSelected: (value) =>
+                              _apply(() => _draftRetention = value),
+                          semanticLabel: AppLocalizations.of(
+                            context,
+                          ).retentionTitle,
+                          builder: (context, openMenu, menuOpen) => SettingsRow(
+                            icon: Icons.inventory_2_outlined,
+                            title: AppLocalizations.of(context).retentionLabel,
+                            trailing: AppLocalizations.of(
+                              context,
+                            ).latestNCopies(_draftRetention),
+                            trailingIcon: Icons.chevron_right,
+                            onTap: openMenu,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                _sectionLabel(
+                  context,
+                  AppLocalizations.of(context).backupEncryption,
+                ),
+                VeriCard(
+                  child: Column(
+                    children: <Widget>[
+                      SettingsRow(
+                        icon: Icons.enhanced_encryption_outlined,
+                        title: AppLocalizations.of(context).encryptionKey,
+                        trailing: controller.backupEncryptionEnabled
+                            ? AppLocalizations.of(context).enabledLabel
+                            : AppLocalizations.of(context).notSet,
+                        trailingIcon: Icons.chevron_right,
+                        onTap: () => _editBackupPassphrase(context, controller),
+                      ),
+                      if (controller.backupEncryptionEnabled) ...<Widget>[
+                        const Divider(),
+                        SettingsRow(
+                          icon: Icons.no_encryption_outlined,
+                          title: AppLocalizations.of(
+                            context,
+                          ).clearEncryptionKey,
+                          trailing: AppLocalizations.of(context).noEncryptHint,
+                          trailingIcon: Icons.chevron_right,
+                          contentColor: veriSemantic(context, veriExpense),
+                          onTap: () =>
+                              _confirmClearPassphrase(context, controller),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _sectionLabel(
+                  context,
+                  AppLocalizations.of(context).webdavSection,
+                ),
+                VeriCard(
+                  child: Column(
+                    children: <Widget>[
+                      SettingsRow(
+                        icon: Icons.cloud_outlined,
+                        title: AppLocalizations.of(context).webdavServer,
+                        trailing: controller.webdavConfig.isConfigured
+                            ? AppLocalizations.of(context).configuredLabel
+                            : AppLocalizations.of(context).notConfigured,
+                        trailingIcon: Icons.chevron_right,
+                        onTap: () => _editWebdav(context, controller),
+                      ),
+                      if (controller.webdavConfig.isConfigured) ...<Widget>[
+                        const Divider(),
+                        SettingsRow(
+                          icon: Icons.cloud_upload_outlined,
+                          title: AppLocalizations.of(context).uploadToWebdav,
+                          trailing: AppLocalizations.of(context).uploadNow,
+                          trailingIcon: Icons.chevron_right,
+                          onTap: () => _uploadToWebdav(context, controller),
+                        ),
+                        const Divider(),
+                        SettingsRow(
+                          icon: Icons.cloud_download_outlined,
+                          title: AppLocalizations.of(context).restoreFromWebdav,
+                          trailing: AppLocalizations.of(context).chooseBackup,
+                          trailingIcon: Icons.chevron_right,
+                          onTap: () => _restoreFromWebdav(context, controller),
+                        ),
+                        const Divider(),
+                        CompactSwitchRow(
+                          icon: Icons.sync_outlined,
+                          title: Text(
+                            AppLocalizations.of(context).autoUploadWebdav,
+                          ),
+                          value: _draftWebdavAutoUpload,
+                          onChanged: (value) =>
+                              _apply(() => _draftWebdavAutoUpload = value),
+                        ),
+                        const Divider(),
+                        SettingsRow(
+                          icon: Icons.cloud_off_outlined,
+                          title: AppLocalizations.of(context).clearWebdav,
+                          trailing: AppLocalizations.of(
+                            context,
+                          ).disconnectLabel,
+                          trailingIcon: Icons.chevron_right,
+                          contentColor: veriSemantic(context, veriExpense),
+                          onTap: () => _confirmClearWebdav(context, controller),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _sectionLabel(
+                  context,
+                  AppLocalizations.of(context).importFromSheets,
+                ),
+                VeriCard(
+                  child: Column(
+                    children: <Widget>[
+                      SettingsRow(
+                        icon: Icons.account_balance_wallet_outlined,
+                        title: AppLocalizations.of(context).importBillFile,
+                        trailing: AppLocalizations.of(
+                          context,
+                        ).importBillFileHint,
+                        trailingIcon: Icons.chevron_right,
+                        onTap: () => _importFromPlatform(context, controller),
+                      ),
+                      const Divider(),
+                      SettingsRow(
+                        icon: Icons.file_download_outlined,
+                        title: AppLocalizations.of(context).downloadCsvTemplate,
+                        trailing: AppLocalizations.of(context).excelHint,
+                        trailingIcon: Icons.chevron_right,
+                        onTap: () => _downloadCsvTemplate(context),
+                      ),
+                      const Divider(),
+                      SettingsRow(
+                        icon: Icons.table_view_outlined,
+                        title: AppLocalizations.of(
+                          context,
+                        ).exportTransactionsCsv,
+                        trailing: AppLocalizations.of(context).excelHint,
+                        trailingIcon: Icons.chevron_right,
+                        onTap: () =>
+                            _exportTransactionsCsv(context, controller),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _sectionLabel(
+                  context,
+                  AppLocalizations.of(context).dataSectionMaintenance,
+                ),
+                VeriCard(
+                  child: Column(
+                    children: <Widget>[
+                      SettingsRow(
+                        icon: Icons.description_outlined,
+                        title: AppLocalizations.of(context).appLog,
+                        trailing: AppLocalizations.of(context).viewLabel,
+                        trailingIcon: Icons.chevron_right,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (context) => const AppLogPage(),
+                          ),
+                        ),
+                      ),
+                      const Divider(),
+                      SettingsRow(
+                        icon: Icons.restart_alt,
+                        title: AppLocalizations.of(context).resetData,
+                        trailing: AppLocalizations.of(context).deleteAllLocal,
+                        trailingIcon: Icons.chevron_right,
+                        contentColor: veriSemantic(context, veriExpense),
+                        onTap: () => _confirmReset(context, controller),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Widget _sectionLabel(BuildContext context, String text) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 4, 6, 8),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  static String _lastBackupLabel(
+    AppLocalizations l10n,
+    BackupSettings settings,
+  ) {
+    final last = settings.lastBackupAt;
+    if (last == null) {
+      return l10n.neverBackedUp;
+    }
+    String two(int v) => v.toString().padLeft(2, '0');
+    return l10n.lastBackupAt(
+      '${last.year}-${two(last.month)}-${two(last.day)} '
+      '${two(last.hour)}:${two(last.minute)}',
+    );
+  }
+
+  void _notify(
+    BuildContext context, {
+    required String message,
+    VeriFeedbackTone tone = VeriFeedbackTone.info,
+    VeriFeedbackDuration duration = VeriFeedbackDuration.standard,
+    VeriFeedbackPriority priority = VeriFeedbackPriority.normal,
+    String? dedupeKey,
+  }) {
+    unawaited(
+      VeriFeedbackHost.of(context).showMessage(
+        message: message,
+        tone: tone,
+        duration: duration,
+        priority: priority,
+        dedupeKey: dedupeKey,
+      ),
+    );
+  }
+
+  Future<void> _chooseBackupDirectory(
+    BuildContext context,
+    VeriFinController controller,
+  ) async {
+    try {
+      final picked = await BackupService.chooseDirectory();
+      if (picked == null || !context.mounted) {
+        return;
+      }
+      controller.setBackupDirectory(picked.uri, picked.label);
+      _notify(
+        context,
+        message: AppLocalizations.of(context).chosenBackupDir(picked.label),
+        tone: VeriFeedbackTone.success,
+      );
+    } catch (error) {
+      controller.logger?.error('选择备份目录失败', source: 'backup', error: error);
+      if (context.mounted) {
+        _notify(
+          context,
+          message: _backupErrorText(AppLocalizations.of(context), error),
+          tone: VeriFeedbackTone.error,
+          duration: VeriFeedbackDuration.long,
+          priority: VeriFeedbackPriority.high,
+          dedupeKey: 'backup-directory',
+        );
+      }
+    }
+  }
+
+  /// 以阻塞进度对话框执行 [task]：显示阶段进度、百分比与取消按钮。
+  ///
+  /// 返回任务结果；用户取消或任务抛出 [BackupCancelledException] 时返回 null
+  /// （调用方据此提示「已取消」）。对话框与进度状态在 finally 中统一收尾。
+  Future<T?> _runWithProgress<T>(
+    BuildContext context,
+    VeriFinController controller,
+    String title,
+    Future<T> Function(bool Function() isCancelled) task,
+  ) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final cancellation = BackupCancellation();
+    controller.reportBackupProgress(null);
+    unawaited(
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => _BackupProgressDialog(
+          title: title,
+          controller: controller,
+          cancellation: cancellation,
+        ),
+      ),
+    );
+    try {
+      return await task(() => cancellation.cancelled);
+    } on BackupCancelledException {
+      return null;
+    } finally {
+      controller.reportBackupProgress(null);
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+    }
+  }
+
+  /// 提示用户操作已取消（调用点需先确认 `context.mounted`）。
+  void _notifyCancelled(BuildContext context) {
+    unawaited(
+      VeriFeedbackHost.of(context).showMessage(
+        message: AppLocalizations.of(context).backupCancelled,
+        tone: VeriFeedbackTone.info,
+        dedupeKey: 'backup-cancelled',
+      ),
+    );
+  }
+
+  Future<void> _backupNow(
+    BuildContext context,
+    VeriFinController controller,
+  ) async {
+    if (!controller.backupSettings.hasDirectory) {
+      await _chooseBackupDirectory(context, controller);
+      if (!context.mounted || !controller.backupSettings.hasDirectory) {
+        return;
+      }
+    }
+    final l10n = AppLocalizations.of(context);
+    final feedback = VeriFeedbackHost.of(context);
+    try {
+      final now = DateTime.now();
+      // 备份可能上 GB（打包 / 加密 / 写盘 / 校验），全程显示阶段进度并可取消。
+      final result = await _runWithProgress(
+        context,
+        controller,
+        l10n.backingUp,
+        (isCancelled) async {
+          final cacheDirectory = await controller.ensureBackupCacheDirectory();
+          return BackupService.writeManualBackup(
+            settings: controller.backupSettings,
+            content: controller.exportDataJson(),
+            store: controller.attachmentStore,
+            cacheDirectory: cacheDirectory,
+            now: now,
+            passphrase: controller.backupPassphrase,
+            onProgress: controller.reportBackupProgress,
+            isCancelled: isCancelled,
+          );
+        },
+      );
+      if (result == null) {
+        if (context.mounted) {
+          _notifyCancelled(context);
+        }
+        return;
+      }
+      controller.recordBackupTime(now);
+      VeriHaptics.commit();
+      unawaited(
+        feedback.showMessage(
+          message: l10n.backedUpFile(result.filename),
+          tone: VeriFeedbackTone.success,
+        ),
+      );
+    } catch (error) {
+      controller.logger?.error('手动备份失败', source: 'backup', error: error);
+      VeriHaptics.emphasis();
+      unawaited(
+        feedback.showMessage(
+          message: _backupErrorText(l10n, error),
+          tone: VeriFeedbackTone.error,
+          duration: VeriFeedbackDuration.long,
+          priority: VeriFeedbackPriority.high,
+          dedupeKey: 'manual-backup',
+        ),
+      );
+    }
+  }
+
+  static String _backupErrorText(AppLocalizations l10n, Object error) {
+    // 已知的、面向用户可读的领域异常（加密 / WebDAV）展示其自带消息；
+    // FormatException（空文件 / 格式无效，其内部 message 是硬编码中文）与其它
+    // 技术异常（平台 / 文件系统等）统一给本地化友好文案，不把原始技术信息暴露给用户。
+    if (error is BackupCryptoException) {
+      return error.message;
+    }
+    if (error is WebdavException) {
+      return error.message;
+    }
+    if (error is BackupVerificationException) {
+      return l10n.backupVerifyFailed;
+    }
+    if (error is FormatException) {
+      return l10n.backupInvalidFile;
+    }
+    return l10n.backupFailedRetry;
+  }
+
+  Future<void> _exportData(
+    BuildContext context,
+    VeriFinController controller,
+  ) async {
+    try {
+      // 未加密→zip（附件不膨胀）、加密→文本信封，都先落到缓存文件再流式写出。
+      final saved = await _runWithProgress<bool>(
+        context,
+        controller,
+        AppLocalizations.of(context).backingUp,
+        (isCancelled) async {
+          final prepared = await BackupService.prepare(
+            json: controller.exportDataJson(),
+            store: controller.attachmentStore,
+            cacheDirectory: await controller.ensureBackupCacheDirectory(),
+            passphrase: controller.backupPassphrase,
+            now: DateTime.now(),
+            auto: false,
+            onProgress: controller.reportBackupProgress,
+            isCancelled: isCancelled,
+          );
+          try {
+            final mimeType = controller.backupEncryptionEnabled
+                ? 'application/json'
+                : 'application/zip';
+            final receipt = await BackupService.exportToDownloads(
+              prepared,
+              mimeType: mimeType,
+            );
+            if (receipt != null) {
+              return true;
+            }
+            // Android 10 以下或桌面：回退到系统「保存到」选择器（需要整份字节）。
+            return await downloadBytesFile(
+              filename: prepared.filename,
+              bytes: await File(prepared.cachePath).readAsBytes(),
+              mimeType: mimeType,
+            );
+          } finally {
+            await BackupService.deletePrepared(prepared);
+          }
+        },
+      );
+      if (saved == null) {
+        if (context.mounted) {
+          _notifyCancelled(context);
+        }
+        return;
+      }
+      if (saved && context.mounted) {
+        VeriHaptics.commit();
+        final hint = controller.backupEncryptionEnabled
+            ? AppLocalizations.of(context).encryptedSuffix
+            : '';
+        _notify(
+          context,
+          message: AppLocalizations.of(context).exportedTo(hint),
+          tone: VeriFeedbackTone.success,
+        );
+      }
+    } catch (error) {
+      controller.logger?.error('数据导出失败', source: 'export', error: error);
+      VeriHaptics.emphasis();
+      if (context.mounted) {
+        _notify(
+          context,
+          message: AppLocalizations.of(context).exportFailed,
+          tone: VeriFeedbackTone.error,
+          duration: VeriFeedbackDuration.long,
+          priority: VeriFeedbackPriority.high,
+          dedupeKey: 'data-export',
+        );
+      }
+    }
+  }
+
+  /// 从缓存里的备份文件导入：格式判定（zip/加密信封/明文）统一走
+  /// [BackupService.decodeBackupFile]，加密信封在此弹窗索要口令解密后导入。
+  /// 返回是否成功导入；用户取消解密返回 false。空/坏文件抛 FormatException
+  /// 由调用方提示。
+  Future<bool> _importBackupCacheFile(
+    BuildContext context,
+    VeriFinController controller,
+    String cachePath, {
+    bool Function()? isCancelled,
+  }) async {
+    // 附件先解到独立暂存存储，全部解析成功后才并入主存储；任何失败直接丢弃暂存，
+    // 现有数据零改动。
+    final staging = await controller.attachmentStore.createStagingStore();
+    try {
+      final decoded = await BackupService.decodeBackupFile(
+        cachePath: cachePath,
+        sink: staging,
+        onProgress: controller.reportBackupProgress,
+        isCancelled: isCancelled,
+      );
+      switch (decoded) {
+        case PlainBackupJson(:final json):
+          await controller.importDataJson(
+            json,
+            readStagedAttachment: staging.readBytes,
+          );
+          return true;
+        case EncryptedBackupEnvelope(:final envelope):
+          if (!context.mounted) {
+            return false;
+          }
+          final decrypted = await _decryptForImport(
+            context,
+            controller,
+            envelope,
+          );
+          if (decrypted == null) {
+            return false;
+          }
+          final json = await BackupService.prepareDecryptedLegacyJson(
+            decrypted,
+            staging,
+          );
+          await controller.importDataJson(
+            json,
+            readStagedAttachment: staging.readBytes,
+          );
+          return true;
+        case EncryptedStreamBackup():
+          if (!context.mounted) {
+            return false;
+          }
+          return await _importEncryptedStream(
+            context,
+            controller,
+            cachePath,
+            isCancelled: isCancelled,
+          );
+      }
+    } finally {
+      await controller.attachmentStore.discardStagingStore(staging);
+    }
+  }
+
+  /// 新版加密容器：先试设备保存的口令，失败或未设置则弹窗；口令错误可重试。
+  /// 解密、解包、导入全程流式，GB 级加密备份也不会整包进内存。
+  Future<bool> _importEncryptedStream(
+    BuildContext context,
+    VeriFinController controller,
+    String encryptedPath, {
+    bool Function()? isCancelled,
+  }) async {
+    final cacheDirectory = await controller.ensureBackupCacheDirectory();
+    var triedSavedPassphrase = false;
+    var errorText = '';
+    while (true) {
+      if (!context.mounted) {
+        return false;
+      }
+      String? passphrase;
+      if (!triedSavedPassphrase) {
+        triedSavedPassphrase = true;
+        final saved = controller.backupPassphrase;
+        if (saved.isNotEmpty) {
+          passphrase = saved;
+        }
+      }
+      passphrase ??= await _promptPassphrase(
+        context,
+        title: AppLocalizations.of(context).enterBackupKeyTitle,
+        message: AppLocalizations.of(context).enterBackupKeyMessage,
+        errorText: errorText,
+      );
+      if (passphrase == null) {
+        return false;
+      }
+      final String zipPath;
+      try {
+        zipPath = await BackupService.decryptStreamToZip(
+          encryptedPath: encryptedPath,
+          cacheDirectory: cacheDirectory,
+          passphrase: passphrase,
+          onProgress: controller.reportBackupProgress,
+          isCancelled: isCancelled,
+        );
+      } on BackupCryptoException catch (error) {
+        errorText = error.message;
+        continue;
+      }
+      try {
+        final staging = await controller.attachmentStore.createStagingStore();
+        try {
+          final json = await BackupService.unpackCacheZip(
+            cachePath: zipPath,
+            sink: staging,
+            onProgress: controller.reportBackupProgress,
+            isCancelled: isCancelled,
+          );
+          await controller.importDataJson(
+            json,
+            readStagedAttachment: staging.readBytes,
+          );
+          return true;
+        } finally {
+          await controller.attachmentStore.discardStagingStore(staging);
+        }
+      } finally {
+        await BackupService.deleteCachePath(zipPath);
+      }
+    }
+  }
+
+  /// 把外部备份文件流式落到缓存再导入；无论成败都清理缓存。
+  ///
+  /// 用流式复制而不是先读整份字节：用户可能选择 GB 级备份，整份读入会直接 OOM
+  /// （Issue 45）。返回是否成功导入；用户取消或文件不可读返回 false。
+  Future<bool> _importBackupFileUri(
+    BuildContext context,
+    VeriFinController controller,
+    String fileUri, {
+    bool Function()? isCancelled,
+  }) async {
+    final staged = await BackupService.stageBackupFile(fileUri);
+    if (staged == null || !context.mounted) {
+      return false;
+    }
+    try {
+      return await _importBackupCacheFile(
+        context,
+        controller,
+        staged.path,
+        isCancelled: isCancelled,
+      );
+    } finally {
+      // 只删本应用为本次导入新建的临时副本；用户自己的原文件不动。
+      if (staged.owned) {
+        await BackupService.deleteCachePath(staged.path);
+      }
+    }
+  }
+
+  /// 处理加密备份的解密：先尝试已保存口令，失败或未设置则弹窗要求输入，
+  /// 输入错误可重试。返回明文；用户取消返回 null。
+  Future<String?> _decryptForImport(
+    BuildContext context,
+    VeriFinController controller,
+    String content,
+  ) async {
+    final saved = controller.backupPassphrase;
+    if (saved.isNotEmpty) {
+      try {
+        return await BackupService.decryptEnvelope(content, saved);
+      } on BackupCryptoException {
+        // 已保存口令不匹配（可能来自其他设备/旧口令），改为手动输入。
+      }
+    }
+    var errorText = '';
+    while (true) {
+      if (!context.mounted) {
+        return null;
+      }
+      final passphrase = await _promptPassphrase(
+        context,
+        title: AppLocalizations.of(context).enterBackupKeyTitle,
+        message: AppLocalizations.of(context).enterBackupKeyMessage,
+        errorText: errorText,
+      );
+      if (passphrase == null) {
+        return null;
+      }
+      try {
+        return await BackupService.decryptEnvelope(content, passphrase);
+      } on BackupCryptoException catch (error) {
+        errorText = error.message;
+      }
+    }
+  }
+
+  Future<String?> _promptPassphrase(
+    BuildContext context, {
+    required String title,
+    required String message,
+    String errorText = '',
+  }) {
+    return showDialog<String>(
+      context: context,
+      builder: (context) => _PassphrasePromptDialog(
+        title: title,
+        message: message,
+        errorText: errorText,
+      ),
+    );
+  }
+
+  Future<void> _editBackupPassphrase(
+    BuildContext context,
+    VeriFinController controller,
+  ) async {
+    final isChange = controller.backupEncryptionEnabled;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => _SetPassphraseDialog(isChange: isChange),
+    );
+    if (result != null && result.isNotEmpty) {
+      controller.setBackupPassphrase(result);
+      if (context.mounted) {
+        _notify(
+          context,
+          message: AppLocalizations.of(context).keySet,
+          tone: VeriFeedbackTone.success,
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmClearPassphrase(
+    BuildContext context,
+    VeriFinController controller,
+  ) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: AppLocalizations.of(context).clearKeyTitle,
+      message: AppLocalizations.of(context).clearKeyMessage,
+      confirmLabel: AppLocalizations.of(context).clearLabel,
+      destructive: true,
+    );
+    if (confirmed) {
+      controller.clearBackupPassphrase();
+    }
+  }
+
+  Future<void> _editWebdav(
+    BuildContext context,
+    VeriFinController controller,
+  ) async {
+    final existing = controller.webdavConfig;
+    final saved = await showDialog<WebdavConfig>(
+      context: context,
+      builder: (context) => _WebdavEditDialog(existing: existing),
+    );
+    if (saved != null && saved.isConfigured) {
+      if (!context.mounted) return;
+      // http 发往公网主机会明文暴露账号密码，保存前提醒确认。
+      if (!await confirmCleartextIfRisky(context, saved.url)) return;
+      controller.setWebdavConfig(saved);
+      if (mounted) {
+        setState(() => _draftWebdavAutoUpload = saved.autoUpload);
+      }
+      if (context.mounted) {
+        _notify(
+          context,
+          message: AppLocalizations.of(context).webdavSaved,
+          tone: VeriFeedbackTone.success,
+        );
+      }
+    }
+  }
+
+  Future<void> _clearBackupDirectory(
+    BuildContext context,
+    VeriFinController controller,
+  ) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showConfirmDialog(
+      context,
+      title: l10n.clearBackupDir,
+      message: l10n.clearBackupDirConfirm,
+      destructive: true,
+    );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+    controller.clearBackupDirectory();
+    _apply(() => _draftFrequency = BackupFrequency.manual);
+  }
+
+  Future<bool> _save() =>
+      VeriFinScope.of(context).saveDataManagementPreferencesDraft(
+        frequency: _draftFrequency,
+        intervalHours: _draftIntervalHours,
+        retention: _draftRetention,
+        webdavAutoUpload: _draftWebdavAutoUpload,
+      );
+
+  Future<void> _uploadToWebdav(
+    BuildContext context,
+    VeriFinController controller,
+  ) async {
+    final feedback = VeriFeedbackHost.of(context);
+    final l10n = AppLocalizations.of(context);
+    String? uploadedName;
+    try {
+      // 上传可能上 GB：打包 + 上传全程显示进度并可取消。
+      final uploaded = await _runWithProgress<bool>(
+        context,
+        controller,
+        l10n.uploadingWebdav,
+        (isCancelled) async {
+          final now = DateTime.now();
+          final prepared = await BackupService.prepare(
+            json: controller.exportDataJson(),
+            store: controller.attachmentStore,
+            cacheDirectory: await controller.ensureBackupCacheDirectory(),
+            passphrase: controller.backupPassphrase,
+            now: now,
+            auto: false,
+            onProgress: controller.reportBackupProgress,
+            isCancelled: isCancelled,
+          );
+          try {
+            await webdavUploadFile(
+              controller.webdavConfig,
+              prepared.filename,
+              prepared.cachePath,
+              isCancelled: isCancelled,
+            );
+            controller.recordBackupTime(now);
+            uploadedName = prepared.filename;
+            return true;
+          } finally {
+            await BackupService.deletePrepared(prepared);
+          }
+        },
+      );
+      if (uploaded == null) {
+        if (context.mounted) {
+          _notifyCancelled(context);
+        }
+        return;
+      }
+      unawaited(
+        feedback.showMessage(
+          message: l10n.uploadedFile(uploadedName ?? ''),
+          tone: VeriFeedbackTone.success,
+          dedupeKey: 'webdav-upload',
+        ),
+      );
+    } catch (error) {
+      controller.logger?.error('WebDAV 上传失败', source: 'webdav', error: error);
+      unawaited(
+        feedback.showMessage(
+          message: l10n.uploadFailed('$error'),
+          tone: VeriFeedbackTone.error,
+          duration: VeriFeedbackDuration.long,
+          priority: VeriFeedbackPriority.high,
+          dedupeKey: 'webdav-upload',
+        ),
+      );
+    }
+  }
+
+  Future<void> _restoreFromWebdav(
+    BuildContext context,
+    VeriFinController controller,
+  ) async {
+    final feedback = VeriFeedbackHost.of(context);
+    final l10n = AppLocalizations.of(context);
+    List<WebdavRemoteFile> files;
+    try {
+      files = await webdavList(controller.webdavConfig);
+    } catch (error) {
+      controller.logger?.error('WebDAV 读取失败', source: 'webdav', error: error);
+      unawaited(
+        feedback.showMessage(
+          message: l10n.readFailed('$error'),
+          tone: VeriFeedbackTone.error,
+          duration: VeriFeedbackDuration.long,
+          priority: VeriFeedbackPriority.high,
+          dedupeKey: 'webdav-restore',
+        ),
+      );
+      return;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    if (files.isEmpty) {
+      unawaited(
+        feedback.showMessage(
+          message: AppLocalizations.of(context).noWebdavBackups,
+        ),
+      );
+      return;
+    }
+    files.sort((a, b) {
+      final at = a.modifiedAt;
+      final bt = b.modifiedAt;
+      if (at == null || bt == null) {
+        return b.name.compareTo(a.name);
+      }
+      return bt.compareTo(at);
+    });
+    final chosen = await showVeriModalSheet<WebdavRemoteFile>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                AppLocalizations.of(context).chooseRestoreBackup,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+            for (final file in files)
+              ListTile(
+                leading: const Icon(Icons.insert_drive_file_outlined),
+                title: Text(file.name),
+                subtitle: file.modifiedAt == null
+                    ? null
+                    : Text(
+                        '${l10n.dateMonthDay(file.modifiedAt!.toLocal())} '
+                        '${formatTime(file.modifiedAt!.toLocal())}',
+                      ),
+                onTap: () => Navigator.of(context).pop(file),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (chosen == null || !context.mounted) {
+      return;
+    }
+    final confirmed = await showConfirmDialog(
+      context,
+      title: AppLocalizations.of(context).restoreFromThisTitle,
+      message: AppLocalizations.of(context).restoreFromThisMessage(chosen.name),
+      confirmLabel: AppLocalizations.of(context).restoreLabel,
+    );
+    if (!confirmed) {
+      return;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    try {
+      // 远端备份可能很大：先流式下载到缓存文件，再按统一路径导入；全程可取消。
+      final imported = await _runWithProgress<bool>(
+        context,
+        controller,
+        l10n.restoreLabel,
+        (isCancelled) async {
+          final cachePath = BackupService.restoreCachePath(
+            await controller.ensureBackupCacheDirectory(),
+          );
+          try {
+            await webdavDownloadToFile(
+              controller.webdavConfig,
+              chosen.href,
+              cachePath,
+              isCancelled: isCancelled,
+            );
+            if (!context.mounted) {
+              return false;
+            }
+            return await _importBackupCacheFile(
+              context,
+              controller,
+              cachePath,
+              isCancelled: isCancelled,
+            );
+          } finally {
+            await BackupService.deleteCachePath(cachePath);
+          }
+        },
+      );
+      if (imported == null) {
+        if (context.mounted) {
+          _notifyCancelled(context);
+        }
+        return;
+      }
+      if (imported) {
+        VeriHaptics.commit();
+      } else {
+        VeriHaptics.emphasis();
+      }
+      if (imported && context.mounted) {
+        unawaited(
+          feedback.showMessage(
+            message: AppLocalizations.of(context).restoredFromWebdav,
+            tone: VeriFeedbackTone.success,
+            dedupeKey: 'webdav-restore',
+          ),
+        );
+      }
+    } on FormatException catch (error) {
+      controller.logger?.error('WebDAV 恢复格式错误', source: 'webdav', error: error);
+      unawaited(
+        feedback.showMessage(
+          message: l10n.restoreFailedFormat,
+          tone: VeriFeedbackTone.error,
+          duration: VeriFeedbackDuration.long,
+          priority: VeriFeedbackPriority.high,
+          dedupeKey: 'webdav-restore',
+        ),
+      );
+    } catch (error) {
+      controller.logger?.error('WebDAV 恢复失败', source: 'webdav', error: error);
+      unawaited(
+        feedback.showMessage(
+          message: l10n.restoreFailedError('$error'),
+          tone: VeriFeedbackTone.error,
+          duration: VeriFeedbackDuration.long,
+          priority: VeriFeedbackPriority.high,
+          dedupeKey: 'webdav-restore',
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmClearWebdav(
+    BuildContext context,
+    VeriFinController controller,
+  ) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: AppLocalizations.of(context).clearWebdavTitle,
+      message: AppLocalizations.of(context).clearWebdavMessage,
+      confirmLabel: AppLocalizations.of(context).clearLabel,
+      destructive: true,
+    );
+    if (confirmed) {
+      controller.clearWebdavConfig();
+    }
+  }
+
+  Future<void> _downloadCsvTemplate(BuildContext context) async {
+    final logger = VeriFinScope.of(context).logger;
+    try {
+      final saved = await downloadTextFile(
+        filename: 'verifin-import-template.csv',
+        content: transactionCsvTemplate(),
+        mimeType: 'text/csv',
+      );
+      if (saved && context.mounted) {
+        _notify(
+          context,
+          message: AppLocalizations.of(context).csvTemplateSaved,
+          tone: VeriFeedbackTone.success,
+        );
+      }
+    } catch (error) {
+      logger?.error('CSV 模板导出失败', source: 'export', error: error);
+      if (context.mounted) {
+        _notify(
+          context,
+          message: AppLocalizations.of(context).csvTemplateSaveFailed,
+          tone: VeriFeedbackTone.error,
+          duration: VeriFeedbackDuration.long,
+          priority: VeriFeedbackPriority.high,
+          dedupeKey: 'csv-template-export',
+        );
+      }
+    }
+  }
+
+  Future<void> _exportTransactionsCsv(
+    BuildContext context,
+    VeriFinController controller,
+  ) async {
+    try {
+      final saved = await downloadTextFile(
+        filename: 'verifin-transactions.csv',
+        content: transactionCsvExport(
+          entries: controller.entries,
+          accounts: controller.accounts,
+          categories: controller.categories,
+          tags: controller.tags,
+          baseCurrencyCode: controller.activeBook.baseCurrencyCode,
+        ),
+        mimeType: 'text/csv',
+      );
+      if (saved && context.mounted) {
+        VeriHaptics.commit();
+        _notify(
+          context,
+          message: AppLocalizations.of(context).transactionsCsvExported,
+          tone: VeriFeedbackTone.success,
+        );
+      }
+    } catch (error) {
+      controller.logger?.error('交易 CSV 导出失败', source: 'export', error: error);
+      VeriHaptics.emphasis();
+      if (context.mounted) {
+        _notify(
+          context,
+          message: AppLocalizations.of(context).transactionsCsvExportFailed,
+          tone: VeriFeedbackTone.error,
+          duration: VeriFeedbackDuration.long,
+          priority: VeriFeedbackPriority.high,
+          dedupeKey: 'transactions-csv-export',
+        );
+      }
+    }
+  }
+
+  /// 平台优先导入流程：先选账单来源，再看导出引导，最后选文件解析。
+  Future<void> _importFromPlatform(
+    BuildContext context,
+    VeriFinController controller,
+  ) async {
+    final platform = await _pickImportPlatform(context);
+    if (platform == null || !context.mounted) {
+      return;
+    }
+    final proceed = await _showBillImportGuide(context, platform);
+    if (proceed != true || !context.mounted) {
+      return;
+    }
+    await _runPlatformImport(context, controller, platform);
+  }
+
+  Future<ImportPlatform?> _pickImportPlatform(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    // 第三方记账软件 / 支付平台各有独立入口，成组展示在上；本应用 CSV 模板单独一组在下。
+    final softwareItems = <_PlatformOption>[
+      _PlatformOption(
+        ImportPlatform.alipay,
+        Icons.account_balance_wallet_outlined,
+        l10n.platformAlipay,
+        l10n.platformAlipayHint,
+        assetPath: 'assets/import_icons/alipay.png',
+      ),
+      _PlatformOption(
+        ImportPlatform.wechat,
+        Icons.chat_bubble_outline,
+        l10n.platformWechat,
+        l10n.platformWechatHint,
+        assetPath: 'assets/import_icons/wechat.png',
+      ),
+      _PlatformOption(
+        ImportPlatform.mint,
+        Icons.eco_outlined,
+        l10n.platformMint,
+        l10n.platformMintHint,
+        assetPath: 'assets/import_icons/mint.png',
+      ),
+      _PlatformOption(
+        ImportPlatform.yimuBill,
+        Icons.menu_book_outlined,
+        l10n.platformYimuBill,
+        l10n.platformYimuBillHint,
+        assetPath: 'assets/import_icons/yimu.png',
+      ),
+      _PlatformOption(
+        ImportPlatform.yimuTransfer,
+        Icons.swap_horiz_outlined,
+        l10n.platformYimuTransfer,
+        l10n.platformYimuTransferHint,
+        assetPath: 'assets/import_icons/yimu.png',
+      ),
+      _PlatformOption(
+        ImportPlatform.qianji,
+        Icons.book_outlined,
+        l10n.platformQianji,
+        l10n.platformQianjiHint,
+        assetPath: 'assets/import_icons/qianji.png',
+      ),
+      _PlatformOption(
+        ImportPlatform.suishouji,
+        Icons.note_alt_outlined,
+        l10n.platformSuishouji,
+        l10n.platformSuishoujiHint,
+        assetPath: 'assets/import_icons/suishouji.svg',
+      ),
+      _PlatformOption(
+        ImportPlatform.tally,
+        Icons.receipt_long_outlined,
+        l10n.platformTally,
+        l10n.platformTallyHint,
+        assetPath: 'assets/import_icons/tally.png',
+      ),
+    ];
+    final csvTemplateItem = _PlatformOption(
+      ImportPlatform.csvTemplate,
+      Icons.table_chart_outlined,
+      l10n.platformCsvTemplate,
+      l10n.platformCsvTemplateHint,
+    );
+    Widget optionTile(_PlatformOption item) => InkWell(
+      onTap: () => Navigator.of(context).pop(item.platform),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        // 图标与「标题+副标题」整体垂直居中（Row 默认 center 对齐），
+        // 不依赖 ListTile 带副标题时的内部对齐规则。
+        child: Row(
+          children: <Widget>[
+            _platformLeading(item),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    item.title,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    item.subtitle,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    Widget groupLabel(String text) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+    return showVeriModalSheet<ImportPlatform>(
+      context: context,
+      showDragHandle: true,
+      // 平台较多时弹窗内容可能超过默认高度：开启可滚动并把列表放进滚动区，
+      // 表头固定、列表内部滚动，避免溢出且无法滑动。
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 2),
+              child: Text(
+                l10n.selectBillSource,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                l10n.selectBillSourceHint,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+            // 温和提示：各平台导出字段有限，部分账户信息导入后可能与原软件不完全一致。
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(veriRadiusMd),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l10n.selectBillSourceNotice,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    groupLabel(l10n.importGroupSoftware),
+                    for (final item in softwareItems) optionTile(item),
+                    const Divider(height: 16),
+                    groupLabel(l10n.importGroupCsv),
+                    optionTile(csvTemplateItem),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 平台选项前的图标：有品牌图标用圆角 PNG/SVG，否则回退矢量图标；统一占 32×32
+  /// 方框，各行文字左边缘对齐。
+  Widget _platformLeading(_PlatformOption item) {
+    final assetPath = item.assetPath;
+    final Widget child = assetPath == null
+        ? Icon(item.icon, size: 28)
+        : ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: assetPath.endsWith('.svg')
+                ? SvgPicture.asset(
+                    assetPath,
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.cover,
+                  )
+                : Image.asset(
+                    assetPath,
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.medium,
+                  ),
+          );
+    return SizedBox(width: 32, height: 32, child: Center(child: child));
+  }
+
+  String _platformLabel(BuildContext context, ImportPlatform platform) {
+    final l10n = AppLocalizations.of(context);
+    return switch (platform) {
+      ImportPlatform.alipay => l10n.platformAlipay,
+      ImportPlatform.wechat => l10n.platformWechat,
+      ImportPlatform.mint => l10n.platformMint,
+      ImportPlatform.yimuBill => l10n.platformYimuBill,
+      ImportPlatform.yimuTransfer => l10n.platformYimuTransfer,
+      ImportPlatform.qianji => l10n.platformQianji,
+      ImportPlatform.suishouji => l10n.platformSuishouji,
+      ImportPlatform.tally => l10n.platformTally,
+      ImportPlatform.csvTemplate => l10n.platformCsvTemplate,
+    };
+  }
+
+  String _platformGuide(BuildContext context, ImportPlatform platform) {
+    final l10n = AppLocalizations.of(context);
+    return switch (platform) {
+      ImportPlatform.alipay => l10n.alipayImportGuide,
+      ImportPlatform.wechat => l10n.wechatImportGuide,
+      ImportPlatform.mint => l10n.mintImportGuide,
+      ImportPlatform.yimuBill => l10n.yimuBillImportGuide,
+      ImportPlatform.yimuTransfer => l10n.yimuTransferImportGuide,
+      ImportPlatform.qianji => l10n.qianjiImportGuide,
+      ImportPlatform.suishouji => l10n.suishoujiImportGuide,
+      ImportPlatform.tally => l10n.tallyImportGuide,
+      ImportPlatform.csvTemplate => l10n.csvTemplateImportGuide,
+    };
+  }
+
+  Future<bool?> _showBillImportGuide(
+    BuildContext context,
+    ImportPlatform platform,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          l10n.billImportGuideTitle(_platformLabel(context, platform)),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(_platformGuide(context, platform)),
+              const SizedBox(height: 12),
+              Text(
+                l10n.billImportCommonNote,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.chooseFile),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _runPlatformImport(
+    BuildContext context,
+    VeriFinController controller,
+    ImportPlatform platform,
+  ) async {
+    try {
+      final bytes = await pickImportBytes(
+        extensions: platform.fileExtensions,
+        label: _platformLabel(context, platform),
+      );
+      if (bytes == null) {
+        return;
+      }
+      if (bytes.isEmpty) {
+        if (context.mounted) {
+          _notify(
+            context,
+            message: AppLocalizations.of(context).fileEmptyError,
+            tone: VeriFeedbackTone.warning,
+          );
+        }
+        return;
+      }
+      // 先只解析、不落库，进入导入预览页让用户核对 / 排除 / 编辑后再确认。
+      var plan = controller.parsePlatformImport(platform, bytes);
+      if (!context.mounted) {
+        return;
+      }
+      final rateOverrides = await _resolveImportRates(
+        context,
+        controller,
+        plan,
+      );
+      if (!context.mounted) {
+        return;
+      }
+      if (rateOverrides.isNotEmpty) {
+        plan = controller.parsePlatformImport(
+          platform,
+          bytes,
+          rateOverrides: rateOverrides,
+        );
+      }
+      if (plan.alreadyImported > 0 && context.mounted) {
+        _notify(
+          context,
+          message: AppLocalizations.of(
+            context,
+          ).sameFileSkipped(plan.alreadyImported),
+        );
+      }
+      // 既无交易、也无可创建账户（Tally 携带余额的账户）时才算空。
+      if (plan.importedCount == 0 && plan.standaloneAccountIds.isEmpty) {
+        // 无可导入内容：有错误行则列出，否则提示空。
+        if (plan.errorCount > 0) {
+          await _showImportResult(context, plan);
+        } else {
+          _notify(
+            context,
+            message: AppLocalizations.of(context).importPreviewNothingToImport,
+          );
+        }
+        return;
+      }
+      final result = await Navigator.of(context).push<ImportPreviewResult>(
+        MaterialPageRoute<ImportPreviewResult>(
+          builder: (_) => ImportPreviewPage(
+            plan: plan,
+            sourceLabel: _platformLabel(context, platform),
+          ),
+        ),
+      );
+      if (result == null ||
+          (result.entries.isEmpty && result.alwaysCreateAccountIds.isEmpty) ||
+          !context.mounted) {
+        return;
+      }
+      final applied = await controller.applyImportEntries(
+        entries: result.entries,
+        candidateAccounts: result.candidateAccounts,
+        candidateCategories: result.candidateCategories,
+        candidateTags: result.candidateTags,
+        alwaysCreateAccountIds: result.alwaysCreateAccountIds,
+        candidateExchangeRates: result.candidateExchangeRates,
+      );
+      if (!context.mounted) {
+        return;
+      }
+      if (!applied) {
+        unawaited(
+          VeriFeedbackHost.of(context).showMessage(
+            message: AppLocalizations.of(context).importValidationFailed,
+            tone: VeriFeedbackTone.error,
+            duration: VeriFeedbackDuration.long,
+          ),
+        );
+        return;
+      }
+      final l10n = AppLocalizations.of(context);
+      final suffix = plan.errorCount > 0
+          ? l10n.skippedRows(plan.errorCount)
+          : '';
+      // 纯账户导入（无交易）时提示导入的账户数，否则提示交易笔数。
+      final summary = result.entries.isEmpty
+          ? l10n.importedAccounts(result.alwaysCreateAccountIds.length)
+          : l10n.importedEntries(result.entries.length);
+      _notify(
+        context,
+        message: '$summary$suffix',
+        tone: VeriFeedbackTone.success,
+      );
+    } on FormatException catch (error) {
+      controller.logger?.error('账单导入格式错误', source: 'import', error: error);
+      if (context.mounted) {
+        _notify(
+          context,
+          message: AppLocalizations.of(
+            context,
+          ).importFailedWithMessage(error.message),
+          tone: VeriFeedbackTone.error,
+          duration: VeriFeedbackDuration.long,
+          priority: VeriFeedbackPriority.high,
+          dedupeKey: 'platform-import-${platform.name}',
+        );
+      }
+    } catch (error) {
+      controller.logger?.error('账单导入失败', source: 'import', error: error);
+      if (context.mounted) {
+        _notify(
+          context,
+          message: AppLocalizations.of(context).importFailedCheckFile,
+          tone: VeriFeedbackTone.error,
+          duration: VeriFeedbackDuration.long,
+          priority: VeriFeedbackPriority.high,
+          dedupeKey: 'platform-import-${platform.name}',
+        );
+      }
+    }
+  }
+
+  Future<Map<String, double>> _resolveImportRates(
+    BuildContext context,
+    VeriFinController controller,
+    ImportPlan plan,
+  ) async {
+    final unresolvedCodes = <String>{
+      for (final issue in plan.conversionIssues)
+        if (issue.record.rateToBase == null &&
+            issue.currencyCode != controller.activeBook.baseCurrencyCode)
+          issue.currencyCode,
+    };
+    if (unresolvedCodes.isEmpty) return const <String, double>{};
+
+    final overrides = <String, double>{};
+    for (final code in unresolvedCodes) {
+      if (!context.mounted) break;
+      final l10n = AppLocalizations.of(context);
+      final rate = await showNumberPadSheet(
+        context,
+        title: l10n.exchangeRateInputTitle(
+          code,
+          controller.activeBook.baseCurrencyCode,
+        ),
+        maxFractionDigits: 10,
+      );
+      if (rate != null && isValidExchangeRate(rate)) {
+        overrides[code] = rate;
+      }
+    }
+    return overrides;
+  }
+
+  Future<void> _showImportResult(BuildContext context, ImportPlan plan) {
+    final skipped = <({int line, String message})>[
+      for (final error in plan.errors)
+        (line: error.line, message: error.message),
+      for (final issue in plan.conversionIssues)
+        (line: issue.line, message: issue.message),
+    ];
+    final lines = skipped
+        .take(10)
+        .map((e) => AppLocalizations.of(context).lineError(e.line, e.message))
+        .join('\n');
+    final more = plan.errorCount > 10
+        ? AppLocalizations.of(context).moreLines(plan.errorCount - 10)
+        : '';
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          plan.importedCount == 0
+              ? AppLocalizations.of(context).importNothingTitle
+              : AppLocalizations.of(
+                  context,
+                ).importDoneTitle(plan.importedCount),
+        ),
+        content: SingleChildScrollView(
+          child: Text(
+            plan.errorCount == 0
+                ? AppLocalizations.of(context).allImported
+                : AppLocalizations.of(context).skippedFollowing('$lines$more'),
+          ),
+        ),
+        actions: <Widget>[
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(AppLocalizations.of(context).gotIt),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _confirmImport(
+    BuildContext context,
+    VeriFinController controller,
+  ) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: AppLocalizations.of(context).importLocalTitle,
+      message: AppLocalizations.of(context).importLocalMessage,
+      confirmLabel: AppLocalizations.of(context).chooseFile,
+    );
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+    try {
+      // 只挑文件、不读字节：拿到 SAF URI 后由导入进度流程内流式复制（Issue 45）。
+      final picked = await BackupService.chooseBackupFile();
+      if (picked == null) {
+        return;
+      }
+      if (!context.mounted) {
+        return;
+      }
+      final imported = await _runWithProgress<bool>(
+        context,
+        controller,
+        AppLocalizations.of(context).restoreLabel,
+        (isCancelled) => _importBackupFileUri(
+          context,
+          controller,
+          picked.uri,
+          isCancelled: isCancelled,
+        ),
+      );
+      if (imported == null) {
+        if (context.mounted) {
+          _notifyCancelled(context);
+        }
+        return;
+      }
+      if (imported) {
+        VeriHaptics.commit();
+      } else {
+        VeriHaptics.emphasis();
+      }
+      if (imported && context.mounted) {
+        _notify(
+          context,
+          message: AppLocalizations.of(context).importedLocal,
+          tone: VeriFeedbackTone.success,
+        );
+      }
+    } on FormatException catch (error) {
+      controller.logger?.error('本地备份格式错误', source: 'import', error: error);
+      if (context.mounted) {
+        _notify(
+          context,
+          // 用异常自带的原因（如「不支持的备份版本：3」），比统一的「格式不正确」
+          // 更能让用户知道下一步该做什么。
+          message: AppLocalizations.of(
+            context,
+          ).importFailedWithMessage(error.message),
+          tone: VeriFeedbackTone.error,
+          duration: VeriFeedbackDuration.long,
+          priority: VeriFeedbackPriority.high,
+          dedupeKey: 'local-backup-import',
+        );
+      }
+    } catch (error) {
+      controller.logger?.error('本地备份导入失败', source: 'import', error: error);
+      if (context.mounted) {
+        _notify(
+          context,
+          message: AppLocalizations.of(context).importFailedCheckFile,
+          tone: VeriFeedbackTone.error,
+          duration: VeriFeedbackDuration.long,
+          priority: VeriFeedbackPriority.high,
+          dedupeKey: 'local-backup-import',
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmReset(
+    BuildContext context,
+    VeriFinController controller,
+  ) async {
+    if (!await confirmResetAllData(context) || !context.mounted) {
+      return;
+    }
+    final reset = await controller.resetAllData();
+    VeriHaptics.emphasis();
+    if (!context.mounted) {
+      return;
+    }
+    if (!reset) {
+      _notify(
+        context,
+        message: AppLocalizations.of(context).saveFailed,
+        tone: VeriFeedbackTone.error,
+        duration: VeriFeedbackDuration.long,
+        priority: VeriFeedbackPriority.high,
+        dedupeKey: 'reset-data',
+      );
+      return;
+    }
+    _autoSave.discardPending();
+    if (context.mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+}
+
+class _PlatformOption {
+  const _PlatformOption(
+    this.platform,
+    this.icon,
+    this.title,
+    this.subtitle, {
+    this.assetPath,
+  });
+
+  final ImportPlatform platform;
+
+  /// 无品牌图标时的回退矢量图标（如「其他 CSV」）。
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  /// 软件品牌图标资源路径（PNG/SVG）；为 null 时回退到 [icon]。
+  /// 注意：这是记账/支付软件的品牌图标，与账户图标（`assets/account_icons/`）不同。
+  final String? assetPath;
+}
+
+/// 备份进行中的不可关闭转圈弹窗。
