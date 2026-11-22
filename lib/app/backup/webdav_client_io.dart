@@ -112,15 +112,8 @@ Future<void> _ensureCollection(
 }) async {
   try {
     _throwIfCancelled(isCancelled);
-    final request = await _open(
-      client,
-      'MKCOL',
-      _collectionUri(config),
-      config,
-    );
-    final response = await request.close().timeout(responseTimeout);
-    await response.drain<void>();
-    // 201 创建成功；405/301 通常表示已存在，忽略。
+    await _createCollection(client, config, responseTimeout);
+    // 上传仍以 PUT 的结果为准，已有目录可能不允许 MKCOL。
   } on BackupCancelledException {
     rethrow;
   } catch (_) {
@@ -128,26 +121,61 @@ Future<void> _ensureCollection(
   }
 }
 
+Future<int> _createCollection(
+  HttpClient client,
+  WebdavConfig config,
+  Duration timeout,
+) async {
+  final request = await _open(client, 'MKCOL', _collectionUri(config), config);
+  final response = await request.close().timeout(timeout);
+  await response.drain<void>().timeout(timeout);
+  return response.statusCode;
+}
+
+Future<int> _probeCollection(HttpClient client, WebdavConfig config) async {
+  final request = await _open(
+    client,
+    'PROPFIND',
+    _collectionUri(config),
+    config,
+  );
+  request.headers.set('Depth', '0');
+  request.headers.contentType = ContentType(
+    'application',
+    'xml',
+    charset: 'utf-8',
+  );
+  request.write(_propfindBody);
+  final response = await request.close().timeout(_responseTimeout);
+  await response.drain<void>().timeout(_responseTimeout);
+  return response.statusCode;
+}
+
 Future<void> webdavTestConnection(WebdavConfig config) async {
   final client = _newClient();
   try {
-    final request = await _open(
-      client,
-      'PROPFIND',
-      _collectionUri(config),
-      config,
-    );
-    request.headers.set('Depth', '0');
-    request.headers.contentType = ContentType(
-      'application',
-      'xml',
-      charset: 'utf-8',
-    );
-    request.write(_propfindBody);
-    final response = await request.close().timeout(_responseTimeout);
-    await response.drain<void>();
-    if (response.statusCode >= 400) {
-      throw WebdavException(_statusMessage(response.statusCode));
+    var status = await _probeCollection(client, config);
+    if (status == HttpStatus.notFound) {
+      final created = await _createCollection(client, config, _responseTimeout);
+      switch (created) {
+        case HttpStatus.created:
+          return;
+        case HttpStatus.methodNotAllowed:
+          // 另一个客户端可能已经创建了这个目录。
+          status = await _probeCollection(client, config);
+          if (status == HttpStatus.notFound) {
+            throw const WebdavException('服务器不支持自动创建备份目录，请选择已有目录');
+          }
+        case HttpStatus.forbidden:
+          throw const WebdavException('没有权限创建备份目录，请检查账号授权');
+        case HttpStatus.conflict:
+          throw const WebdavException('备份目录的上级目录不存在，请检查服务器地址');
+        default:
+          throw WebdavException(_statusMessage(created));
+      }
+    }
+    if (status < 200 || status >= 300) {
+      throw WebdavException(_statusMessage(status));
     }
   } catch (error) {
     _fail(error);

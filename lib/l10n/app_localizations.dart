@@ -5909,8 +5909,32 @@ abstract class AppLocalizations {
   /// No description provided for @webdavUrlLabel.
   ///
   /// In zh, this message translates to:
-  /// **'服务器目录地址'**
+  /// **'WebDAV 地址'**
   String get webdavUrlLabel;
+
+  /// No description provided for @webdavUseNutstore.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用坚果云'**
+  String get webdavUseNutstore;
+
+  /// No description provided for @webdavNutstorePassLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'第三方应用密码'**
+  String get webdavNutstorePassLabel;
+
+  /// No description provided for @webdavNutstoreSetupHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号填坚果云注册邮箱。测试连接时会尝试创建缺失的备份目录。'**
+  String get webdavNutstoreSetupHint;
+
+  /// No description provided for @webdavCreateFolderHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'测试连接时会尝试创建缺失的备份目录。'**
+  String get webdavCreateFolderHint;
 
   /// No description provided for @webdavUserLabel.
   ///

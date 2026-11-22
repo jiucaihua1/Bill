@@ -231,6 +231,9 @@ class _WebdavEditDialog extends StatefulWidget {
 }
 
 class _WebdavEditDialogState extends State<_WebdavEditDialog> {
+  static const _nutstoreHost = 'dav.jianguoyun.com';
+  static const _nutstoreBackupUrl = 'https://$_nutstoreHost/dav/Bill/';
+
   late final TextEditingController _urlController = TextEditingController(
     text: widget.existing.url,
   );
@@ -242,6 +245,22 @@ class _WebdavEditDialogState extends State<_WebdavEditDialog> {
   );
   String? _statusText;
   bool _testing = false;
+
+  bool get _usesNutstore =>
+      Uri.tryParse(_urlController.text.trim())?.host == _nutstoreHost;
+
+  void _clearStatus(String _) => setState(() => _statusText = null);
+
+  void _useNutstore() {
+    setState(() {
+      if (_urlController.text.trim().isNotEmpty && !_usesNutstore) {
+        _userController.clear();
+        _passController.clear();
+      }
+      _urlController.text = _nutstoreBackupUrl;
+      _statusText = null;
+    });
+  }
 
   WebdavConfig _current() => WebdavConfig(
     url: _urlController.text.trim(),
@@ -279,6 +298,7 @@ class _WebdavEditDialogState extends State<_WebdavEditDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final usesNutstore = _usesNutstore;
     return AlertDialog(
       title: Text(l10n.webdavServer),
       content: SingleChildScrollView(
@@ -286,9 +306,14 @@ class _WebdavEditDialogState extends State<_WebdavEditDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
+            ActionChip(
+              label: Text(l10n.webdavUseNutstore),
+              onPressed: _testing ? null : _useNutstore,
+            ),
             TextField(
               controller: _urlController,
-              autofocus: true,
+              enabled: !_testing,
+              onChanged: _clearStatus,
               keyboardType: TextInputType.url,
               decoration: InputDecoration(
                 labelText: l10n.webdavUrlLabel,
@@ -298,13 +323,28 @@ class _WebdavEditDialogState extends State<_WebdavEditDialog> {
             const SizedBox(height: 8),
             TextField(
               controller: _userController,
+              enabled: !_testing,
+              onChanged: _clearStatus,
               decoration: InputDecoration(labelText: l10n.webdavUserLabel),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: _passController,
+              enabled: !_testing,
+              onChanged: _clearStatus,
               obscureText: true,
-              decoration: InputDecoration(labelText: l10n.webdavPassLabel),
+              decoration: InputDecoration(
+                labelText: usesNutstore
+                    ? l10n.webdavNutstorePassLabel
+                    : l10n.webdavPassLabel,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              usesNutstore
+                  ? l10n.webdavNutstoreSetupHint
+                  : l10n.webdavCreateFolderHint,
+              style: Theme.of(context).textTheme.bodySmall,
             ),
             if (_statusText != null) ...<Widget>[
               const SizedBox(height: 10),
@@ -325,13 +365,15 @@ class _WebdavEditDialogState extends State<_WebdavEditDialog> {
           child: Text(l10n.testConnection),
         ),
         FilledButton(
-          onPressed: () {
-            if (_urlController.text.trim().isEmpty) {
-              setState(() => _statusText = l10n.fillServerUrl);
-              return;
-            }
-            Navigator.of(context).pop(_current());
-          },
+          onPressed: _testing
+              ? null
+              : () {
+                  if (_urlController.text.trim().isEmpty) {
+                    setState(() => _statusText = l10n.fillServerUrl);
+                    return;
+                  }
+                  Navigator.of(context).pop(_current());
+                },
           child: Text(l10n.commonSave),
         ),
       ],

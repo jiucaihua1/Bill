@@ -3219,7 +3219,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get clearLabel => '清除';
 
   @override
-  String get webdavUrlLabel => '服务器目录地址';
+  String get webdavUrlLabel => 'WebDAV 地址';
+
+  @override
+  String get webdavUseNutstore => '使用坚果云';
+
+  @override
+  String get webdavNutstorePassLabel => '第三方应用密码';
+
+  @override
+  String get webdavNutstoreSetupHint => '账号填坚果云注册邮箱。测试连接时会尝试创建缺失的备份目录。';
+
+  @override
+  String get webdavCreateFolderHint => '测试连接时会尝试创建缺失的备份目录。';
 
   @override
   String get webdavUserLabel => '账号';

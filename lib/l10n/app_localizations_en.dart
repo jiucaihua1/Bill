@@ -3288,7 +3288,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get clearLabel => 'Clear';
 
   @override
-  String get webdavUrlLabel => 'Server folder URL';
+  String get webdavUrlLabel => 'WebDAV URL';
+
+  @override
+  String get webdavUseNutstore => 'Use Nutstore';
+
+  @override
+  String get webdavNutstorePassLabel => 'App password';
+
+  @override
+  String get webdavNutstoreSetupHint =>
+      'Use your Nutstore email address. Testing the connection tries to create the backup folder if it is missing.';
+
+  @override
+  String get webdavCreateFolderHint =>
+      'Testing the connection tries to create the backup folder if it is missing.';
 
   @override
   String get webdavUserLabel => 'Username';
