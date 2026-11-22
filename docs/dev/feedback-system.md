@@ -1,6 +1,6 @@
 # 轻提示组件与迁移规范
 
-本文定义 Veri Fin 应用内轻提示的组件 API、交互语义与队列规则。正式入口为 `lib/app/feedback.dart`，根级 Host 由 `VeriFinApp` 安装，所有 Dart 反馈统一走根级轻提示，不新增旧式 Material 横条。
+本文定义小禾记账应用内轻提示的组件 API、交互语义与队列规则。正式入口为 `lib/app/feedback.dart`，根级 Host 由 `VeriFinApp` 安装，所有 Dart 反馈统一走根级轻提示，不新增旧式 Material 横条。
 
 ## 适用边界
 

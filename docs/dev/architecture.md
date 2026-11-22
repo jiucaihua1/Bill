@@ -2,7 +2,7 @@
 
 执行规则以 [AGENTS.md](../../AGENTS.md) 为准；这里仅提供源码导航，不重复维护规则。
 
-Veri Fin 仅交付 Android，权威账目在本机 SQLite，无账号或自有服务端。
+小禾记账仅交付 Android，权威账目在本机 SQLite，无账号或自有服务端。
 正式入口为 `lib/main.dart`；UI 通过 `VeriFinScope` 读取 `VeriFinController`，
 Controller 经 repository 写库。`VeriFinController.create()` 是生产初始化入口；
 主题、语言等设备偏好通过 KV 和独立 `ValueNotifier` 驱动。

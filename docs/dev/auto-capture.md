@@ -1,6 +1,6 @@
 # 截图识账与外部意图接口
 
-Veri Fin 本体不监听任何通知或屏幕：不注册 `NotificationListenerService`、不注册 `AccessibilityService`、不申请短信权限。自动记账能力由两条**用户主动触发**的路线提供，全部只产草稿、绝不静默落账。
+小禾记账不监听任何通知或屏幕：不注册 `NotificationListenerService`、不注册 `AccessibilityService`、不申请短信权限。自动记账能力由两条**用户主动触发**的路线提供，全部只产草稿、绝不静默落账。
 
 ## 路线 A · 截图识别
 
@@ -49,4 +49,4 @@ Veri Fin 本体不监听任何通知或屏幕：不注册 `NotificationListenerS
 - 微信/支付宝/银行 App/云闪付真实账单截图各若干张，金额与收支方向必须准（分类允许用户改）；分享入口冷启动、已运行、连续分享多张均可用；识别失败有兜底草稿。
 - 自动化 Intent 冷启动（App 未运行）与运行中都能正确弹出确认页。
 - 纯风景图（无文字）提示「没识别到文字」；聊天/网页图（有文字非交易）提示「未识别到交易」；无数字文本不白调 AI；AI 报错/超时弹本地化错误提示——全部不崩、不落账。
-- OCR 依赖 ML Kit，release 的 R8 行为与 debug 不同，须用 CI release APK 真机验收。
+- OCR 依赖 ML Kit，release 的 R8 行为与 debug 不同，须用个人版签名 release APK 真机验收。

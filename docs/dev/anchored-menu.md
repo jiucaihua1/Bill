@@ -1,6 +1,6 @@
 # 锚点菜单（anchored_menu）
 
-Veri Fin 的锚点菜单使用 pub.dev 外部组件库 [anchored_menu](https://pub.dev/packages/anchored_menu)，当前依赖为 `^0.1.3`，直接导入：
+小禾记账的锚点菜单使用 pub.dev 外部组件库 [anchored_menu](https://pub.dev/packages/anchored_menu)，当前依赖为 `^0.1.3`，直接导入：
 
 ```dart
 import 'package:anchored_menu/anchored_menu.dart';
@@ -44,7 +44,7 @@ import 'package:anchored_menu/anchored_menu.dart';
 
 ## 应用主题桥接
 
-`buildVeriFinTheme()` 在 `lib/app/app_theme.dart` 中安装 `AnchoredMenuThemeData`，保持菜单与 Veri Fin 的表面材质一致：
+`buildVeriFinTheme()` 在 `lib/app/app_theme.dart` 中安装 `AnchoredMenuThemeData`，保持菜单与应用的表面材质一致：
 
 | 令牌 | 应用取值 |
 |---|---|

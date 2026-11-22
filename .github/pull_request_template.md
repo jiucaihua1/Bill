@@ -5,7 +5,7 @@
 ## 影响面
 
 - [ ] 用户可见变化（需要写进 `CHANGELOG.md` 的 `## [Unreleased]`）
-- [ ] 数据库 schema / 迁移变化（需要补迁移测试）
+- [ ] 数据库 schema / 迁移变化（用已有迁移用例验证，新增单元测试须先获许可）
 - [ ] 原生侧变化（Manifest、Kotlin、MethodChannel、widget）
 - [ ] 只动文档 / 注释 / 测试
 

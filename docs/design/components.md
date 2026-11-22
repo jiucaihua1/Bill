@@ -1,6 +1,6 @@
 # 组件清单（Component Registry）
 
-Veri Fin 已有的**可复用 widget / 弹窗 helper / 对话框 / 纯函数**目录。**写任何新组件、弹窗、格式化或计算之前，先在本表查一遍有没有现成的**：命中就复用或参数化扩展，不要新建变体、不要复制粘贴脚手架。规范见 [AGENTS.md](../../AGENTS.md) 的「Coding Style · 组件与设计令牌」一节。
+小禾记账的**可复用 widget / 弹窗 helper / 对话框 / 纯函数**目录。**写任何新组件、弹窗、格式化或计算之前，先在本表查一遍有没有现成的**：命中就复用或参数化扩展，不要新建变体、不要复制粘贴脚手架。规范见 [AGENTS.md](../../AGENTS.md) 的「Coding Style · 组件与设计令牌」一节。
 
 > 行号为编写时快照，可能随重构漂移；**以符号名为准**（IDE 里搜名字即可）。新增/重命名可复用件时，请同步更新本表。
 
@@ -48,12 +48,12 @@ Veri Fin 已有的**可复用 widget / 弹窗 helper / 对话框 / 纯函数**�
 | `PageHeader` | Widget | `common_widgets.dart` | `VeriHeader` 的薄封装（单 trailing）；`subtitle` 为 `String?`，`null` 时整行不渲染；副标题里带「单位：x」必须用 `currencyUnitSubtitle`（族 7）——隐藏单位且无上下文时它返回 `null`，直接传进去即可整段省略 |
 | `VeriRootNavigationStyle` / `VeriRootNavigationLayout` / `VeriRootNavigationSpec` / `VeriRootNavigationHost` / `VeriRootNavigationBody` / `VeriNavigationDestination` / `veriRootPageListPadding` | 契约接口 / 值类 / Widget / 布局 helper | `root_navigation.dart` | 根导航的**样式契约**：样式只声明几何事实（`extendBody`、`occupiedHeight`、`listBottomGap`，避让高度由 `contentBottomPadding` 统一推导）和选中动效时长，并实现 `buildBar` 画栏；`buildBar` 只吃纯数据 `spec`，不接触 Controller/KV/Navigator，因此同一实现同时服务真实壳层与样式选择页预览（预览把 `onSelect` 置空）。每个样式必须产出 `keyOf('bottom_nav')`、`keyOf('nav_bar')` 与 `keyOf('nav_item_<下标>')` 稳定 key，测试与无障碍按 key 定位、不依赖几何。壳层经 `VeriRootNavigationHost` 渲染，测试从这里读 `spec`。契约不含记账按钮（按钮与导航栏解耦，硬约束与契约测试清单见 `docs/design/ui-guidelines.md` 的「根导航」）。切页动画被用户交互打断时由 `_finishTabSwitch` 按页面实际落点对齐底栏，不能写死点击目标 |
 | `VeriRootNavigationStyles` 注册表（`veriRootNavigationStyles` / `veriRootDefaultNavigationStyle` / `veriRootNavigationStyleFor`） | 常量 / 查表函数 | `root_navigation_styles.dart` | 样式注册表：顺序即样式选择列表顺序；`veriRootNavigationStyleFor` 对缺失/未知标识一律回退默认样式。新增样式须同时加同名 `NavigationStylePreference` 枚举值 |
-| `VeriDockedRootNavigationStyle` / `VeriDockedRootNavigation` | 样式实现 / Widget | `root_navigation_docked.dart` | **停靠式底栏**：整宽、不透明、贴底，底色铺到屏幕最底（含系统导航条背后，否则会分成两块）。条目由 `VeriBottomBar`（`veri_bottom_bar.dart`）绘制，**未选中用 `destination.icon`（线框）、选中用 `selectedIcon`（填充）**，中文标签常显。**安全区**用 `SafeArea(minimum: 12, maintainBottomViewPadding: true)` 取 `max(系统留白, 12)`：系统留白可能是 0，不给下限条目会贴边；`maintainBottomViewPadding` 让键盘弹起时底栏不跳。这是**默认样式**，条高 64、列表留白 12 |
-| `VeriLiquidGlassRootNavigationStyle` / `VeriLiquidGlassRootNavigation` | 样式实现 / 适配 Widget | `root_navigation_liquid_glass.dart` | **液态玻璃底栏（可选样式）**：适配本地 vendor `third_party/liquid_glass_widgets` 的 `GlassTabBar.bottom`，保留 60dp 胶囊、12dp 左右边距和 24dp 底部留白；`layout` 声明 `extendBody: true`、列表留白 16。四个目的地、选中态、标签常显和 `spec.onSelect` 仍由应用契约提供；条目的稳定 key 由未选中图标上的 `KeyedSubtree` 提供，选中层不重复挂 key。深色模式使用低压白色 tint、低饱和轻磨砂与轻黑色 backer，避免底栏发蓝、发白或形成厚重雾块；浅色模式保持库默认材质。**预览（`spec.onSelect == null`）是例外**：无论深浅都把材质 `blur` 归零、不生成实时 `BackdropFilter`——预览背后永远是卡片纯色，模糊没有可见效果，而它在取不到背景的设备上会把整块画成黑色（Issue 72；详见 `NavigationStyleSettingsPage` 条目与 `docs/dev/known-limitations.md` L17）。其他页面不得直接使用第三方玻璃组件。 |
+| `VeriDockedRootNavigationStyle` / `VeriDockedRootNavigation` | 样式实现 / Widget | `root_navigation_docked.dart` | **停靠式底栏**：整宽、不透明、贴底，底色铺到屏幕最底（含系统导航条背后，否则会分成两块）。条目由 `VeriBottomBar`（`veri_bottom_bar.dart`）绘制，**未选中用 `destination.icon`（线框）、选中用 `selectedIcon`（填充）**，中文标签常显。**安全区**用 `SafeArea(minimum: 12, maintainBottomViewPadding: true)` 取 `max(系统留白, 12)`：系统留白可能是 0，不给下限条目会贴边；`maintainBottomViewPadding` 让键盘弹起时底栏不跳。条高 64，列表留白 12 |
+| `VeriLiquidGlassRootNavigationStyle` / `VeriLiquidGlassRootNavigation` | 样式实现 / 适配 Widget | `root_navigation_liquid_glass.dart` | **液态玻璃底栏（默认样式）**：适配本地 vendor `third_party/liquid_glass_widgets` 的 `GlassTabBar.bottom`，保留 60dp 胶囊、12dp 左右边距和 24dp 底部留白；`layout` 声明 `extendBody: true`、列表留白 16。四个目的地、选中态、标签常显和 `spec.onSelect` 仍由应用契约提供；条目的稳定 key 由未选中图标上的 `KeyedSubtree` 提供，选中层不重复挂 key。深色模式使用低压白色 tint、低饱和轻磨砂与轻黑色 backer，避免底栏发蓝、发白或形成厚重雾块；浅色模式保持库默认材质。**预览（`spec.onSelect == null`）是例外**：无论深浅都把材质 `blur` 归零、不生成实时 `BackdropFilter`——预览背后永远是卡片纯色，模糊没有可见效果，而它在取不到背景的设备上会把整块画成黑色（Issue 72；详见 `NavigationStyleSettingsPage` 条目与 `docs/dev/known-limitations.md` L17）。其他页面不得直接使用第三方玻璃组件。 |
 | `GlassTabBar.bottom`（本地 vendor） | 第三方 Widget | `third_party/liquid_glass_widgets` | 背景采样、玻璃面板、模糊/折射、Jelly 指示器、拖动切换和选中态语义由库实现；只在 `root_navigation_liquid_glass.dart` 引用，其他页面不得直接使用第三方玻璃组件。 |
 | `NavigationStyleSettingsPage` | 页面 Widget | `navigation_style_settings_page.dart` | 导航栏样式选择页（设置 → 外观 → 导航栏样式）。逐样式渲染**冻结预览**：直接复用 `buildBar`，因此预览与真机同源（真实标签、真实表面色）；液态玻璃预览使用 `GlassQuality.minimal` 的静态降级路径，避免父级滚动时 premium shader 沿用旧位置，并把材质 `blur` 归零——预览背后永远是卡片纯色，模糊无可见效果，而 `blur > 0` 会生成一层实时 `BackdropFilter`，部分设备取不到 backdrop 时整块变黑（Issue 72）。真实根导航仍使用 premium 与实时模糊。预览整块 `IgnorePointer`（条目没有回调），点预览区域等于选中该样式。**点选即通过 `saveNavigationStyleDraft` 写入设备偏好**，不再有页面保存按钮；返回由 `AutoSavePopScope` 先冲刷待保存改动。`styles` 参数默认取注册表，测试或画廊可传子集。 |
 | `veriRootNavigationDestinations` | 纯函数 | `root_navigation.dart` | 四个根目的地（首页/看板/资产/我的）的**唯一定义**：Shell 与样式选择页预览共用，新增样式不要再各写一套图标与标签 |
-| `NavigationStylePreference` | 枚举 | `models/preferences.dart` | 导航样式偏好（当前 `docked` 默认、`liquidGlass` 可选），枚举名即样式标识、存 KV `verifin.nav_style.v1`；设备本地、不进备份、初始化数据时保留、`resetAllData` 恢复默认。新增样式须同时加枚举值与注册项（测试断言两者一一对应） |
+| `NavigationStylePreference` | 枚举 | `models/preferences.dart` | 导航样式偏好（当前 `liquidGlass` 默认、`docked` 可选），枚举名即样式标识、存 KV `verifin.nav_style.v1`；设备本地、不进备份、初始化数据时保留、`resetAllData` 恢复默认。新增样式须同时加枚举值与注册项（测试断言两者一一对应） |
 | `VeriBottomBar` / `VeriBottomBarItem` | Widget / 值类 | `veri_bottom_bar.dart` | 停靠样式的条目绘制：切换时两条圆弧扫过、两枚圆点飞过，图标由灰渐变为主题主色并轻微摆动。颜色缺省取 `Theme.of(context).colorScheme.primary`（`circle1Color` / `circle2Color` 缺省跟随主色），不写死品牌蓝；每个条目用 `MergeSemantics` + `Semantics(selected:)` 向读屏软件报告选中态，并按 `itemKey` 暴露稳定条目 key。**自持实现，不依赖上游包**：选中态完全由 `selectedIndex` 驱动并同步更新，`onSelect` 每次点击恰好一次；父级重建不重置图标状态，进度动画不断档，旋转方向随切换方向，`onSelect` 立即回调 |
 | `VeriFeedbackHost` / `VeriFeedbackController` / `VeriFeedbackRequest` / `VeriFeedbackResult` | 根级 Widget / Controller / 模型 | `feedback.dart` | 跨路由应用内轻提示：内容自适应宽高与三行正文（`error` 六行）、四条可见栈、优先级等待队列、2/4/8 秒与常驻、单操作 Future 结果、显式去重、前后台暂停；完整规范见 `feedback-system.md` |
 | `SectionTitle` | Widget | `common_widgets.dart` | 区块标题 + 可选 trailing（**文字**）；需要在标题行右侧放自定义控件（如紧凑分段控件）时用 `trailingWidget`，它优先于 `trailing` |
@@ -147,7 +147,7 @@ Veri Fin 已有的**可复用 widget / 弹窗 helper / 对话框 / 纯函数**�
 | `CompactSwitchRow` | Widget | `common_widgets.dart` | 紧凑开关行（整行可点，不只点开关）；`onChanged:null` 保留原生禁用语义，表示当前平台/状态不可用 |
 | `VeriSegmentedControl<T>` | Widget | `common_widgets.dart` | **统一分段控件**（文字标签 + 滑动胶囊指示，基于 `animated_toggle_switch`）。所有「N 选一的横向口径切换」一律用它，不要再手写 Row+InkWell 分段条或裸用 Material `SegmentedButton`。颜色只走设计令牌，调用方仅可通过 `accentOf` 指定选中项的语义强调色；`compact: true` 用于卡片标题行内的小切换；`onChanged: null` 整组禁用；自带 `Semantics`（第三方控件本身无语义）。`keyOf` **只给选中项挂 Key**（`rolling` 会把选中项多渲染一份，全挂会撞 Key）——既有契约见记账页 `entry_type_selected_*`。**不用它**：图标型开关（走 `CompactSwitchRow`）、超过 4 项或需要分区的单选（走 `showOptionSheet` / `AnchoredMenuChoice`）、菜单触发器（走 `FilterPill`）、左右步进器（走 `MonthSwitcher`） |
 | `VeriEntryTypeToggle` | Widget | `common_widgets.dart` | **支出 / 收入口径切换**（内部就是 `VeriSegmentedControl<EntryType>`，支出红 / 收入绿，选中项挂 `dimension_toggle_<type>` Key）。看板近 7 日面板、收支热力卡与月/年排行卡共用；**放在卡片标题行时一律 `compact: true`**（与资产汇总、收支热力右上角同档，卡片内不要混用两种大小）。新增「支出/收入切换」一律用它，不要各写一份 |
-| `MonthSwitcher` | Widget | `common_widgets.dart` | **期间步进器**：`‹ 标签 ›` 前后翻页，预算总览（按月/周期）、收支统计（按周/月/季/年）与看板（按月/按年）共用。`onPrevious` / `onNext` 传 `null` 表示已到边界，箭头保持可见但禁用；`onLabelTap` 非空时中间标签变成可点入口（带下拉箭头，`labelKey` 给测试定位），用于打开「选择月份 / 选择年份」弹层。新增期间切换一律用它，不要另写 Row+IconButton |
+| `MonthSwitcher` | Widget | `common_widgets.dart` | **期间步进器**：`‹ 标签 ›` 前后翻页，预算总览（按月/周期）、收支统计（按周/月/季/年）与看板（按周/按月/按年）共用。`onPrevious` / `onNext` 传 `null` 表示已到边界，箭头保持可见但禁用；`onLabelTap` 非空时中间标签变成可点入口（带下拉箭头，`labelKey` 给测试定位），用于打开「选择月份 / 选择年份」弹层。新增期间切换一律用它，不要另写 Row+IconButton |
 | `DetailInfoRow` | Widget | `common_widgets.dart` | 详情页 label/value 行（可点击带 chevron） |
 | `CurrencyAmountField` | Widget | `common_widgets.dart` | 交易/退款/周期编辑器统一的货币金额行；按 ISO minor unit 格式化；`amount == null` 时显示明确缺失态。`forceUnit` **默认 `true` 且不要改**：编辑器允许临时选一个账本里还没有的币种，那一刻闸门还关着但同屏已出现两个币种，单位必须保留。只有两端币种被锁死、不可能出现第二币种的地方（退款表单）才显式传 `false` |
 | `MoneyUnitLabel` | Widget | `common_widgets.dart` | 聚合卡片的轻量「单位：¥/CNY」提示（首页预算卡、日历卡、AI 结果卡；走势设置页预览复用同一张卡。首页支出走势卡不显示它，那里渲染的是「周／月／季／年」周期标签）；单币种账本隐藏单位时组件自身返回 `SizedBox.shrink`——**只表示看不见，不能拿它判断单位是否显示**；把容器一起收掉的调用点（日历卡）隐藏时根本不构建，`find.byType` 是 `findsNothing`。要断言隐藏用 `find.textContaining('单位：')` |
@@ -220,12 +220,7 @@ Veri Fin 已有的**可复用 widget / 弹窗 helper / 对话框 / 纯函数**�
 
 ## 族 11 — AI 对话查询 UI
 
-桌面小组件只提供四个固定模板，**模板与指标 1:1**（没有独立指标词表；桌面文案全部来自原生
-`strings.xml`）。词表、投影与刷新管线在 `lib/app/widgets/`，原生渲染在 `VeriFinWidget.kt`：
-未配置的组件只显示一行「点击进入配置」（点击直接进 `WidgetConfigurationActivity`），
-已配置的按实例绑定的账本与外观渲染。应用内「桌面小组件」页与选择器预览都由同一套 Glance 组合
-渲染/导出，不维护第二套手绘样式。完整契约、状态机、预览三层与验收见
-[home-widgets.md](../dev/home-widgets.md)。
+桌面小组件有快速记账、预算进度、收支趋势、净资产和双栏收支五个模板。双栏收支支持为左右栏各选一个指标。词表、投影与刷新管线在 `lib/app/widgets/`，原生渲染在 `VeriFinWidget.kt`。配置、状态和预览见 [桌面小组件](../dev/home-widgets.md)。
 
 | 名称 | 类型 | 位置 | 用途 |
 |---|---|---|---|

@@ -1,37 +1,10 @@
 # 贡献指南
 
-感谢使用 Veri Fin——一个免费、数据自主、本地优先的 Flutter 记账应用。
+小禾记账使用 Bill 仓库的 Issues 收集问题和功能建议。
 
-## Pull Request 仅限维护者
+- 报告 Bug 时请写明应用版本、手机型号、Android 版本和复现步骤。截图或日志提交前请遮盖金额、账号和凭证。[提交 Bug](https://github.com/jiucaihua1/Bill/issues/new?template=bug_report.md)
+- 提出功能建议时请描述记账场景、遇到的问题和希望的行为。[提交建议](https://github.com/jiucaihua1/Bill/issues/new?template=feature_request.md)
 
-仓库允许 PR，但只接受维护者自己提交的 PR（GitHub 侧已限制为仅协作者创建）。外部贡献请走 Issue，不要直接开 PR——包含代码补丁的外部 PR 会被关闭。Issues 是唯一的外部贡献渠道。
+维护者通过代码审查和 CI 验证改动。应用逻辑、文档和验证要求见 [AGENTS.md](AGENTS.md)，代码分层见 [架构导览](docs/dev/architecture.md)。
 
-- Bug：使用 [Bug 反馈](https://github.com/jiucaihua1/Bill/issues/new?template=bug_report.md) 提供复现步骤、实际结果和运行环境。
-- 功能建议：使用 [功能建议](https://github.com/jiucaihua1/Bill/issues/new?template=feature_request.md) 说明使用场景、期望行为和备选方案。
-- 可以 Fork 仓库用于个人研究和构建，但 Fork 不等于接受贡献，也不能用于提交 PR。
-
-## Issue 的定位
-
-- Issue 用于报告问题、描述需求和支持维护者确认范围，不代表已经批准实施。
-- 请勿附完整实现或要求维护者评审代码分支。
-- 新依赖、全局架构、设计系统、发布流程或数据口径变化，需要维护者明确确认后才可能实施。
-- 维护者会根据问题价值、项目方向和验证成本决定是否实现、何时实现以及采用什么方案。
-
-## 维护者开发
-
-- 仓库内的开发、设计、测试和提交规范统一见 [`AGENTS.md`](AGENTS.md)。
-- 架构与源码导航见 [`docs/dev/architecture.md`](docs/dev/architecture.md)；组件复用前先查 [`docs/design/components.md`](docs/design/components.md)。
-- 维护者直接向 `main` 提交；`main` 的 CI 只由 push 触发。
-
-### 已确认的 Code Review 取舍
-
-以下两项是维护者明确接受的产品与供应链取舍，后续 Code Review 默认不再作为缺陷重复报告：
-
-- **个人版签名**：证书与口令由构建环境提供，个人版维护者负责签名与覆盖安装验证。
-- **GitHub Actions 使用 GitHub 托管信任边界**：维护者接受发布工作流依赖 GitHub 与上游 Actions 的信任模型，不要求把工作流权限或第三方 Action 改造为独立供应链防护方案。
-
-
-
-## 发版（仅维护者）
-
-按 [README 的发布流程](README.md#下载) 使用个人版签名构建，验证覆盖安装后，将 APK 上传到 Bill 的对应版本 Release。发布说明保存在 docs/release-notes/。
+发布由维护者完成。版本号、签名、覆盖安装和 Release 附件的要求见 [Android 开发与发版](docs/dev/android-development.md)。

@@ -1,13 +1,13 @@
 # Android 本地开发与真机验收
 
-Veri Fin 只维护 Android 应用；电脑上的单元/widget/ffi 测试保留。
+小禾记账只维护 Android 应用；电脑上的单元/widget/ffi 测试保留。
 设计评审直接使用正式 `lib/main.dart`，不复制页面。公共规范由 `AGENTS.md` 和 docs 维护，
 `CLAUDE.md` 只链接 AGENTS。
 
 ## 环境检测与自动补齐
 
 每次 Android 任务先检查工作树、`flutter --version`、`flutter doctor -v`、
-`adb devices -l`、Java 和 `android/local.properties`。Flutter 版本以两个 CI 工作流
+`adb devices -l`、Java 和 `android/local.properties`。Flutter 版本以 `.github/workflows/ci.yml`
 的 `flutter-version` 为准，当前 **3.47.2**。不要静默升级到其他 stable 版本。
 
 上述检查已收进 `dart run scripts/doctor.dart`（加 `--devices` 附带 adb 设备列表）：
@@ -97,7 +97,7 @@ $env:JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=$javaTmp -Djdk.net.unixdomain.tmpdir=$j
 flutter run -d <device-id> --flavor diagnostic
 ```
 
-设备侧仪器测试（CI 跑不了、需要真机/模拟器，`testInstrumentationRunner` 是标准
+桌面预览导出脚本会安装 `github` flavor 的 debug 与仪器测试包，应在专用设备或模拟器执行。设备侧测试需要真机或模拟器（`testInstrumentationRunner` 是标准
 `androidx.test.runner.AndroidJUnitRunner`）：
 
 ```powershell
@@ -111,13 +111,9 @@ flutter test integration_test/ -d <device-id> --flavor diagnostic
 动画连续性由 `test/anchored_menu_test.dart` 用确定性时钟覆盖。仪器测试与帧耗时采样都只做冒烟，
 **不能替代**下面的真机评审。
 
-默认调试使用独立 applicationId `top.talyra42.verifin.graphicsdiagnostic`，显示名称
-“Veri Fin 图形诊断”；仍是正式页面、Controller、SQLite 和原生插件，数据与用户正式应用隔离。
-debug 支持 hot reload；最终图形/OCR/插件行为必须另外用 release/R8 检查。
-同一工作区的 `flutter test`、`flutter pub get` 与 Android 构建必须顺序执行：它们会更新
-插件注册文件和依赖元数据，并行运行可能让 release 编译误引用 integration_test 插件。
-用户明确要求在正式应用目录调试时使用 `--flavor github`，先核对签名/版本号；不得为
-解决签名不一致卸载正式应用。GitHub/Play 的发布差异仍以 AGENTS 为准。
+个人版使用 `diagnostic` flavor，applicationId 是 `top.talyra42.verifin.personalledger`。debug 支持 hot reload，与个人版签名 release 使用相同包名。日常调试用专用模拟器或测试设备，使用已安装个人版的手机验收同签名的 release 包。
+
+同一工作区的 `flutter test`、`flutter pub get` 与 Android 构建顺序执行，因为它们会更新插件注册文件和依赖元数据。最终图形、OCR 与原生插件行为须在签名 release APK 上验证。
 
 采集日志先保存历史 crash buffer，再启动目标应用；记录 package、pid、版本、引擎和时间。
 按目标 pid 保存本次 logcat，避免把其他应用日志混入结论。日志和截图放在被忽略的
@@ -132,15 +128,19 @@ debug 支持 hot reload；最终图形/OCR/插件行为必须另外用 release/R
 
 - 本地构建即发布外观（只有一套排版参数）；widget 测试保留 393×852 和 360dp 布局检查，
   真机按其实际逻辑尺寸截图，不能把桌面测试当作原生验收。
-- 材质与导航验收：强停冷启、四页切换、底栏点击/页面滑动/取消、菜单与弹层进出、深浅色、前后台。
-  卡片、弹层与默认停靠底栏必须保持不透明实色；作为可选底部导航样式的液态玻璃
-  （`root_navigation_liquid_glass.dart` 适配的本地 vendor `GlassTabBar.bottom`）是唯一例外。其他位置出现背景模糊、渐变或 Shader 滤镜即为回归。
-- 提交前 format、analyze、全量测试及发布外观专项；数据库相关改动跑 ffi 持久化/迁移矩阵。
-- Bill 正式 APK 按 README 的个人版签名流程构建，在真机上验证覆盖安装后上传到 GitHub Releases。
-- GitHub 自分发 APK 由 CI 校验：原生库只能包含 `arm64-v8a`，且 `versionCode` 必须与 `pubspec.yaml` 的 build number 一致；ABI 拆分不得恢复默认的 versionCode 偏移，否则 GitHub / Play 渠道间无法正常覆盖升级。
-- CI 成功后下载同签名、更高 versionCode APK 覆盖安装，保留账目；用户验收后才提升 Latest。
-- 应用内「检查更新」只识别正式版；预发布版本请在 Releases 页面手动下载。发布后核对 releases 列表中的版本与 APK 元数据。
-  用户要求自行通过应用内检查更新升级时，只把用户带到对应的 Release 页面，不代替用户下载或安装。
-- 清理测试应用前先列出并核对 package。只卸载确认为本任务测试用途的
-  `top.talyra42.verifin.graphicsdiagnostic`；**不得卸载 `top.talyra42.verifin` 或清数据**。
-  如果测试应用里已有用户新录入的数据，先明确处理方式再删除。
+- 材质与导航验收覆盖冷启动、首页／看板／资产／我的切换、两种底栏样式、深浅色和前后台切换。液态玻璃效果仅出现在底栏。
+- 代码提交前验证格式、静态分析和现有测试。Android 改动另做真机验收，涉及数据库时检查持久化与迁移。
+
+### 构建并发布个人版
+
+1. 递增 `pubspec.yaml` 的版本名和构建号，同步 `lib/app/app_version.dart`、`CHANGELOG.md` 和 `docs/release-notes/vX.Y.Z.md`。明确获准发布后，将该版本的提交推送到 Bill 的 `main`。
+2. 在构建环境设置 `BILL_SIGNING_STORE`、`BILL_STORE_PASSWORD`、`BILL_KEY_ALIAS` 和 `BILL_KEY_PASSWORD`。沿用现有个人版证书，构建面向 arm64 的 APK。
+
+   ```bash
+   flutter build apk --release --flavor diagnostic --target-platform android-arm64 --dart-define=UPDATE_CHECK=true
+   ```
+
+3. 用 Android SDK 的 `aapt2 dump badging` 检查包名和版本，用 `apksigner verify --print-certs` 核对证书。真机直接覆盖安装，验证账本保留、应用可启动、OCR 和提醒等原生功能可用。
+4. 在 [Bill Releases](https://github.com/jiucaihua1/Bill/releases) 创建 `vX.Y.Z` 正式 Release，标签版本与 APK 一致，上传验收过的 APK 并设为 Latest。用仍运行旧版本的手机或测试设备确认「检查更新 → 前往」打开对应 Release。
+
+推送 `main` 会运行代码质量检查和 debug 编译。正式 APK 由维护者签名构建并上传。清理测试安装前，先核对设备、包名和数据归属。

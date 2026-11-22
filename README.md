@@ -1,89 +1,54 @@
-# 日常账本 · 个人版
+# 小禾记账（Bill）
 
-基于 [LumiDesk/verifin](https://github.com/LumiDesk/verifin) 二次开发，按 GPL-3.0-or-later 分发。个人版与原版使用各自的 Android 包名。
+小禾记账是一款本地优先的 Android 记账应用。无需注册，账本保存在手机上，可随时导出或备份到自己配置的 WebDAV。截图先在手机上识别文字，使用 AI 时由你指定服务。
 
-[下载个人版 APK](https://github.com/jiucaihua1/Bill/releases/latest) · [问题反馈](https://github.com/jiucaihua1/Bill/issues) · [产品文档](docs/product/product.md)
+[下载 APK](https://github.com/jiucaihua1/Bill/releases/latest) · [问题反馈](https://github.com/jiucaihua1/Bill/issues) · [产品文档](docs/product/product.md)
 
-个人版提供备注订阅识别、滚动七天收支分析、自然周看板、自定义分类图标和截图记账。
+下文介绍仓库中的功能。已发布安装包的变化见各版本的发布说明。
 
----
+## 使用方式
 
-> 账本是你的，数据也是。
-
-Veri Fin 是一款仅面向 Android 的个人记账应用。没有账号、没有自有服务端、没有广告，也不接入行为遥测。账本保存在你的设备上；只有你主动使用导出、WebDAV 备份或 AI 功能时，相关数据才会发送到你选择的目标。
-
-## 界面预览
-
-<div align="center">
-
-| 首页 | 资产 | 看板 |
-| :---: | :---: | :---: |
-| <img src="docs/screenshots/home.jpg" width="240" alt="首页" /> | <img src="docs/screenshots/assets.jpg" width="240" alt="资产" /> | <img src="docs/screenshots/reports.jpg" width="240" alt="看板" /> |
-
-</div>
-
-## 核心能力
-
-- **快速记账**：支出、收入、转账，支持多级分类、多标签、图片附件、退款和周期记账。
-- **账本与资产**：多账本隔离、多币种账户、离线汇率、信用账户、净资产与余额趋势。
-- **预算与看板**：总预算、分类预算、按日预算、自定义预算周期，以及日常、月度、年度多维分析。
-- **分类图标主题**：可切换系统内置、细线手账、彩色插画与 Emoji 样式。
-- **可选 AI**：用自己的 OpenAI 兼容端点记账、查询账目或识别截图；AI 只生成草稿，不会静默写入。
-- **数据由你掌控**：账本保存在本地，支持加密备份、WebDAV、账单导入和本应用 CSV 导出。
-- **Android 原生体验**：桌面小组件、快捷磁贴、本地提醒、系统分享入口和应用锁。
-
-完整功能、数据口径与当前边界见 [产品文档](docs/product/product.md)，逐项验收标准见 [验收清单](docs/product/acceptance-checklist.md)。
-
-## 技术栈
-
-| 模块 | 技术实现 |
+| 入口 | 可以做什么 |
 | --- | --- |
-| 客户端 | Flutter 3.47.2、Dart 3，仅发布 Android |
-| 界面 | Material 3、`fl_chart`、`anchored_menu`，可选液态玻璃底栏 |
-| 数据 | SQLite（`sqflite`）、SharedPreferences、分层数据库迁移 |
-| 备份与安全 | AES-GCM + PBKDF2、流式 ZIP、WebDAV、Android SAF |
-| AI 与 OCR | OpenAI 兼容端点、原生 Tool Calls、端上 ML Kit OCR |
-| Android 集成 | Jetpack Glance 小组件、本地通知、快捷磁贴、MethodChannel |
+| 首页 | 记一笔，看今天和往前六天的收支、近期交易与预算进度 |
+| 看板 | 按自然周、月、年查看收支、分类和标签排行。进入分类明细后可自选起止日期 |
+| 资产 | 管理账户、信用账户与净资产，可使用多币种账户和离线汇率 |
+| 我的 | 管理账本、分类和桌面小组件，分析订阅支出，导入、导出和恢复备份 |
 
-## 下载
+- **订阅支出**根据备注识别会员或订阅，也可从已有支出手动选入。周期按月数设置，例如季付填 3。点「今日日均花费」可查看当天仍在分摊的项目。
+- **截图记账**可从相册选图或通过系统分享送入。应用根据付款方式匹配账本中的账户，生成草稿后由你确认。
+- **数据管理**支持本地与加密备份、账单导入、CSV 导出和重复导入检查。用坚果云时，点「使用坚果云」，填注册邮箱和第三方应用密码。连接测试会尝试创建缺失的备份目录。
 
-可以从[个人版发布页](https://github.com/jiucaihua1/Bill/releases/latest)下载 Android 安装包。后续版本在「设置 → 更多 → 检查更新」中查看。
+[查看产品功能与统计口径](docs/product/product.md) · [查看截图示例](docs/screenshots/README.md)
 
-升级前请先在应用内导出备份，直接覆盖安装，不要卸载应用或清除应用数据。
+## 安装与更新
 
-个人版沿用原项目版本序列，从 1.21.3 开始。构建覆盖更新包时使用同一个个人版签名证书，在构建环境设置 `BILL_SIGNING_STORE`、`BILL_STORE_PASSWORD`、`BILL_KEY_ALIAS` 和 `BILL_KEY_PASSWORD`，然后执行：
+1. 从 [Bill Releases](https://github.com/jiucaihua1/Bill/releases/latest) 下载 `.apk` 附件。当前发布渠道为 GitHub，安装包面向 arm64 Android 设备。
+2. 已安装的用户可以在「我的 → 设置 → 更多 → 检查更新」找到新版。点「前往」打开浏览器，到对应 Release 下载 APK。
+3. 更新前可在「我的 → 数据管理」导出备份。安装时直接覆盖现有应用，保留应用数据。
 
-```bash
-flutter build apk --release --flavor diagnostic --target-platform android-arm64 --dart-define=UPDATE_CHECK=true
-```
+## 开发与发布
 
-在 GitHub 发布与应用版本一致的正式 Release（例如 `v1.21.3`），并附上已验证的 APK。应用从本仓库的最新正式 Release 检查更新。
-
-## 开发
+本项目使用 Flutter 3.47.2、JDK 17 和 Android SDK，CI 验证格式、静态分析、测试和 Android 调试构建。
 
 ```bash
 flutter pub get
-flutter run -d <android-device-id> --flavor diagnostic
-flutter analyze && flutter test
+flutter analyze
+flutter test
 ```
 
-开发环境使用 Flutter 3.47.2、JDK 17+（CI 固定 17）和 Android SDK（含 NDK 与 CMake）。日常调试必须使用独立数据目录的 `diagnostic` flavor；环境自检、真机验收和 release 检查见 [Android 开发](docs/dev/android-development.md)。
-
-CI 校验格式、静态分析、测试和 Android 调试构建。个人版安装包按上面的签名流程打包，经真机验证后发布到本仓库。
-
-## 文档
+本地调试和正式签名 APK 使用相同的个人版包名。请用专门的模拟器或测试设备运行调试构建。正式发布需要同签名的 APK、递增的版本号和 Bill 仓库的正式 Release。完整命令和核对步骤见 [Android 开发与发版](docs/dev/android-development.md)。
 
 | 文档 | 内容 |
 | --- | --- |
-| [产品文档](docs/product/product.md) | 产品定位、功能范围与当前边界 |
-| [验收清单](docs/product/acceptance-checklist.md) | 当前能力与 Android 验收项 |
-| [架构导览](docs/dev/architecture.md) | 分层、源码导航与文档权威顺序 |
-| [统一设计](docs/design/design-system.md) | 排版、材质、导航与交互规范 |
-| [组件注册表](docs/design/components.md) | 可复用组件、弹窗和纯函数入口 |
-| [技术决策](docs/dev/tech-decisions.md) | 数据口径、备份范围与关键技术取舍 |
-| [Android 开发](docs/dev/android-development.md) | 工具链、真机调试与交付检查 |
-| [贡献指南](CONTRIBUTING.md) | Issue 反馈与仓库维护约定 |
+| [架构导览](docs/dev/architecture.md) | 应用分层、数据和源码入口 |
+| [验收清单](docs/product/acceptance-checklist.md) | 记账、备份、分析与 Android 验收 |
+| [设计规范](docs/design/design-system.md) | 页面布局、材质与导航 |
+| [组件注册表](docs/design/components.md) | 可复用组件和计算逻辑 |
+| [贡献指南](CONTRIBUTING.md) | Bug、功能反馈与仓库维护 |
 
-## 许可证
+## 项目来源与许可证
 
-Veri Fin 基于 [GNU General Public License v3.0 or later](LICENSE) 发布。第三方组件和本地 vendor 源码保留各自的许可证。
+本项目基于 [LumiDesk/verifin](https://github.com/LumiDesk/verifin) 二次开发。感谢原作者和贡献者。
+
+源码按 [GPL-3.0-or-later](LICENSE) 分发。第三方组件保留各自的许可证与署名。

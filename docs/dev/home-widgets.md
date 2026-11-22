@@ -1,12 +1,8 @@
 # 桌面小组件
 
-Veri Fin 提供四个固定模板的 Android 桌面小组件：快速记账（`quick_entry`）、预算进度（`budget`）、
-收支趋势（`trend`）、净资产（`net_worth`）。渲染走 `home_widget` 插件的 Jetpack Glance Provider，
-桌面进程不需要启动 Flutter。
+小禾记账的桌面小组件由 `home_widget` 和 Jetpack Glance 渲染，桌面进程可直接读取共享快照。快速记账、预算进度、收支趋势和净资产各有固定指标。双栏收支可为左右栏各选一个指标，默认左侧本周支出、右侧今日支出。
 
-**模板与指标是 1:1 的**：一个模板恰好展示一个指标、一种呈现方式，因此本项目没有独立的指标词表。
-桌面上出现的文字（模板名、指标行、状态行）全部来自
-`android/app/src/main/res/values*/strings.xml`，Flutter 只推送数字。
+双栏可选今日、本周、本月的支出或收入，以及本月结余、净资产。桌面文案来自 `android/app/src/main/res/values*/strings.xml`，金额按该实例所属账本格式化。
 
 | 模板 key | Provider | 选择器/应用内名称 | 桌面指标行 | 尺寸 | 呈现 |
 | --- | --- | --- | --- | --- | --- |
@@ -14,6 +10,7 @@ Veri Fin 提供四个固定模板的 Android 桌面小组件：快速记账（`q
 | `budget` | `BudgetWidgetProvider` | 预算进度 | 剩余预算 | 2×2 | 指标行 + 金额 + 使用率环 |
 | `trend` | `TrendWidgetProvider` | 收支趋势 | 近 30 日支出 | 4×2 | 指标行 + 金额 + 30 点曲线 |
 | `net_worth` | `NetWorthWidgetProvider` | 净资产 | 净资产 | 2×2 | 指标行 + 金额 + 30 点曲线 |
+| `dual_metric` | `DualMetricWidgetProvider` | 双栏收支 | 左右栏各选一个指标 | 横向一行 | 双栏标签和金额 |
 
 模板名同时存在于 Android `strings.xml`（选择器要用的原生资源）与 `lib/l10n/app_*.arb`
 （应用内宫格与说明），由 `test/widget_string_parity_test.dart` 强制一致；该测试同时保证
@@ -33,7 +30,7 @@ Veri Fin 提供四个固定模板的 Android 桌面小组件：快速记账（`q
 
 启用应用锁时，独立 `WidgetConfigurationActivity` 先读取设备 KV 中的锁配置并显示同一套
 PIN/图案验证页，验证前不加载账本列表或真实预览；原生窗口同时设置 `FLAG_SECURE`。配置损坏时
-按锁定处理，可通过「打开 Veri Fin」回主应用处理。
+按锁定处理，可回到主应用处理。
 
 配置页的独立引擎**初始化必须有界**：偏好读取 5 秒、语言读取 3 秒超时；读不到偏好时显示一个
 可关闭的失败页（fail closed，不绕过应用锁展示账本名称或预览），而不是停在空白窗口。这个引擎的
@@ -45,10 +42,10 @@ PIN/图案验证页，验证前不加载账本列表或真实预览；原生窗�
 
 | key | 内容 |
 | --- | --- |
-| `verifin.widget.snapshots` | `{"version":2,"<bookId>":{"date":"yyyy-MM-dd","quick_entry":{"amount":"…"},"budget":{"amount":"…","usage":0.37},"trend":{"amount":"…","points":[…30 点]},"net_worth":{"amount":"…","points":[…30 点]}}}` |
+| `verifin.widget.snapshots` | `{"version":2,"<bookId>":{"date":"yyyy-MM-dd","quick_entry":{"amount":"…"},"budget":{"amount":"…","usage":0.37},"trend":{"amount":"…","points":[…30 点]},"net_worth":{"amount":"…","points":[…30 点]},"dual_metric":{"amount":"…","metrics":{"week_expense":"…","today_expense":"…",…}}}}` |
 | `verifin.widget.books` | `[{"id","name"}]`，配置页选择账本用 |
 | `verifin.widget.locale` | 应用语言，原生按它解析桌面文案（不与系统语言混用） |
-| `verifin.widget.config.<appWidgetId>` | 实例配置 `{"bookId":"…","appearance":"system/light/dark"}` |
+| `verifin.widget.config.<appWidgetId>` | 实例配置 `{"bookId":"…","appearance":"system/light/dark","tapAction":"entry/app/stats","leftMetric":"week_expense","rightMetric":"today_expense"}` |
 
 - `amount` 是 Dart 按**该实例所属账本**的单位口径格式化好的字符串（单币种 + 「隐藏单位」时不含单位）；
   无法计算（缺汇率、未设预算）时为缺失占位符 `—`。
@@ -62,7 +59,7 @@ PIN/图案验证页，验证前不加载账本列表或真实预览；原生窗�
 | --- | --- | --- |
 | 没有实例配置，或配置里的账本已不在 `verifin.widget.books` | 整卡一行「点击进入配置」，**不显示任何金额** | 打开 `WidgetConfigurationActivity`（`ACTION_APPWIDGET_CONFIGURE` + `EXTRA_APPWIDGET_ID` + 带实例 id 的 data） |
 | 已配置，但该账本的快照缺失或版本不符 | 一行「打开应用同步数据」 | 打开应用 |
-| 已配置且有快照 | 指标行 + 金额 + 环/曲线 | 整卡打开应用（并切到该实例的账本）；快速记账的 `+` 区域进入快速记账 |
+| 已配置且有快照 | 按模板展示指标与金额 | 按实例配置进入快速记账、应用首页或统计；快速记账的 `+` 区域始终进入快速记账 |
 
 「点击进入配置」的动作必须同时满足两点：带 `ACTION_APPWIDGET_CONFIGURE` 与
 `EXTRA_APPWIDGET_ID`（home_widget 的 `initiallyLaunchedFromHomeWidgetConfigure` 按这两个值取实例 id），
@@ -107,7 +104,7 @@ pending，等 Shell 的处理器就绪后再由 Dart 消费；不能“发出即
   「冲刷完成前不关闭 Activity」与超时路径。
 - 投影是纯函数：一次遍历得到逐日支出与账户余额增量，净资产曲线按「期初余额 + 逐日前缀和」推进，
   复杂度 `O(交易数 + 账户数 × 天数)`。`test/widget_projection_perf_test.dart`
-  以 20 账户 × 5000 笔数据约束四模板合计投影时间不超过 40 ms。
+  以 20 账户 × 5000 笔数据约束投影时间不超过 40 ms。
 - 跨天：Flutter 每次推送用 `HomeWidget.scheduleWidgetUpdates` 重新安排下一次本地午夜，
   插件的 Receiver 负责闹钟、开机与应用更新后的重排；原生渲染按快照日期把「今日支出」直接归零。
 
@@ -116,8 +113,8 @@ pending，等 Shell 的处理器就绪后再由 Dart 消费；不能“发出即
 | 层 | 适用 | 实现 |
 | --- | --- | --- |
 | 生成预览 | API 35+ | `providePreview`（样例态，不读用户账目）；指纹 = 应用版本 + 模板 + 深浅色 + 语言，随发版自动失效，不再手写版本号 |
-| 选择器预览 | API 31–34 | 四个模板各自的 `previewLayout`（`res/layout/widget_picker_preview_<template>.xml`，内容就是预览 PNG），配 `-night` / `-en` 变体 |
-| 旧启动器 | API <31 | `previewImage` PNG（同样的变体） |
+| 选择器预览 | API 31–34 | 各模板使用 `previewLayout`。原有四类按深浅色和语言使用预览 PNG，双栏使用原生布局 |
+| 旧启动器 | API <31 | `previewImage` PNG，双栏当前沿用快速记账的静态图 |
 
 - 16 张预览 PNG（4 模板 × 浅/深 × 中/英）由**真机渲染器**产出：
   `dart run scripts/widget_previews.dart`（需要一台已授权设备）。改组件视觉后必须重跑，
@@ -134,7 +131,7 @@ Receiver 清理对应配置。
 
 ## 验收
 
-1. API 31：选择器四张预览互不相同、深浅色正确；添加（不配置）→ 桌面显示「点击进入配置」→
+1. API 31：检查各模板在选择器中的布局与可读性；添加（不配置）→ 桌面显示「点击进入配置」→
    点击进配置页 → 选账本 + 选外观（预览同步切换）→ 保存 → 组件立即显示真实数据。
 2. API 35+：生成预览随语言、深浅色与版本变化更新。
 3. 强停 Flutter 应用后桌面仍显示快照；跨天后今日支出显示 `0`。

@@ -1,13 +1,11 @@
 # 截图目录
 
-根 README「界面预览」引用的三张 Android 模拟器截图（1180×2556，使用 diagnostic flavor 的虚拟账目）：
+下图为 2026-10-11 的界面示例，使用模拟器演示账目。当前导航顺序和看板标签见 [产品文档](../product/product.md#信息架构)。
 
-- `home.jpg` — 首页
-- `assets.jpg` — 资产
-- `reports.jpg` — 看板
+| 首页 | 看板 | 资产 |
+| --- | --- | --- |
+| <img src="home.jpg" width="240" alt="首页示例" /> | <img src="reports.jpg" width="240" alt="看板示例" /> | <img src="assets.jpg" width="240" alt="资产示例" /> |
 
-最近一次重拍：2026-10-11（看板改为「日常 / 月统计 / 年统计」三 Tab 之后，深色主题；`reports.jpg` 取「月统计」Tab，能同时看到 Tab 结构与摘要 / 预算 / 排行卡）。
-
-更新界面后记得同步替换：用 diagnostic flavor（`--flavor diagnostic`，覆盖安装不丢演示账目）打开对应页面顶部，
+更新界面后记得同步替换：在专用模拟器中用 `--flavor diagnostic` 启动演示账本，打开对应页面顶部，
 确认模拟器为 1180×2556 / density 480（`adb shell wm size` / `wm density`），
 `adb exec-out screencap -p > shot.png`，再转 JPEG 覆盖同名文件（如 `ffmpeg -i shot.png -q:v 3 home.jpg`）。

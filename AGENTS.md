@@ -1,12 +1,12 @@
 # AGENTS.md
 
-- 本项目为 **Flutter + Dart** 的 Android 记账应用（Veri Fin），仅交付 Android；Dart 包名 `verifin`，Android applicationId `top.talyra42.verifin`。
+- 本项目为 **Flutter + Dart** 的 Android 应用小禾记账（GitHub 仓库 `jiucaihua1/Bill`）。Dart 包名为 `verifin`，Android 命名空间为 `top.talyra42.verifin`，面向用户的个人版包名为 `top.talyra42.verifin.personalledger`。
 - 包管理器：**pub**（通过 `flutter pub get` / `flutter pub add` 使用）；不引入 npm/yarn/pnpm 等前端工具链。
 - 样式方案：Flutter Material 3 + 项目自有设计令牌（`veri*` 颜色、`veriRadius*` 圆角、`VeriPage` / `VeriCard` / `VeriHeader` 页面骨架）；不使用 CSS，业务代码不硬编码颜色、圆角等视觉值，统一走设计令牌与主题。
-- UI 组件库：Flutter Material 3 + `fl_chart`、`anchored_menu`、`home_widget`；本地 vendor `third_party/liquid_glass_widgets` 只用于可选的液态玻璃底栏。
+- UI 组件库：Flutter Material 3 + `fl_chart`、`anchored_menu`、`home_widget`；本地 vendor `third_party/liquid_glass_widgets` 只用于液态玻璃底栏。
 - 工具链：Flutter 3.47.2（与 CI 固定版本一致）、Java 17+、Android SDK（含 NDK 与 CMake）。
 
-本仓库不启用 GitHub Pull Requests，不接受外部 PR。外部反馈只通过 Issue；代码改动由维护者在 Issue 确认范围后直接实施。
+外部问题和建议通过 Bill 的 Issues 提交，代码改动由维护者处理。
 
 ## 产品原则
 
@@ -74,7 +74,7 @@ third_party/                  # 本地 vendor 源码（jdenticon_dart、liquid_g
 - `docs/dev/tech-decisions.md`：数据口径、备份范围和关键技术取舍；判断当前实现仍以源码、测试与工作流为准。
 - `.agents/notes/`：设计稿、技术选型与被否决方案的**来龙去脉**；不是当前事实，规则见 `.agents/notes/README.md`。
 - `.agents/skills/merge-pr/SKILL.md`：合并 PR 的可执行流程（状态判定、合并、回滚）。
-- `.agents/CONVENTIONS.md`：跨项目共用的体系约定（分支合并、依赖更新、文档分层、授权边界）。
+- `.agents/CONVENTIONS.md`：Bill 仓库约定（分支合并、依赖更新、文档分层、授权边界）。
 - `docs/dev/known-limitations.md`：已接受的限制、技术债及触发整改的阈值。
 - `docs/dev/android-development.md`：工具链检测与安装、真机调试、日志、隔离验收及测试应用清理。
 - 领域文档：`docs/dev/attachment-storage-and-backup.md`、`docs/dev/refund.md`、`docs/dev/multi-currency.md`、`docs/dev/entry-save-validation.md`、`docs/dev/category-budget-override.md`、`docs/dev/ai-tools.md`、`docs/dev/ai-provider-presets.md`、`docs/dev/auto-capture.md`、`docs/dev/i18n-verification.md`、`docs/dev/feedback-system.md`、`docs/dev/home-widgets.md`、`docs/dev/anchored-menu.md`、`docs/dev/account-icon-assets.md`。
@@ -112,8 +112,8 @@ third_party/                  # 本地 vendor 源码（jdenticon_dart、liquid_g
 - Row 内“居中列 label + value [+ detail]”的标准指标块使用 `SummaryMetric`。明显不同的卡片/排行可保留局部组件，不把一个组件过度参数化成配置怪物。
 - 图表优先复用 `InteractiveTrendChart` / `InteractiveBarChart`，必须支持点按或滑动查看数据；位于可跳转卡片内时，图表区域要拦截点击，避免误触卡片跳转。
 - 应用内短反馈只用 `VeriFeedbackHost.of(context)` / 根级 `VeriFeedbackController`，不得新增旧式 Material 横条提示或 Android Toast。破坏性确认、字段校验、阻塞进度和系统通知不迁入轻提示；完整规则见 `docs/dev/feedback-system.md`。
-- 根导航的当前约定见 `docs/design/components.md` 的 `VeriRootNavigationStyle`、`VeriDockedRootNavigationStyle` 与 `VeriLiquidGlassRootNavigationStyle` 条目（默认停靠样式 + 可选液态玻璃样式，样式选择页见 `NavigationStyleSettingsPage`），底栏绘制组件见 `VeriBottomBar` 条目；新增样式前先读 `docs/design/ui-guidelines.md` 的「根导航」小节与其硬约束、契约测试清单。
-- 材质：卡片、导航、快捷按钮、菜单与弹层一律使用**不透明实色**表面，页面背景为单一纯色。唯一例外是底部导航的**可选液态玻璃样式**：应用侧只允许在 `root_navigation_liquid_glass.dart` 中适配本地 vendor 的 `third_party/liquid_glass_widgets`（`GlassTabBar.bottom`），`main.dart` 只负责库初始化和主题亮度桥接；第三方玻璃代码不得扩散到卡片、菜单、弹层或页面背景。其余位置禁止背景模糊、折射、片元着色器滤镜或整屏渐变。
+- 根导航的当前约定见 `docs/design/components.md` 的 `VeriRootNavigationStyle`、`VeriDockedRootNavigationStyle` 与 `VeriLiquidGlassRootNavigationStyle` 条目（默认液态玻璃样式，可切换停靠底栏，样式选择页见 `NavigationStyleSettingsPage`），底栏绘制组件见 `VeriBottomBar` 条目；新增样式前先读 `docs/design/ui-guidelines.md` 的「根导航」小节与其硬约束、契约测试清单。
+- 材质：卡片、导航、快捷按钮、菜单与弹层一律使用**不透明实色**表面，页面背景为单一纯色。唯一例外是底部导航的**液态玻璃样式**：应用侧只允许在 `root_navigation_liquid_glass.dart` 中适配本地 vendor 的 `third_party/liquid_glass_widgets`（`GlassTabBar.bottom`），`main.dart` 只负责库初始化和主题亮度桥接；第三方玻璃代码不得扩散到卡片、菜单、弹层或页面背景。其余位置禁止背景模糊、折射、片元着色器滤镜或整屏渐变。
 - 发布包外观：已评审的统一排版（16dp 有效页边距、56dp Header、16dp 卡片圆角、14/12 卡片内边距）是当前**唯一**外观，本地构建与发布包一致。统一排版覆盖全部页面；导航静止必须显示实时文字，预算环禁止内外白线。
 - 颜色使用 `veri*` 常量，圆角使用 `veriRadius*`，主色为 `veriRoyal`（`#346edb`）。禁止裸写 `Color(0x...)` 或魔法圆角；确有局部特例时写明原因。语义色（收入 / 支出 / 转账 / 提醒）必须经 `veriSemantic(context, veriX)` 取用（无 `BuildContext` 的纯函数用 `veriSemanticFor(brightness, veriX)`），不要直接渲染亮色常量，否则浅色主题对比度不达 AA。
 - 金额颜色只用 `colorForType` / `accountBalanceColor`；金额文本只用 `formatAmount` / `formatSignedAmount` / `formatCompactAmount` 等现有 helper。金额为零必须是中性色 `0`，不能显示 `-0`。
@@ -179,8 +179,8 @@ third_party/                  # 本地 vendor 源码（jdenticon_dart、liquid_g
 - 测试文件放在 `test/` 并以 `_test.dart` 结尾，按领域归类；优先复用 `test/support/test_harness.dart` 的 `makeController`、`pumpApp`、`zhMaterialApp` 和内存仓储。
 - Widget 测试覆盖用户可见行为：渲染、点击、导航、表单校验、空态、错误反馈和持久化结果；纯计算覆盖边界、空输入、时区/日期和非法参数。
 - SQLite 相关改动要运行 repository、controller persistence、migration matrix、model roundtrip 和 repository contract 测试；不要只依赖内存仓储。
-- 修复 bug 必须补能在修复前失败的回归测试。导入 parser 使用真实 fixture，避免只测手工构造的理想输入。
-- 功能改动完成后至少运行 `flutter analyze` 和 `flutter test`。Android/OCR/通知/文件/权限/R8 改动还要说明所需的 CI release APK 真机验收项。
+- 新增单元测试须先获得用户许可。验证修复时优先使用现有用例，导入 parser 以具有代表性的 fixture 验证。
+- 功能改动完成后至少运行 `flutter analyze` 和 `flutter test`。Android/OCR/通知/文件/权限/R8 改动还要说明所需的签名 release APK 真机验收项。
 
 ## Build Commands
 
@@ -200,8 +200,8 @@ dart run scripts/widget_previews.dart
 
 ### 日常开发
 
-- 日常调试使用独立 `diagnostic` flavor 运行正式入口做 hot reload，避免覆盖用户账目；`diagnostic` 使用独立 applicationId 与正式数据隔离，可以运行 `lib/main.dart` 或最小绘制入口，但**不是交付物**。
-- 验证 GitHub 渠道、检查更新或正式包外观时使用 `--flavor github`；验证 Play 渠道时使用 `--flavor play --dart-define=UPDATE_CHECK=false`。所有构建都显式带 flavor。桌面 widget 测试不能替代 Android 原生能力、生命周期和性能验收。
+- `diagnostic` flavor 同时用于个人版调试和签名发布。debug 与 release 使用同一 applicationId，日常调试使用专用模拟器或测试设备。
+- 验证应用内更新、R8 和覆盖安装时使用同一份个人版签名的 `diagnostic` release APK，构建命令见 [Android 开发](docs/dev/android-development.md#验收与交付)。桌面 widget 测试不能替代真机验收。
 - 不再维护 Web 预览、WASM 或浏览器测试；不要创建独立演示 UI。布局测试保留 393×852 与窄屏尺寸；视觉迭代保留首页预算圆环、支出/剩余日均、概览指标方块和“我的”四列宫格。
 - 手机开发前先按 `docs/dev/android-development.md` 检测 Flutter（与 CI 固定版本一致）、Java、Android SDK、adb 与 `local.properties`。缺工具时优先复用已安装版本；**需要安装或升级会改动现有 SDK/JDK/PATH 的，先说明影响并取得用户同意**，安装后复检。权限、下载或手机授权实际受阻时才请求用户处理。
 - **Android 构建的 NDK/CMake 前置**：Flutter 3.47 的 Gradle 插件会强制使用 NDK `28.2.13676358`；AGP 9 默认使用 CMake `3.22.1`。构建前确认 `<android-sdk>/ndk/28.2.13676358/source.properties` 与 `<android-sdk>/cmake/3.22.1/bin/cmake.exe` 存在。`cmdline-tools` 23 已弃用 `sdkmanager`，不要依赖 Flutter 的自动 NDK 安装；用 Android Studio SDK Manager 或 `android sdk install` 安装。
@@ -233,12 +233,9 @@ dart run scripts/widget_previews.dart
 
 ## 合并与依赖更新
 
-- `main` 受保护：必须经 PR，且必需状态检查通过；合并只用 **merge commit**。
-- 合并前确认 `mergeStateStatus=CLEAN` 且 `mergeable`，不要凭"看起来绿了"判断。
-- 依赖 PR（dependabot）只应改 `.github/workflows/*`、`pubspec.yaml`、`pubspec.lock`；动了别的就停下问。
-- 大版本跳跃合并后必须确认 `main` 的 CI：PR 上不构建安装包，只有 `main` 会真正打包。
-- 合坏了用 `git revert -m 1 <merge-sha>` 开 PR 回滚；不 force push、不 reset 远端。
-- 步骤见 `.agents/skills/merge-pr/SKILL.md`；授权边界见 `.agents/CONVENTIONS.md`。
+- 远程目标为 `jiucaihua1/Bill`。按当前 GitHub 分支规则快进推送或合并 PR，保留主分支历史。
+- 依赖更新先核对范围与 CI。涉及 Android 构建的升级还要确认主分支 debug APK 编译。
+- 回滚通过 `git revert` 创建新提交。步骤见 [仓库约定](.agents/CONVENTIONS.md)。
 
 ## Never 规则
 
@@ -252,7 +249,7 @@ dart run scripts/widget_previews.dart
 - Never 在预算取数处手写过滤条件；统一用 `budgetExpenseTotal` / `countsTowardBudget`，统计口径不要读 `excludedFromBudget`。
 - Never 修改 SQLite 结构却不升 `schemaVersion`、不写新迁移段、不改迁移矩阵；Never 回改已发布的历史迁移。
 - Never 整列读取 `data_url`，或在任何整表写入中丢掉未迁移行的 `data_url`。
-- Never 把应用锁、备份口令、WebDAV 凭证、AI Key 或完整账目写进备份/日志；签名材料是已确认的仓库例外，不要替换或额外扩散。
+- Never 把应用锁、备份口令、WebDAV 凭证、AI Key 或完整账目写进备份/日志；个人版签名材料从仓库外的构建环境提供。
 - Never 用 `file_selector` 读备份；恢复必须走自带 SAF 选择器，且只删本应用创建的暂存副本。
 - Never 让导入在预览确认前落库；Never 凭空编造第三方账单格式，parser 必须基于真实样例。
 - Never 复制内联弹窗/确认框脚手架，或裸写 `showModalBottomSheet`；用 `sheets.dart` / `entry_sheets.dart` 的 helper。
@@ -286,7 +283,7 @@ dart run scripts/widget_previews.dart
   - AI 查询工具更新 `docs/dev/ai-tools.md`；AI 渠道/模型发现更新 `docs/dev/ai-provider-presets.md`。
 - 用户可见的新功能、交互变化、修复、隐私或安全变化写入 `CHANGELOG.md` 顶部 `## [Unreleased]`；纯内部重构、测试或文档改动不写 CHANGELOG。
 - UI 变化影响公开截图时检查 `docs/screenshots/`；功能完成标准变化时检查 `docs/product/acceptance-checklist.md`。
-- `README.md`、`AGENTS.md`、`CLAUDE.md`、`CONTRIBUTING.md`、`CHANGELOG.md`、`docs/` 与 `.github/` 下的模板/工作流由维护者维护；外部贡献只通过 Issue，不接受外部代码补丁。外部贡献不得借需求讨论修改治理或技术决策文档。
+- `README.md`、`AGENTS.md`、`CLAUDE.md`、`CONTRIBUTING.md`、`CHANGELOG.md`、`docs/` 与 `.github/` 下的模板/工作流由维护者维护；外部贡献只通过 Issue，维护者负责审核反馈和调整仓库文档。
 
 ## 完成前检查
 
@@ -295,6 +292,6 @@ dart run scripts/widget_previews.dart
 - 状态、SQLite/KV、备份/初始化、Android 真实现和进程重启语义是否一致？
 - 新文案是否完成中英文 ARB；新 UI 是否符合页面骨架、设计令牌、弹窗和图标规范？
 - 异常是否有 AppLogger 记录与用户反馈，异步 context 是否有 mounted 守卫？
-- 是否补了针对性测试，并执行了与风险相称的 format/analyze/test/真机验证？
+- 是否执行了与风险相称的 format、analyze、已有测试或真机验证？
 - 维护者/Agent 是否同步文档与 `CHANGELOG.md`（若用户可见），并在汇报中列出已运行和未运行的验证？
 - 提交内容是否不含本机路径、用户名、设备序列号或环境变量值？
