@@ -311,7 +311,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(800, 1600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final controller = await pumpApp(tester);
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     await tester.tap(find.byTooltip('资产操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('添加账户'));

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:anchored_menu/anchored_menu.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app/amount_format.dart' as amount_format;
 import '../app/app_theme.dart';
@@ -16,6 +17,7 @@ import '../app/haptics.dart';
 import '../app/ledger_math.dart';
 import '../app/models.dart';
 import '../app/series_math.dart';
+import '../app/recurring.dart' show addCalendarMonths;
 import '../app/subscription_notes.dart';
 import '../app/veri_fin_controller.dart';
 import '../app/veri_fin_scope.dart';
@@ -28,6 +30,8 @@ import 'transaction_detail_page.dart';
 
 export 'transaction_detail_page.dart';
 
+part 'subscription_analysis.dart';
+
 enum TransactionTimeFilter {
   all,
   year,
@@ -36,7 +40,8 @@ enum TransactionTimeFilter {
   week,
   last12Months,
   last30Days,
-  last6Weeks;
+  last6Weeks,
+  custom;
 
   String label(AppLocalizations l10n) {
     switch (this) {
@@ -56,6 +61,8 @@ enum TransactionTimeFilter {
         return l10n.timeLast30Days;
       case TransactionTimeFilter.last6Weeks:
         return l10n.timeLast6Weeks;
+      case TransactionTimeFilter.custom:
+        return l10n.customTimeRange;
     }
   }
 }
@@ -200,6 +207,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
   ReimbursementFilter _reimbursementFilter = ReimbursementFilter.all;
   BudgetScopeFilter _budgetScopeFilter = BudgetScopeFilter.all;
   bool _selectionMode = false;
+  bool _subscriptionFiltersOpen = false;
   final Set<String> _selectedIds = <String>{};
 
   // 分页显示：列表只渲染前 _visibleCount 条交易，快滑到底部前
@@ -222,12 +230,32 @@ class _TransactionsPageState extends State<TransactionsPage> {
   List<DateEntryGroup> _derivedGroups = const <DateEntryGroup>[];
   double _derivedExpense = 0;
   double _derivedIncome = 0;
+  double _dailySubscriptionCost = 0;
+  final List<({LedgerEntry entry, SubscriptionMark period, double daily})>
+  _activeSubscriptions = [];
+  DateTimeRange? _customRange;
+  Timer? _midnightTimer;
+  int _expenseCount = 0;
+  final Map<SubscriptionMark, (int, double)> _subscriptionTotals = {};
 
   @override
   void initState() {
     super.initState();
+    if (widget.subscriptionsOnly) _scheduleDailyRefresh();
     _selectedAccountId = widget.accountId;
     _selectedCategoryId = widget.initialCategoryId;
+  }
+
+  void _scheduleDailyRefresh() {
+    final now = DateTime.now();
+    _midnightTimer = Timer(
+      DateTime(now.year, now.month, now.day + 1).difference(now),
+      () {
+        if (!mounted) return;
+        setState(() {});
+        _scheduleDailyRefresh();
+      },
+    );
   }
 
   /// 筛选条件：用户改了「看什么」，就视为重新浏览。
@@ -237,6 +265,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
     _dateMode,
     _visibleDate,
     _timeFilter,
+    if (_timeFilter == TransactionTimeFilter.custom) _customRange,
     _periodAnchor,
     _query,
     _selectedAccountId,
@@ -249,13 +278,16 @@ class _TransactionsPageState extends State<TransactionsPage> {
 
   /// 按签名判断派生结果是否失效；失效才重跑过滤/排序/分组/汇总。
   void _ensureDerived(VeriFinController controller, BuildContext context) {
+    final today = dateOnly(DateTime.now());
     final filterSignature = _filterSignature();
     final signature = <Object?>[
       controller.entries,
       controller.accounts,
       controller.categories,
+      controller.tags,
       amount_format.currencyFractionStyle,
       Localizations.localeOf(context),
+      if (widget.subscriptionsOnly) today,
       ...filterSignature,
     ];
     if (_deriveSignature != null && listEquals(_deriveSignature, signature)) {
@@ -270,6 +302,28 @@ class _TransactionsPageState extends State<TransactionsPage> {
       _filteredEntries(controller.entries),
       controller,
     ).where((entry) => entry.type != EntryType.refund).toList();
+    _expenseCount = entries
+        .where((entry) => entry.type == EntryType.expense)
+        .length;
+    _subscriptionTotals.clear();
+    _dailySubscriptionCost = 0;
+    _activeSubscriptions.clear();
+    if (widget.subscriptionsOnly) {
+      for (final entry in entries) {
+        final period = subscriptionPeriod(entry)!;
+        final daily = subscriptionDailyCost(entry, period, today);
+        if (daily > 0) {
+          _dailySubscriptionCost += daily;
+          _activeSubscriptions.add((
+            entry: entry,
+            period: period,
+            daily: daily,
+          ));
+        }
+        final (count, amount) = _subscriptionTotals[period] ?? (0, 0.0);
+        _subscriptionTotals[period] = (count + 1, amount + entry.netBaseAmount);
+      }
+    }
     _derivedEntries = entries;
     _derivedExpense = sumByType(entries, EntryType.expense);
     _derivedIncome = sumByType(entries, EntryType.income);
@@ -313,6 +367,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
 
   @override
   void dispose() {
+    _midnightTimer?.cancel();
     _queryDebounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
@@ -337,15 +392,23 @@ class _TransactionsPageState extends State<TransactionsPage> {
     final entries = _derivedEntries;
     final expense = _derivedExpense;
     final income = _derivedIncome;
+    final l10n = AppLocalizations.of(context);
+    final expenseSummary =
+        widget.subscriptionsOnly ||
+        (_selectedCategoryId != null &&
+            controller.categoryById(_selectedCategoryId!).type ==
+                EntryType.expense);
     final visibleGroups = _visibleGroups();
     final hasMore = _visibleCount < entries.length;
     // 悬浮记账按钮（56 + 下边距 16）会压住列表末行金额，底部按需额外避让；多选时
     // 按钮让位给底部批量栏，只保留原来的内容留白。
-    final double listBottomPadding = _selectionMode ? 28 : 100;
+    final double listBottomPadding = _selectionMode || widget.subscriptionsOnly
+        ? 28
+        : 100;
 
     return Scaffold(
       // 记账入口沿用首页快捷记账的 fabActionMode 语义；多选时让位给底部批量栏。
-      floatingActionButton: _selectionMode
+      floatingActionButton: _selectionMode || widget.subscriptionsOnly
           ? null
           : FloatingActionButton(
               key: const Key('transactions_quick_entry_fab'),
@@ -417,7 +480,19 @@ class _TransactionsPageState extends State<TransactionsPage> {
                                       )),
                           showBack: true,
                           actions: <Widget>[
-                            if (_selectionMode)
+                            if (widget.subscriptionsOnly)
+                              HeaderTextAction(
+                                label: l10n.selectSubscriptionOrders,
+                                onPressed: () =>
+                                    Navigator.of(context).push<void>(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => _SubscriptionPicker(
+                                          bookId: controller.activeBook.id,
+                                        ),
+                                      ),
+                                    ),
+                              )
+                            else if (_selectionMode)
                               HeaderAction(
                                 icon: Icons.close,
                                 tooltip: AppLocalizations.of(
@@ -489,77 +564,100 @@ class _TransactionsPageState extends State<TransactionsPage> {
                         else
                           Row(
                             children: <Widget>[
-                              _buildTimeFilterAnchor(
-                                builder: (openMenu) => _TransactionFilterBar(
-                                  label: _periodLabel(),
-                                  showNavigation:
-                                      _timeFilter != TransactionTimeFilter.all,
-                                  onPrevious: () => _movePeriod(-1),
-                                  onNext: () => _movePeriod(1),
-                                  onTap: openMenu,
+                              Flexible(
+                                child: _buildTimeFilterAnchor(
+                                  builder: (openMenu) => _TransactionFilterBar(
+                                    label: _periodLabel(),
+                                    showNavigation:
+                                        _timeFilter !=
+                                            TransactionTimeFilter.all &&
+                                        _timeFilter !=
+                                            TransactionTimeFilter.custom,
+                                    onPrevious: () => _movePeriod(-1),
+                                    onNext: () => _movePeriod(1),
+                                    onTap: openMenu,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 10),
                               _buildSortOrderAnchor(),
+                              if (widget.subscriptionsOnly) ...[
+                                const Spacer(),
+                                IconButton(
+                                  tooltip: l10n.subscriptionFilters,
+                                  isSelected: _subscriptionFiltersOpen,
+                                  onPressed: () => setState(
+                                    () => _subscriptionFiltersOpen =
+                                        !_subscriptionFiltersOpen,
+                                  ),
+                                  icon: const Icon(Icons.tune_rounded),
+                                ),
+                              ],
                             ],
                           ),
-                        const SizedBox(height: 10),
-                        _TransactionSearchFilters(
-                          controller: _searchController,
-                          accountLabel: _accountFilterLabel(controller),
-                          categoryLabel: _categoryFilterLabel(controller),
-                          accountLocked: widget.accountId != null,
-                          onChanged: _onSearchChanged,
-                          onPickAccount: widget.accountId == null
-                              ? () => _pickAccountFilter(controller)
-                              : null,
-                          onPickCategory: () => _pickCategoryFilter(controller),
-                          tagLabel: _tagFilterLabel(controller),
-                          tagSelected: _selectedTagId != null,
-                          onPickTag: controller.tags.isEmpty
-                              ? null
-                              : () => _pickTagFilter(controller),
-                          onClear: _hasSecondaryFilters
-                              ? () {
-                                  _queryDebounceTimer?.cancel();
-                                  setState(() {
-                                    _searchController.clear();
-                                    _query = '';
-                                    if (widget.accountId == null) {
-                                      _selectedAccountId = null;
-                                    }
-                                    _selectedCategoryId = null;
-                                    _selectedTagId = null;
-                                    _reimbursementFilter =
-                                        ReimbursementFilter.all;
-                                    _budgetScopeFilter = BudgetScopeFilter.all;
-                                    // 按天视图与时间档同属时间维度，清空必须一起复位。
-                                    _dateMode = false;
-                                    _timeFilter = TransactionTimeFilter.all;
-                                    _periodAnchor = DateTime.now();
-                                  });
-                                }
-                              : null,
-                          reimbursementFilter: _reimbursementFilter,
-                          onSelectReimbursement: (value) =>
-                              setState(() => _reimbursementFilter = value),
-                          budgetScopeFilter: _budgetScopeFilter,
-                          onSelectBudgetScope: (value) =>
-                              setState(() => _budgetScopeFilter = value),
-                        ),
+                        if (!widget.subscriptionsOnly ||
+                            _subscriptionFiltersOpen) ...[
+                          const SizedBox(height: 10),
+                          _TransactionSearchFilters(
+                            controller: _searchController,
+                            accountLabel: _accountFilterLabel(controller),
+                            categoryLabel: _categoryFilterLabel(controller),
+                            accountLocked: widget.accountId != null,
+                            onChanged: _onSearchChanged,
+                            onPickAccount: widget.accountId == null
+                                ? () => _pickAccountFilter(controller)
+                                : null,
+                            onPickCategory: () =>
+                                _pickCategoryFilter(controller),
+                            tagLabel: _tagFilterLabel(controller),
+                            tagSelected: _selectedTagId != null,
+                            onPickTag: controller.tags.isEmpty
+                                ? null
+                                : () => _pickTagFilter(controller),
+                            onClear: _hasSecondaryFilters
+                                ? () {
+                                    _queryDebounceTimer?.cancel();
+                                    setState(() {
+                                      _searchController.clear();
+                                      _query = '';
+                                      if (widget.accountId == null) {
+                                        _selectedAccountId = null;
+                                      }
+                                      _selectedCategoryId = null;
+                                      _selectedTagId = null;
+                                      _reimbursementFilter =
+                                          ReimbursementFilter.all;
+                                      _budgetScopeFilter =
+                                          BudgetScopeFilter.all;
+                                      // 按天视图与时间档同属时间维度，清空必须一起复位。
+                                      _dateMode = false;
+                                      _timeFilter = TransactionTimeFilter.all;
+                                      _customRange = null;
+                                      _periodAnchor = DateTime.now();
+                                    });
+                                  }
+                                : null,
+                            reimbursementFilter: _reimbursementFilter,
+                            onSelectReimbursement: (value) =>
+                                setState(() => _reimbursementFilter = value),
+                            budgetScopeFilter: _budgetScopeFilter,
+                            onSelectBudgetScope: (value) =>
+                                setState(() => _budgetScopeFilter = value),
+                          ),
+                        ],
                         const SizedBox(height: 16),
-                        Text(
-                          AppLocalizations.of(
-                            context,
-                          ).entriesCountFull(entries.length),
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withValues(alpha: 0.28),
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
+                        if (!widget.subscriptionsOnly)
+                          Text(
+                            AppLocalizations.of(
+                              context,
+                            ).entriesCountFull(entries.length),
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurface
+                                      .withValues(alpha: 0.28),
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
                         const SizedBox(height: 12),
                         VeriCard(
                           padding: const EdgeInsets.symmetric(
@@ -578,24 +676,59 @@ class _TransactionsPageState extends State<TransactionsPage> {
                                           .withValues(alpha: 0.48)
                                     : veriSemantic(context, veriExpense),
                               ),
-                              SummaryMetric(
-                                label: AppLocalizations.of(
-                                  context,
-                                ).entryTypeIncome,
-                                value: formatAmount(income),
-                                color: isZeroAmount(income)
-                                    ? Theme.of(context).colorScheme.onSurface
-                                          .withValues(alpha: 0.48)
-                                    : veriSemantic(context, veriIncome),
-                              ),
-                              SummaryMetric(
-                                label: AppLocalizations.of(context).netLabel,
-                                value: formatSignedAmount(income - expense),
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
+                              if (expenseSummary)
+                                SummaryMetric(
+                                  onTap: widget.subscriptionsOnly
+                                      ? () => _showDailySubscriptions(
+                                          context,
+                                          controller,
+                                          _activeSubscriptions,
+                                          _dailySubscriptionCost,
+                                        )
+                                      : null,
+                                  label: widget.subscriptionsOnly
+                                      ? l10n.activeDailySubscriptionCost
+                                      : l10n.averagePerExpense,
+                                  value: formatAmount(
+                                    widget.subscriptionsOnly
+                                        ? _dailySubscriptionCost
+                                        : _expenseCount == 0
+                                        ? 0
+                                        : expense / _expenseCount,
+                                  ),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                )
+                              else ...[
+                                SummaryMetric(
+                                  label: AppLocalizations.of(
+                                    context,
+                                  ).entryTypeIncome,
+                                  value: formatAmount(income),
+                                  color: isZeroAmount(income)
+                                      ? Theme.of(context).colorScheme.onSurface
+                                            .withValues(alpha: 0.48)
+                                      : veriSemantic(context, veriIncome),
+                                ),
+                                SummaryMetric(
+                                  label: AppLocalizations.of(context).netLabel,
+                                  value: formatSignedAmount(income - expense),
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                              ],
                             ],
                           ),
                         ),
+                        if (widget.subscriptionsOnly && entries.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          _SubscriptionBreakdown(
+                            totals: _subscriptionTotals,
+                            currency: controller.activeBook.baseCurrencyCode,
+                          ),
+                        ],
                         const SizedBox(height: 18),
                       ],
                     ),
@@ -639,33 +772,46 @@ class _TransactionsPageState extends State<TransactionsPage> {
                                   controller.activeBook.baseCurrencyCode,
                             ),
                             const SizedBox(height: 8),
-                            TransactionListCard(
-                              entries: group.entries,
-                              accounts: controller.accounts,
-                              categories: controller.categories,
-                              tags: controller.tags,
-                              baseCurrencyCode:
-                                  controller.activeBook.baseCurrencyCode,
-                              // 逐笔结余是可选显示；关着时连计算都不做。
-                              balanceAfterEntry: controller.showRunningBalance
-                                  ? controller.balanceAfterEntry
-                                  : null,
-                              selectionMode: _selectionMode,
-                              selectedIds: _selectedIds,
-                              onEntryTap: (entry) {
-                                if (_selectionMode) {
-                                  _toggleSelected(entry.id);
-                                } else {
-                                  openEntryDetail(context, entry);
-                                }
-                              },
-                              onEntryLongPress: (entry) {
-                                setState(() {
-                                  _selectionMode = true;
-                                  _selectedIds.add(entry.id);
-                                });
-                              },
-                            ),
+                            if (widget.subscriptionsOnly)
+                              VeriCard(
+                                child: Material(
+                                  type: MaterialType.transparency,
+                                  child: Column(
+                                    children: [
+                                      for (final entry in group.entries)
+                                        _SubscriptionRow(entry: entry),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            else
+                              TransactionListCard(
+                                entries: group.entries,
+                                accounts: controller.accounts,
+                                categories: controller.categories,
+                                tags: controller.tags,
+                                baseCurrencyCode:
+                                    controller.activeBook.baseCurrencyCode,
+                                // 逐笔结余是可选显示；关着时连计算都不做。
+                                balanceAfterEntry: controller.showRunningBalance
+                                    ? controller.balanceAfterEntry
+                                    : null,
+                                selectionMode: _selectionMode,
+                                selectedIds: _selectedIds,
+                                onEntryTap: (entry) {
+                                  if (_selectionMode) {
+                                    _toggleSelected(entry.id);
+                                  } else {
+                                    openEntryDetail(context, entry);
+                                  }
+                                },
+                                onEntryLongPress: (entry) {
+                                  setState(() {
+                                    _selectionMode = true;
+                                    _selectedIds.add(entry.id);
+                                  });
+                                },
+                              ),
                             const SizedBox(height: 18),
                           ],
                         );
@@ -749,8 +895,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
     VeriFinController controller,
     Set<String>? selectedCategoryIds,
   ) {
-    if (widget.subscriptionsOnly &&
-        (entry.type != EntryType.expense || !isSubscriptionNote(entry.note))) {
+    if (widget.subscriptionsOnly && subscriptionPeriod(entry) == null) {
       return false;
     }
     if (_selectedAccountId != null &&
@@ -878,11 +1023,38 @@ class _TransactionsPageState extends State<TransactionsPage> {
   }) {
     final l10n = AppLocalizations.of(context);
     return AnchoredMenuChoice<TransactionTimeFilter>(
-      values: TransactionTimeFilter.values,
+      values: _selectedCategoryId == null && widget.initialCategoryId == null
+          ? TransactionTimeFilter.values
+          : const [
+              TransactionTimeFilter.all,
+              TransactionTimeFilter.week,
+              TransactionTimeFilter.month,
+              TransactionTimeFilter.year,
+              TransactionTimeFilter.custom,
+            ],
       selected: _timeFilter,
       idOf: (value) => 'transaction_time_${value.name}',
       labelOf: (value) => value.label(l10n),
-      onSelected: (value) {
+      onSelected: (value) async {
+        if (value == TransactionTimeFilter.custom) {
+          final now = dateOnly(DateTime.now());
+          final selected = await showDateRangePicker(
+            context: context,
+            firstDate: DateTime(1900),
+            lastDate: DateTime(9999, 12, 31),
+            initialDateRange:
+                _customRange ??
+                DateTimeRange(start: DateTime(now.year, now.month), end: now),
+            helpText: l10n.customTimeRange,
+          );
+          if (!mounted || selected == null) return;
+          setState(() {
+            _dateMode = false;
+            _timeFilter = value;
+            _customRange = selected;
+          });
+          return;
+        }
         setState(() {
           _dateMode = false;
           _timeFilter = value;
@@ -1157,6 +1329,11 @@ class _TransactionsPageState extends State<TransactionsPage> {
   DateWindow? _activePeriod() {
     final anchor = dateOnly(_periodAnchor);
     switch (_timeFilter) {
+      case TransactionTimeFilter.custom:
+        final range = _customRange;
+        return range == null
+            ? null
+            : DateWindow(start: range.start, end: range.end);
       case TransactionTimeFilter.all:
         return null;
       case TransactionTimeFilter.year:
@@ -1200,6 +1377,9 @@ class _TransactionsPageState extends State<TransactionsPage> {
     }
     final anchor = _periodAnchor;
     switch (_timeFilter) {
+      case TransactionTimeFilter.custom:
+        final localizations = MaterialLocalizations.of(context);
+        return '${localizations.formatCompactDate(period.start)} – ${localizations.formatCompactDate(period.end)}';
       case TransactionTimeFilter.all:
         return _timeFilter.label(AppLocalizations.of(context));
       case TransactionTimeFilter.year:
@@ -1233,6 +1413,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
     setState(() {
       switch (_timeFilter) {
         case TransactionTimeFilter.all:
+        case TransactionTimeFilter.custom:
           break;
         case TransactionTimeFilter.year:
           _periodAnchor = DateTime(
@@ -1283,7 +1464,7 @@ class _TransactionFilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!showNavigation) {
-      return FilterPill(label: label, onTap: onTap);
+      return FilterPill(label: label, onTap: onTap, flexibleLabel: true);
     }
     return Row(
       mainAxisSize: MainAxisSize.min,

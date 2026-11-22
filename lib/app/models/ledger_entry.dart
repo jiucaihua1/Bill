@@ -60,6 +60,55 @@ enum EntryType {
   ];
 }
 
+/// 手动标注随交易保存；automatic 由订阅分析读取当前备注判断。
+extension type const SubscriptionMark._(String storageValue) {
+  static const automatic = SubscriptionMark._('automatic');
+  static const monthly = SubscriptionMark._('monthly');
+  static const yearly = SubscriptionMark._('yearly');
+  static const biennial = SubscriptionMark._('biennial');
+  static const unspecified = SubscriptionMark._('unspecified');
+  static const excluded = SubscriptionMark._('excluded');
+  static const maxMonths = 9999;
+
+  static SubscriptionMark forMonths(int months) {
+    RangeError.checkValueInInterval(months, 1, maxMonths, 'months');
+    return switch (months) {
+      1 => monthly,
+      12 => yearly,
+      24 => biennial,
+      _ => SubscriptionMark._('months:$months'),
+    };
+  }
+
+  int? get months => switch (storageValue) {
+    'monthly' => 1,
+    'yearly' => 12,
+    'biennial' => 24,
+    _ =>
+      storageValue.startsWith('months:')
+          ? int.tryParse(storageValue.substring(7))
+          : null,
+  };
+
+  static SubscriptionMark fromStorage(Object? value) {
+    if (value is! String) return automatic;
+    for (final known in [
+      automatic,
+      monthly,
+      yearly,
+      biennial,
+      unspecified,
+      excluded,
+    ]) {
+      if (known.storageValue == value) return known;
+    }
+    final months = SubscriptionMark._(value).months;
+    return months != null && months > 0 && months <= maxMonths
+        ? forMonths(months)
+        : automatic;
+  }
+}
+
 class LedgerEntry {
   const LedgerEntry({
     required this.id,
@@ -80,6 +129,7 @@ class LedgerEntry {
     this.fee = 0,
     this.reimbursable = false,
     this.excludedFromBudget = false,
+    this.subscriptionMark = SubscriptionMark.automatic,
     double? refundedBaseAmount,
     double? refundedAmount,
     this.refundOf,
@@ -132,6 +182,7 @@ class LedgerEntry {
   /// 但不该占用本月消费额度的支出。**收支统计、账户余额与报表不受影响**，
   /// 它们算的是「实际发生」，与预算口径是两件事。
   final bool excludedFromBudget;
+  final SubscriptionMark subscriptionMark;
 
   /// 已被退款 / 报销回款冲抵的金额（仅支出有意义）——**派生缓存**，
   /// 恒等于「挂在本支出上的·已到账·退款条目金额之和」，由 controller 的
@@ -191,6 +242,7 @@ class LedgerEntry {
     double? fee,
     bool? reimbursable,
     bool? excludedFromBudget,
+    SubscriptionMark? subscriptionMark,
     double? refundedBaseAmount,
     double? refundedAmount,
     String? refundOf,
@@ -221,6 +273,9 @@ class LedgerEntry {
       fee: fee ?? this.fee,
       reimbursable: reimbursable ?? this.reimbursable,
       excludedFromBudget: excludedFromBudget ?? this.excludedFromBudget,
+      subscriptionMark: (type ?? this.type) == EntryType.expense
+          ? subscriptionMark ?? this.subscriptionMark
+          : SubscriptionMark.automatic,
       refundedBaseAmount:
           refundedBaseAmount ?? refundedAmount ?? this.refundedBaseAmount,
       refundOf: clearRefundOf ? null : refundOf ?? this.refundOf,
@@ -248,6 +303,8 @@ class LedgerEntry {
       if (fee != 0) 'fee': fee,
       if (reimbursable) 'reimbursable': true,
       if (excludedFromBudget) 'excludedFromBudget': true,
+      if (subscriptionMark != SubscriptionMark.automatic)
+        'subscriptionMark': subscriptionMark.storageValue,
       if (refundedBaseAmount != 0) 'refundedBaseAmount': refundedBaseAmount,
       if (refundOf != null) 'refundOf': refundOf,
       if (settledAt != null) 'settledAt': settledAt!.toIso8601String(),
@@ -285,6 +342,7 @@ class LedgerEntry {
       fee: (json['fee'] as num?)?.toDouble() ?? 0,
       reimbursable: json['reimbursable'] as bool? ?? false,
       excludedFromBudget: json['excludedFromBudget'] as bool? ?? false,
+      subscriptionMark: SubscriptionMark.fromStorage(json['subscriptionMark']),
       refundedBaseAmount:
           (json['refundedBaseAmount'] as num?)?.toDouble() ??
           (json['refundedAmount'] as num?)?.toDouble() ??

@@ -369,6 +369,16 @@ class _DataManagementPageState extends State<DataManagementPage> {
                       ),
                       const Divider(),
                       SettingsRow(
+                        icon: Icons.copy_all_outlined,
+                        title: AppLocalizations.of(
+                          context,
+                        ).reviewDuplicateImports,
+                        trailing: '',
+                        trailingIcon: Icons.chevron_right,
+                        onTap: () => _reviewDuplicateImports(controller),
+                      ),
+                      const Divider(),
+                      SettingsRow(
                         icon: Icons.file_download_outlined,
                         title: AppLocalizations.of(context).downloadCsvTemplate,
                         trailing: AppLocalizations.of(context).excelHint,
@@ -1289,6 +1299,40 @@ class _DataManagementPageState extends State<DataManagementPage> {
         );
       }
     }
+  }
+
+  Future<void> _reviewDuplicateImports(VeriFinController controller) async {
+    final ids = controller.duplicateImportIds();
+    final bookId = controller.activeBook.id;
+    final l10n = AppLocalizations.of(context);
+    if (ids.isEmpty) {
+      await VeriFeedbackHost.of(
+        context,
+      ).showMessage(message: l10n.noDuplicateImports);
+      return;
+    }
+    final confirmed = await showConfirmDialog(
+      context,
+      title: l10n.deleteEntriesTitle(ids.length),
+      message: l10n.duplicateImportExplanation,
+      confirmLabel: l10n.commonDelete,
+      destructive: true,
+    );
+    if (!mounted || !confirmed || controller.activeBook.id != bookId) return;
+    final current = controller.duplicateImportIds();
+    if (current.length != ids.length || !current.containsAll(ids)) {
+      await VeriFeedbackHost.of(
+        context,
+      ).showMessage(message: l10n.duplicateReviewChanged);
+      return;
+    }
+    final deleted = await controller.deleteEntries(ids);
+    if (!mounted) return;
+    await VeriFeedbackHost.of(context).showMessage(
+      message: deleted
+          ? l10n.duplicateImportsRemoved(ids.length)
+          : l10n.saveFailed,
+    );
   }
 
   Future<void> _exportTransactionsCsv(

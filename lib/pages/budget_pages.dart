@@ -239,8 +239,8 @@ class _BudgetOverviewPageState extends State<BudgetOverviewPage> {
                               ),
                               const SizedBox(height: 5),
                               Text(
-                                // 超出时为负（自带 `-`），上方标签已写明「超出额度」。
-                                formatAmount(remaining),
+                                // 超出时上方标签已写明「本月已超支」，金额展示正数避免双重否定。
+                                formatAmount(remaining.abs()),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: Theme.of(context).textTheme.displaySmall
@@ -317,8 +317,8 @@ class _BudgetOverviewPageState extends State<BudgetOverviewPage> {
                                   : AppLocalizations.of(
                                       context,
                                     ).budgetRemainingQuota,
-                              // 超出时为负（自带 `-`），标签写明是「超出额度」。
-                              value: formatAmount(remaining),
+                              // 超出时标签已写明「超出预算」，金额用正数与首页保持一致。
+                              value: formatAmount(remaining.abs()),
                               icon: remaining < 0
                                   ? Icons.warning_amber_rounded
                                   : Icons.account_balance_wallet_outlined,

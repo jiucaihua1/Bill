@@ -909,14 +909,31 @@ class _RecentStatLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      AppLocalizations.of(context).recentStatLine(label, value),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-        color: Theme.of(context).colorScheme.onSurface,
-        fontWeight: FontWeight.w700,
-      ),
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.56),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleSmall?.copyWith(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
 }

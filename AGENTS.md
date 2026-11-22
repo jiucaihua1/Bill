@@ -4,7 +4,7 @@
 - 包管理器：**pub**（通过 `flutter pub get` / `flutter pub add` 使用）；不引入 npm/yarn/pnpm 等前端工具链。
 - 样式方案：Flutter Material 3 + 项目自有设计令牌（`veri*` 颜色、`veriRadius*` 圆角、`VeriPage` / `VeriCard` / `VeriHeader` 页面骨架）；不使用 CSS，业务代码不硬编码颜色、圆角等视觉值，统一走设计令牌与主题。
 - UI 组件库：Flutter Material 3 + `fl_chart`、`anchored_menu`、`home_widget`；本地 vendor `third_party/liquid_glass_widgets` 只用于可选的液态玻璃底栏。
-- 工具链：Flutter 3.47.2（与 CI 固定版本一致）、Java 17+、Android SDK（含 NDK 与 CMake）；正式 APK/AAB 只由 CI 构建。
+- 工具链：Flutter 3.47.2（与 CI 固定版本一致）、Java 17+、Android SDK（含 NDK 与 CMake）。
 
 本仓库不启用 GitHub Pull Requests，不接受外部 PR。外部反馈只通过 Issue；代码改动由维护者在 Issue 确认范围后直接实施。
 
@@ -41,7 +41,7 @@ integration_test/             # 设备侧冒烟与帧耗时采样（不进 CI）
 scripts/                      # Dart 任务脚本（doctor/publish/prune/clean/widget_previews）
 docs/                         # 当前事实：产品、设计、开发文档与测试样例
 .agents/notes/                # 设计与决策记录（为什么这么定、否掉了什么）
-.agents/skills/               # 固化流程（release：合并→发版→等 CI→汇报）
+.agents/skills/               # 项目流程
 third_party/                  # 本地 vendor 源码（jdenticon_dart、liquid_glass_widgets）
 ```
 
@@ -73,7 +73,6 @@ third_party/                  # 本地 vendor 源码（jdenticon_dart、liquid_g
 - `docs/design/ui-guidelines.md`：页面骨架、交互、图表和视觉规范；新增根导航样式前先读「根导航」小节及其契约测试清单。
 - `docs/dev/tech-decisions.md`：数据口径、备份范围和关键技术取舍；判断当前实现仍以源码、测试与工作流为准。
 - `.agents/notes/`：设计稿、技术选型与被否决方案的**来龙去脉**；不是当前事实，规则见 `.agents/notes/README.md`。
-- `.agents/skills/release/SKILL.md`：**发版的可执行步骤**（合并、清理分支、发版、等 CI、处置失败、汇报）。
 - `.agents/skills/merge-pr/SKILL.md`：合并 PR 的可执行流程（状态判定、合并、回滚）。
 - `.agents/CONVENTIONS.md`：跨项目共用的体系约定（分支合并、依赖更新、文档分层、授权边界）。
 - `docs/dev/known-limitations.md`：已接受的限制、技术债及触发整改的阈值。
@@ -207,47 +206,19 @@ dart run scripts/widget_previews.dart
 - 手机开发前先按 `docs/dev/android-development.md` 检测 Flutter（与 CI 固定版本一致）、Java、Android SDK、adb 与 `local.properties`。缺工具时优先复用已安装版本；**需要安装或升级会改动现有 SDK/JDK/PATH 的，先说明影响并取得用户同意**，安装后复检。权限、下载或手机授权实际受阻时才请求用户处理。
 - **Android 构建的 NDK/CMake 前置**：Flutter 3.47 的 Gradle 插件会强制使用 NDK `28.2.13676358`；AGP 9 默认使用 CMake `3.22.1`。构建前确认 `<android-sdk>/ndk/28.2.13676358/source.properties` 与 `<android-sdk>/cmake/3.22.1/bin/cmake.exe` 存在。`cmdline-tools` 23 已弃用 `sdkmanager`，不要依赖 Flutter 的自动 NDK 安装；用 Android Studio SDK Manager 或 `android sdk install` 安装。
 - 提交前执行 `dart format .`、`flutter analyze` 和 `flutter test`。只改文档时至少做 `git diff --check`、链接和路径校验，可不运行 Flutter 测试，但要在汇报中说明。
-- 不把本地 `flutter build apk` 当成交付依据；正式 APK/AAB 由 GitHub Actions 构建。
 
 ### CI 与发版
 
-- `.github/workflows/ci.yml` 在每次 push 到 `main` 时执行格式检查、analyze、全量测试和 `github` flavor Android debug APK 编译门禁；该 APK 只用于提前发现 Kotlin/Manifest/原生桥编译错误，不作为交付物。
-- `.github/workflows/flutter.yml` 只在推送 `vX.Y.Z` 标签时触发发布构建：
-  - GitHub 自分发：arm64-v8a APK，`--flavor github --split-per-abi`；必须保持 `force-version-code-ignoring-abi=true`，否则 ABI 版本号偏移会破坏 GitHub / Play 渠道间的覆盖升级。
-  - Google Play：AAB，`--flavor play --dart-define=UPDATE_CHECK=false`。
-- 两种 release 都开启 R8 代码压缩与资源裁剪。新增依赖若使用反射，必须同步检查 `android/app/proguard-rules.pro`；OCR、通知等问题可能只在 release/R8 下暴露。
-- `play` flavor 移除 `USE_EXACT_ALARM`，保留可申请的 `SCHEDULE_EXACT_ALARM` 并在无授权时回退；检查更新入口通过 `kUpdateCheckEnabled` 隐藏（GitHub flavor 保留：只查询版本并跳转 Release 页面，应用内不下载、不安装 APK，不申请安装未知应用权限）。渠道差异放在 flavor Manifest 或构建开关中表达。
-- CI 创建 GitHub **预发布**且不标记 Latest；真机验收通过后再由维护者手动提升为正式版。Release 使用项目内稳定 keystore；不要替换、重生成或泄露签名材料。
-- `.github/workflows/telegram-release.yml` 在预发布提升为正式版（`release: released`）或手动触发时，把版本公告发到 Telegram 社区群：bot token 存 `TELEGRAM_BOT_TOKEN`（secret），目标群与话题存 `TELEGRAM_CHAT_ID` / `TELEGRAM_THREAD_ID`（repository variables，缺省 `@verifin_app` 与群的默认话题）。凭证缺失时只打印 notice 并跳过，不让门禁变红。
-
-**发版必须得到用户明确授权。** 打标签会推送远端并触发 CI，不能自行执行。实际顺序如下：
-
-1. 先跑 `dart run scripts/doctor.dart` 确认环境（Flutter 版本必须等于 CI 固定版本、Android SDK/JDK 可用、工作树干净）。
-2. 确定版本号与日期，把 `CHANGELOG.md` 顶部 `## [Unreleased]` 提升为本次版本，并在其上新建空的 `## [Unreleased]`。`CHANGELOG.md` 只保留未发布改动与最近一个次版本线；更早版本的**源码归档以 git 标签为准**，不再回填。
-3. 提交 CHANGELOG 变更，确认当前分支是 `main` 且工作树完全干净。
-4. 运行发布脚本，参数可取 `patch`、`minor`、`major` 或显式版本号（如 `1.2.3`）：`dart run scripts/publish.dart patch`。脚本会再次校验「本机 Flutter 版本 == CI 固定版本」，不一致直接失败（analyzer 的 lint 集合随版本变化，本地绿不代表 CI 绿）；`--dry-run` 只打印将要执行的步骤。
-5. 脚本更新 `pubspec.yaml` 与 `lib/app/app_version.dart`，执行格式化、依赖安装、analyze、test，创建 `chore: release vX.Y.Z` 提交、标签并推送；推送标签触发 CI 构建 APK/AAB 并创建 GitHub **预发布**（不标记 Latest）。
-6. 下载 CI 生成的预发布 APK 真机验收；通过后在 GitHub 上把该 Release **提升为正式版并标记 Latest**（`prerelease` 去掉），同时用 `--notes-file` 重写说明：删掉开头的「⚠️ 预发布（待验证）」与结尾「仍为预发布」两段，保留版本内容与覆盖安装提示。提升后核对 Telegram 公告 run 是否成功；GitHub 未触发 `released` 事件时用 `gh workflow run telegram-release.yml -f tag=vX.Y.Z` 补发。
-7. 清理没被提升的预发布（见下）。
-
-**Release 标题与说明（规范）：**
-
-- **标题固定等于标签名**：`vX.Y.Z`，不加中文摘要等后缀。CI 建预发布时使用标签名，提升为正式版时不再改标题。
-- **说明正文固定取自 `docs/release-notes/vX.Y.Z.md`**（内容与 `CHANGELOG.md` 的对应版本段一致，但**不自动拼接**）：CI 在构建前校验该文件存在，并直接作为 Release 的 `body_path`。模板是 `docs/release-notes/_template.md`，预发布提示与「直接覆盖安装 + 更新前先备份」都写在文件里。
-- **不写安装包自身的说明**：架构 / ABI / 体积 / 机型限制属于构建与分发口径，只记在 `README.md` 与 `docs/dev/tech-decisions.md`，不进 Release 说明。
-- 提升为正式版：`gh release edit vX.Y.Z --prerelease=false --latest`（不动 git 标签与附件），再用 `--notes-file` 去掉说明里仅适用于预发布的两段（开头的验收提示与结尾的「仍为预发布」说明）；完成后回读 `gh release view` / `gh release list` 确认 `isPrerelease=false`、Latest 已指向它，且说明里不再出现「预发布」。
-
-### 版本归档与预发布清理
-
-- GitHub Releases 只保留**正式版**（推荐 Latest 指向最新正式版）；预发布只是「待真机验收」的临时状态，验收通过就应该提升为正式版，而不是长期留存。
-- **git 标签是版本源码的唯一归档**：即使清掉了某个预发布的 Release 页面，也不要删除它的标签——发布脚本会拒绝复用已存在的标签，标签也是旧版本唯一的源码定位方式。Release 页面可以删，标签不要删。
-- 清理命令：`dart run scripts/prune_prereleases.dart --dry-run` 先核对列表，再去掉 `--dry-run` 执行（默认保留 git 标签）。只有在确认某个标签确实不再需要时才加 `--cleanup-tag`。
+- 主分支的 GitHub Actions 执行格式检查、静态分析、全量测试和 Android debug 构建。
+- Bill 的正式安装包按 README 的流程构建和验证，使用个人版包名和同一份个人版签名证书。签名材料通过构建环境提供。
+- 发布前同步 pubspec.yaml、lib/app/app_version.dart、CHANGELOG.md 和 docs/release-notes/vX.Y.Z.md。发布到 Bill 的 GitHub Releases，标签为 vX.Y.Z。
+- 发版和推送标签须经用户明确授权。发布后核对 Latest 指向的正式版本和 APK 附件。
 
 ### 脚本
 
 - `scripts/` 下的任务脚本一律用 **Dart** 实现（`dart run scripts/<name>.dart`），不再维护 `.sh` / `.ps1` 双份：Dart 是本项目必然存在的运行时，跨平台只有一份实现，且 `dart format` 与 `flutter analyze` 会把脚本一起纳入质量门禁。
 - 纯逻辑放 `scripts/src/`（可被 `test/` 直接单测，如 `test/scripts_version_test.dart`），入口脚本只做编排；脚本依赖只加 `dev_dependencies`，不得影响 APK。
-- 现有脚本：`doctor.dart`（环境自检：Flutter 版本对齐 CI、Android SDK/JDK/adb/gh、工作树）、`publish.dart`（发版）、`prune_prereleases.dart`（清理预发布）、`clean.dart`（清理构建产物）、`widget_previews.dart`（在设备上重导出桌面组件的选择器预览 PNG，改组件视觉后必须重跑）。
+- 现有脚本：`doctor.dart`（环境自检：Flutter 版本对齐 CI、Android SDK/JDK/adb/gh、工作树）、`prune_prereleases.dart`（清理预发布）、`clean.dart`（清理构建产物）、`widget_previews.dart`（在设备上重导出桌面组件的选择器预览 PNG，改组件视觉后必须重跑）。
 
 ## 领域约束
 

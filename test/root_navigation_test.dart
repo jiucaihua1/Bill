@@ -98,7 +98,7 @@ void main() {
   testWidgets('四个中文标签常显在底栏内', (tester) async {
     await tester.pumpWidget(const _NavigationHarness());
 
-    for (final label in <String>['首页', '资产', '看板', '我的']) {
+    for (final label in <String>['首页', '看板', '资产', '我的']) {
       expect(
         find.descendant(
           of: find.byKey(const Key('main_bottom_nav')),
@@ -190,14 +190,14 @@ class _NavigationHarnessState extends State<_NavigationHarness> {
       label: '首页',
     ),
     VeriNavigationDestination(
-      icon: Icons.account_balance_wallet_outlined,
-      selectedIcon: Icons.account_balance_wallet_rounded,
-      label: '资产',
-    ),
-    VeriNavigationDestination(
       icon: Icons.bar_chart_outlined,
       selectedIcon: Icons.bar_chart_rounded,
       label: '看板',
+    ),
+    VeriNavigationDestination(
+      icon: Icons.account_balance_wallet_outlined,
+      selectedIcon: Icons.account_balance_wallet_rounded,
+      label: '资产',
     ),
     VeriNavigationDestination(
       icon: Icons.person_outline_rounded,

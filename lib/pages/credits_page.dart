@@ -1,19 +1,11 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../app/common_widgets.dart';
 import '../app/credits.dart';
 import '../app/credits_avatar.dart';
-import '../app/external_links.dart';
-import '../app/feedback.dart';
-import '../app/veri_fin_scope.dart';
 import '../l10n/app_localizations.dart';
 
-/// 鸣谢名单页：支持者头像墙 + 赞助入口。
-///
-/// 名单与头像都是随包发布的静态内容（见 `lib/app/credits.dart`），页面不读账目状态；
-/// 只在打开浏览器失败时借 scope 记一条日志。页面没有可编辑内容，不需要未保存守卫。
+/// 展示原项目署名和随包发布的支持者名单。
 class CreditsPage extends StatelessWidget {
   const CreditsPage({super.key, this.supporters = creditsSupporters});
 
@@ -63,26 +55,9 @@ class CreditsPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
               ],
-              VeriCard(
-                child: _SupportSection(onSupport: () => _openDonation(context)),
-              ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Future<void> _openDonation(BuildContext context) async {
-    final opened = await ExternalLinks.openDonation();
-    if (opened || !context.mounted) {
-      return;
-    }
-    VeriFinScope.of(context).logger?.error('打开赞助主页失败', source: 'credits_page');
-    unawaited(
-      VeriFeedbackHost.of(context).showMessage(
-        message: AppLocalizations.of(context).openLinkFailed,
-        tone: VeriFeedbackTone.error,
       ),
     );
   }
@@ -164,44 +139,6 @@ class _SupporterTile extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-}
-
-/// 赞助入口：说明 + 一键跳系统浏览器（[ExternalLinks.donationUrl]）。
-class _SupportSection extends StatelessWidget {
-  const _SupportSection({required this.onSupport});
-
-  final VoidCallback onSupport;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          AppLocalizations.of(context).creditsSupportNote,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            height: 1.6,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.82),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton.icon(
-            key: const Key('credits_support_button'),
-            style: FilledButton.styleFrom(
-              backgroundColor: theme.colorScheme.primary,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-            onPressed: onSupport,
-            icon: const Icon(Icons.favorite, size: 18),
-            label: Text(AppLocalizations.of(context).creditsSupportAction),
-          ),
-        ),
-      ],
     );
   }
 }

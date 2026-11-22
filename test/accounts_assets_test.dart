@@ -18,7 +18,7 @@ void main() {
   testWidgets('账户图标选择器支持分组浏览、搜索和选择', (WidgetTester tester) async {
     await pumpApp(tester);
 
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     await tester.tap(find.byTooltip('资产操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('添加账户'));
@@ -79,7 +79,7 @@ void main() {
   ) async {
     await pumpApp(tester);
 
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     await tester.tap(find.byTooltip('资产操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('添加账户'));
@@ -130,7 +130,7 @@ void main() {
   testWidgets('添加账户修改后返回可选择不保存', (tester) async {
     final controller = await pumpApp(tester);
 
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     await tester.tap(find.byTooltip('资产操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('添加账户'));
@@ -151,7 +151,7 @@ void main() {
 
   testWidgets('新建账户切换类型后可恢复暂时隐藏的卡号草稿', (tester) async {
     await pumpApp(tester);
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     await tester.tap(find.byTooltip('资产操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('添加账户'));
@@ -183,7 +183,7 @@ void main() {
 
   testWidgets('新建账户的初始余额走数字键盘且支持负数', (tester) async {
     final controller = await pumpApp(tester);
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     await tester.tap(find.byTooltip('资产操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('添加账户'));
@@ -262,7 +262,7 @@ void main() {
   testWidgets('资产背景入口位于资产操作菜单的显示设置中', (WidgetTester tester) async {
     await pumpApp(tester);
 
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     await tester.tap(find.byTooltip('资产操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('资产显示设置'));
@@ -279,7 +279,7 @@ void main() {
 
   testWidgets('资产背景在线预设选择即保存', (tester) async {
     final controller = await pumpApp(tester);
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     await tester.tap(find.byTooltip('资产操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('资产显示设置'));
@@ -304,7 +304,7 @@ void main() {
   testWidgets('starts with no default accounts', (WidgetTester tester) async {
     await pumpApp(tester);
 
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
 
     expect(find.text('支付宝'), findsNothing);
     expect(find.text('微信'), findsNothing);
@@ -345,7 +345,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
 
     expect(find.text('有 1 个账户待设置汇率'), findsOneWidget);
     expect(find.text('还没有可用于折算的历史汇率，设置今天或更早的汇率后显示资产走势。'), findsOneWidget);
@@ -409,7 +409,7 @@ void main() {
         ),
       );
     await tester.pump();
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
 
     expect(find.text('还没有可用于折算的历史汇率，设置今天或更早的汇率后显示资产走势。'), findsNothing);
     expect(find.byType(InteractiveTrendChart), findsOneWidget);
@@ -450,7 +450,7 @@ void main() {
         ),
       );
     await tester.pump();
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     expect(find.text('还没有可用于折算的历史汇率，设置今天或更早的汇率后显示资产走势。'), findsOneWidget);
 
     expect(
@@ -497,7 +497,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
 
     expect(find.byType(InteractiveTrendChart), findsNothing);
     expect(find.text('设置汇率'), findsOneWidget);
@@ -559,7 +559,7 @@ void main() {
   ) async {
     await pumpApp(tester);
 
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     await tester.tap(find.byTooltip('资产操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('管理分组'));
@@ -837,7 +837,7 @@ void main() {
     seed.dispose();
 
     final controller = await pumpApp(tester, store);
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
 
     await tester.tap(find.byTooltip('资产操作'));
     await tester.pumpAndSettle();
@@ -862,7 +862,7 @@ void main() {
 
     await tester.pumpWidget(const SizedBox.shrink());
     await pumpApp(tester, store);
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
 
     expect(find.text('未分组'), findsOneWidget);
     expect(find.text('支付宝账户'), findsNothing);
@@ -870,7 +870,7 @@ void main() {
 
   testWidgets('资产显示设置返回直接保留已保存的改动', (tester) async {
     final controller = await pumpApp(tester);
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     await tester.tap(find.byTooltip('资产操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('资产显示设置'));
@@ -909,7 +909,7 @@ void main() {
     await tester.tap(find.byTooltip('返回'));
     await tester.pumpAndSettle();
 
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
 
     expect(find.text('默认账本账户'), findsNothing);
   });
@@ -1052,7 +1052,7 @@ void main() {
     await tester.pumpWidget(VeriFinApp(controller: controller));
     await tester.pumpAndSettle();
 
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     await tester.tap(find.byTooltip('资产操作'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('资产显示设置'));
@@ -1122,7 +1122,7 @@ void main() {
     await tester.pumpWidget(VeriFinApp(controller: controller));
     await tester.pumpAndSettle();
 
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
 
     expect(find.text('排序'), findsNothing);
     await tester.tap(find.byTooltip('资产操作'));

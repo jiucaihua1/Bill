@@ -199,13 +199,8 @@ class _BudgetMetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.09),
-        borderRadius: BorderRadius.circular(veriRadiusSm),
-        border: Border.all(color: color.withValues(alpha: 0.10)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       child: Row(
         children: <Widget>[
           VeriIconBox(icon: icon, color: color, size: 28),
@@ -222,8 +217,8 @@ class _BudgetMetricTile extends StatelessWidget {
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: Theme.of(
                       context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.50),
-                    fontWeight: FontWeight.w700,
+                    ).colorScheme.onSurface.withValues(alpha: 0.56),
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -233,7 +228,7 @@ class _BudgetMetricTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(
                     context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ],
             ),

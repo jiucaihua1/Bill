@@ -375,10 +375,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(
-        of: find.byType(BudgetPanel),
-        matching: find.text('已超支'),
-      ),
+      find.descendant(of: find.byType(BudgetPanel), matching: find.text('已超支')),
       findsOneWidget,
     );
     expect(

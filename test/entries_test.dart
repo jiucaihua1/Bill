@@ -788,6 +788,12 @@ void main() {
     final store = LocalKeyValueStore();
     final controller = await makeController(store);
     final now = DateTime.now();
+    final roots = controller
+        .categoriesForType(EntryType.expense)
+        .where((c) => c.isRoot)
+        .toList();
+    final first = roots.first;
+    final second = roots[1];
     controller
       ..addAccount(
         Account(
@@ -809,7 +815,7 @@ void main() {
           bookId: controller.activeBook.id,
           type: EntryType.expense,
           amount: 30,
-          categoryId: 'dining',
+          categoryId: first.id,
           accountId: 'cash-view-test',
           note: '午餐',
           occurredAt: now,
@@ -821,28 +827,83 @@ void main() {
           bookId: controller.activeBook.id,
           type: EntryType.expense,
           amount: 12,
-          categoryId: 'transport',
+          categoryId: second.id,
           accountId: 'cash-view-test',
           note: '公交',
           occurredAt: now,
         ),
       )
-      ..dispose();
+      ..addEntry(
+        LedgerEntry(
+          id: 'view-snack',
+          bookId: controller.activeBook.id,
+          type: EntryType.expense,
+          amount: 10,
+          categoryId: first.id,
+          accountId: 'cash-view-test',
+          note: '小食',
+          occurredAt: now,
+        ),
+      );
+    await controller.waitForPendingWrites();
+    controller.dispose();
 
     await pumpApp(tester, store);
     await tapBottomTab(tester, 3);
     await tester.tap(find.text('分类管理'));
     await tester.pumpAndSettle();
 
-    // 点「餐饮」→ 菜单「查看交易」。
-    await tester.tap(find.text('餐饮').first);
+    // 点测试分类→ 菜单「查看交易」。
+    await tester.tap(find.text(first.label).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('查看交易'));
     await tester.pumpAndSettle();
 
-    // 跳到交易列表，且已按「餐饮」预筛：只见餐饮那笔（午餐），不见交通那笔（公交）。
+    // 跳到交易列表，且只显示所选分类下的两笔支出。
     expect(find.text('午餐'), findsOneWidget);
     expect(find.text('公交'), findsNothing);
+    final metrics = tester
+        .widgetList<SummaryMetric>(find.byType(SummaryMetric))
+        .toList();
+    expect(metrics.map((m) => m.label), ['支出', '平均每笔支出']);
+    expect(metrics.last.value, '20');
+    await tester.tap(find.text('全部时间'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(
+        const ValueKey('anchored_menu_item_transaction_time_last30Days'),
+      ),
+      findsNothing,
+    );
+    await tester.tap(find.text('自定义时间'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DateRangePickerDialog), findsOneWidget);
+    final dialogContext = tester.element(find.byType(DateRangePickerDialog));
+    Navigator.pop(
+      dialogContext,
+      DateTimeRange(
+        start: DateTime(now.year, now.month, now.day),
+        end: DateTime(now.year, now.month, now.day),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('午餐'), findsOneWidget);
+    expect(find.text('公交'), findsNothing);
+    final compact = MaterialLocalizations.of(
+      tester.element(find.byType(TransactionsPage)),
+    ).formatCompactDate(now);
+    await tester.tap(find.text('$compact – $compact'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('自定义时间'));
+    await tester.pumpAndSettle();
+    final previousDay = DateTime(now.year, now.month, now.day - 1);
+    Navigator.pop(
+      tester.element(find.byType(DateRangePickerDialog)),
+      DateTimeRange(start: previousDay, end: previousDay),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('午餐'), findsNothing);
+    expect(find.text('小食'), findsNothing);
   });
 
   testWidgets('transfer entry shows a fee field and records it', (

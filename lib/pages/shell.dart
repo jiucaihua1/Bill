@@ -298,8 +298,8 @@ class _VeriFinShellState extends State<VeriFinShell> {
     final navigationStyle = _navigationStyle;
     final pages = <Widget>[
       const HomePage(),
-      const AssetsPage(),
       const ReportsPage(),
+      const AssetsPage(),
       const ProfilePage(),
     ];
     // 目的地定义与样式选择页预览共用，避免两处各维护一套图标和标签。
@@ -597,8 +597,8 @@ class _VeriFinShellState extends State<VeriFinShell> {
       return;
     }
     final target = switch (route) {
-      'assets' || 'account' || 'net_worth' => 1,
-      'reports' || 'budget' || 'trend' => 2,
+      'reports' || 'budget' || 'trend' => 1,
+      'assets' || 'account' || 'net_worth' => 2,
       'profile' => 3,
       _ => null,
     };

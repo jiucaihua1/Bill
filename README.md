@@ -69,7 +69,7 @@ flutter analyze && flutter test
 
 开发环境使用 Flutter 3.47.2、JDK 17+（CI 固定 17）和 Android SDK（含 NDK 与 CMake）。日常调试必须使用独立数据目录的 `diagnostic` flavor；环境自检、真机验收和 release 检查见 [Android 开发](docs/dev/android-development.md)。
 
-正式 APK/AAB 由 CI 构建，本地 APK 不作为交付物。渠道差异、R8 和签名约束以 [技术决策](docs/dev/tech-decisions.md) 与工作流为准。
+CI 校验格式、静态分析、测试和 Android 调试构建。个人版安装包按上面的签名流程打包，经真机验证后发布到本仓库。
 
 ## 文档
 
@@ -83,29 +83,6 @@ flutter analyze && flutter test
 | [技术决策](docs/dev/tech-decisions.md) | 数据口径、备份范围与关键技术取舍 |
 | [Android 开发](docs/dev/android-development.md) | 工具链、真机调试与交付检查 |
 | [贡献指南](CONTRIBUTING.md) | Issue 反馈与仓库维护约定 |
-
-## Community
-
-English-first Telegram group for usage questions, tips and release news:
-[Verifin Community](https://t.me/verifin_app).
-
-The group is not a support desk — bug reports and feature requests still go to
-[Issues](https://github.com/jiucaihua1/Bill/issues), where they can be searched and closed.
-Admins never ask for passwords, backups or API keys.
-
-## Star History
-
-<a href="https://www.star-history.com/?type=date&repos=LumiDesk%2Fverifin">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=LumiDesk/verifin&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=LumiDesk/verifin&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=LumiDesk/verifin&type=date&legend=top-left" />
- </picture>
-</a>
-
-## 支持项目
-
-Veri Fin 完全免费，也不通过广告或数据变现。如果它帮到了你，欢迎在 [爱发电](https://afdian.com/a/talyra42) 支持项目；点一个 Star 或提交 Issue，同样很有帮助。
 
 ## 许可证
 

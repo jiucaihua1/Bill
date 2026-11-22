@@ -162,6 +162,7 @@ void main() {
       expect(lunch.reimbursable, isFalse);
       // v17 新增列：旧交易一律回落「照常计入预算」。
       expect(lunch.excludedFromBudget, isFalse);
+      expect(lunch.subscriptionMark, SubscriptionMark.automatic);
       expect(lunch.refundedAmount, 0);
       expect(lunch.refundOf, isNull);
       expect(lunch.settledAt, isNull);

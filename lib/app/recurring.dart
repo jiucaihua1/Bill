@@ -20,13 +20,14 @@ DateTime advanceRecurring(
     case RecurringFrequency.weekly:
       return DateTime(date.year, date.month, date.day + 7);
     case RecurringFrequency.monthly:
-      return _addMonths(date, 1, anchorDay ?? date.day);
+      return addCalendarMonths(date, 1, anchorDay ?? date.day);
     case RecurringFrequency.yearly:
-      return _addMonths(date, 12, anchorDay ?? date.day);
+      return addCalendarMonths(date, 12, anchorDay ?? date.day);
   }
 }
 
-DateTime _addMonths(DateTime date, int months, int anchorDay) {
+/// 按日历月推进，目标月没有锚定日时取月末。
+DateTime addCalendarMonths(DateTime date, int months, int anchorDay) {
   final total = date.month - 1 + months;
   final year = date.year + total ~/ 12;
   final month = total % 12 + 1;

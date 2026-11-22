@@ -192,13 +192,8 @@ int compareVersions(String a, String b) {
   return 0;
 }
 
-/// 当前版本号：去掉展示用的 `v` 前缀与 `+build`，用于和 Release 版本比较。
-String currentAppVersionNumber() {
-  final label = appVersionLabel.startsWith('v')
-      ? appVersionLabel.substring(1)
-      : appVersionLabel;
-  return label.split('+').first;
-}
+/// 与 GitHub Release 比较用的数字版本。
+String currentAppVersionNumber() => appVersionLabel;
 
 /// 删除旧版本留下的更新安装包缓存。
 ///

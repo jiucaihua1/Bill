@@ -2665,6 +2665,48 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     notifyListeners();
   }
 
+  /// 只标注当前账本已有支出，不创建流水，也不更改金额、备注或账户。
+  Future<bool> markSubscriptionExpenses(
+    String bookId,
+    Set<String> ids,
+    SubscriptionMark mark,
+  ) async {
+    if (bookId != _activeBookId || ids.isEmpty) return false;
+    final previous = <String, LedgerEntry>{
+      for (final entry in _entries)
+        if (entry.bookId == bookId &&
+            entry.type == EntryType.expense &&
+            ids.contains(entry.id))
+          entry.id: entry,
+    };
+    if (previous.length != ids.length) return false;
+    final changes = <String, LedgerEntry>{
+      for (final entry in previous.values)
+        if (entry.subscriptionMark != mark)
+          entry.id: entry.copyWith(subscriptionMark: mark),
+    };
+    if (changes.isEmpty) return true;
+    for (var i = 0; i < _entries.length; i++) {
+      final changed = changes[_entries[i].id];
+      if (changed != null) _entries[i] = changed;
+    }
+    final write = _runTrackedWrite(
+      () => _repository.saveEntries(List.of(_entries)),
+    );
+    notifyListeners();
+    final saved = await write;
+    if (!saved) {
+      for (var i = 0; i < _entries.length; i++) {
+        final entry = _entries[i];
+        if (identical(changes[entry.id], entry)) {
+          _entries[i] = previous[entry.id]!;
+        }
+      }
+      notifyListeners();
+    }
+    return saved;
+  }
+
   /// 标记 / 取消标记支出为「待报销」。仅支出有效。
   void setEntryReimbursable(String entryId, bool reimbursable) {
     final index = _entries.indexWhere((item) => item.id == entryId);
@@ -3275,6 +3317,31 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   Future<bool> deleteEntry(String entryId) {
     // 删支出时级联删除挂它的退款条目；删退款时由 _syncRefundData 恢复原支出净额缓存。
     return _deleteEntryIds(<String>{entryId});
+  }
+
+  /// 比较账本内导入流水的全部持久化字段（内部 ID 除外）。单独保留每个带关联的原交易。
+  Set<String> duplicateImportIds() {
+    final protected = {
+      for (final attachment in _attachments) attachment.entryId,
+      for (final e in _entries)
+        if (e.refundOf != null) e.refundOf!,
+    };
+    final groups = <String, List<String>>{};
+    for (final entry in entries) {
+      if (entry.conversionSource != ConversionSource.imported ||
+          entry.type == EntryType.refund) {
+        continue;
+      }
+      final fields = entry.toJson()..remove('id');
+      groups.putIfAbsent(jsonEncode(fields), () => []).add(entry.id);
+    }
+    final duplicates = <String>{};
+    for (final ids in groups.values) {
+      if (ids.length < 2) continue;
+      final safe = ids.where((id) => !protected.contains(id)).toList()..sort();
+      duplicates.addAll(safe.skip(safe.length == ids.length ? 1 : 0));
+    }
+    return duplicates;
   }
 
   /// 批量删除交易（连同关联退款条目与附件级联清理）。

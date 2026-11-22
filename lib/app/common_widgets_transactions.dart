@@ -281,7 +281,15 @@ class TransactionTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Row(
                       children: <Widget>[
-                        Text(stamp, style: subStyle),
+                        Flexible(
+                          flex: 3,
+                          child: Text(
+                            stamp,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: subStyle,
+                          ),
+                        ),
                         if (entry.note.isNotEmpty) ...<Widget>[
                           Text(' · ', style: subStyle),
                           Flexible(

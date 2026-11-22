@@ -56,11 +56,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(opened.single.toString(), 'https://github.com/jiucaihua1/Bill');
-    await tester.ensureVisible(find.text('鸣谢'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('鸣谢'));
-    await tester.pumpAndSettle();
-    expect(opened.last.toString(), 'https://github.com/LumiDesk/verifin');
   });
 
   testWidgets('浏览器打不开时 GitHub 仓库入口给出错误轻提示', (tester) async {

@@ -1,3 +1,3 @@
-// 应用版本号展示文案;由 scripts/publish.dart 在发版时自动更新。
+// 应用版本号展示文案，与 pubspec.yaml 中的版本号保持一致。
 
-const String appVersionLabel = 'v1.21.3+191';
+const String appVersionLabel = '1.21.4';

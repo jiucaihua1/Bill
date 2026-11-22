@@ -60,10 +60,7 @@ enum WidgetTapAction {
       ? WidgetTapAction.home
       : WidgetTapAction.stats;
 
-  static WidgetTapAction fromKey(
-    String? key, {
-    WidgetTemplate? template,
-  }) {
+  static WidgetTapAction fromKey(String? key, {WidgetTemplate? template}) {
     for (final action in values) {
       if (action.key == key) return action;
     }

@@ -171,6 +171,9 @@ class _LocalizedTestAppState extends State<_LocalizedTestApp> {
   }
 }
 
+const reportsTabIndex = 1;
+const assetsTabIndex = 2;
+
 /// 底栏第 [index] 个条目的中心点。
 ///
 /// 按条目的稳定 key 定位：根导航样式契约要求每个样式为条目产出
@@ -195,10 +198,10 @@ Future<void> tapBottomTab(WidgetTester tester, int index) async {
   await tester.pumpAndSettle();
 }
 
-/// 切到看板并选中「月统计」Tab。看板默认落在「日常」Tab，断言原有月度面板的
+/// 切到看板并选中「月统计」Tab。看板默认落在「周统计」Tab，断言原有月度面板的
 /// 用例必须先切过去（脚手架默认固定中文，故按文案点）。
 Future<void> openReportsMonthlyTab(WidgetTester tester) async {
-  await tapBottomTab(tester, 2);
+  await tapBottomTab(tester, reportsTabIndex);
   await tester.tap(find.text('月统计').first);
   await tester.pumpAndSettle();
 }
@@ -219,7 +222,7 @@ Finder firstVerticalScrollable() => find
     .first;
 
 Future<void> addTestAccount(WidgetTester tester, String name) async {
-  await tapBottomTab(tester, 1);
+  await tapBottomTab(tester, assetsTabIndex);
   await tester.tap(find.byTooltip('资产操作'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('添加账户'));

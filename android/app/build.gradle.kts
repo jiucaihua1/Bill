@@ -71,7 +71,6 @@ android {
         create("diagnostic") {
             dimension = "distribution"
             applicationIdSuffix = ".personalledger"
-            versionNameSuffix = "-personal"
         }
     }
 

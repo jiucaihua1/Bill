@@ -6,8 +6,8 @@ import 'package:url_launcher/url_launcher.dart';
 /// 全项目只从这里打开链接，且地址只能是本文件里的常量：不接受用户输入、账目文本或
 /// AI 回答拼出来的 URL，避免形成任意跳转入口。
 ///
-/// 一律交给**系统默认浏览器**（`LaunchMode.platformDefault`）：赞助、发布说明这类页面
-/// 需要用户自己的登录态与支付环境，系统浏览器比内嵌 WebView 更稳，也不用在应用里
+/// 一律交给**系统默认浏览器**（`LaunchMode.platformDefault`）：仓库、发布说明这类页面
+/// 可以使用用户已有的登录态，也不用在应用里
 /// 维护第二套网络与渲染栈；Android 侧落到的就是 `Intent.ACTION_VIEW`（官方插件封装）。
 ///
 /// 包一层而不是让页面直接调插件，是为了给 widget 测试留注入点：测试宿主没有插件
@@ -15,27 +15,17 @@ import 'package:url_launcher/url_launcher.dart';
 class ExternalLinks {
   ExternalLinks._();
 
-  /// 爱发电赞助主页：与 `.github/FUNDING.yml`、README 的赞助入口保持同一地址。
-  static const String donationUrl = 'https://afdian.com/a/talyra42';
-
   /// Veri Fin 的 GitHub Releases 页面（检查更新的跳转目标）。
   static const String verifinReleasesUrl = '$verifinRepositoryUrl/releases';
 
   /// Veri Fin 的 GitHub 仓库主页（源码、Issue 与更新记录）。
-  static const String originalRepository = 'LumiDesk/verifin';
   static const String personalRepository = 'jiucaihua1/Bill';
   static const String verifinRepositoryUrl =
       'https://github.com/$personalRepository';
 
-  static Future<bool> openOriginalRepository() =>
-      open(Uri.https('github.com', originalRepository));
-
   /// 测试注入点：替换真正打开浏览器的动作，返回是否成功。
   @visibleForTesting
   static Future<bool> Function(Uri url)? debugOpener;
-
-  /// 打开赞助主页，返回是否真的把链接交给了浏览器。
-  static Future<bool> openDonation() => open(Uri.parse(donationUrl));
 
   /// 打开 GitHub 仓库主页，返回是否真的把链接交给了浏览器。
   static Future<bool> openVerifinRepository() =>

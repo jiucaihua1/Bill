@@ -42,6 +42,7 @@ void main() {
     fee: 2.5,
     reimbursable: true,
     excludedFromBudget: true,
+    subscriptionMark: SubscriptionMark.forMonths(5),
     refundedBaseAmount: 11.5,
     refundOf: 'entry-orig',
     settledAt: DateTime(2026, 7, 13, 9, 0, 0, 456),

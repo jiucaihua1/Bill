@@ -371,6 +371,12 @@ void main() {
       LocalKeyValueStore(),
       repository: repo,
     );
+    expect(
+      reloaded.entries
+          .singleWhere((e) => e.id == 'entry_20260703_002')
+          .subscriptionMark,
+      SubscriptionMark.monthly,
+    );
     expect(reloaded.accounts.length, greaterThanOrEqualTo(8));
     expect(reloaded.entries.length, greaterThanOrEqualTo(20));
     // 导入旧备份后分类 id 重新随机生成，按名称断言（见 legacy_book_scope）。

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../app/app_version.dart';
 import '../app/auto_save.dart';
 import '../app/build_config.dart';
+import '../app/category_icon_presets.dart';
 import '../app/common_widgets.dart';
 import '../app/external_links.dart';
 import '../app/feedback.dart';
@@ -20,6 +21,7 @@ import '../app/veri_fin_scope.dart';
 import 'ai_settings_page.dart';
 import 'app_lock_page.dart';
 import 'category_icon_theme_page.dart';
+import 'credits_page.dart';
 import 'legal_pages.dart';
 import 'navigation_style_settings_page.dart';
 import 'reminder_settings_page.dart';
@@ -236,7 +238,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         title: AppLocalizations.of(
                           context,
                         ).categoryIconThemeTitle,
-                        trailing: '',
+                        trailing: _categoryIconThemeLabel(context),
                         trailingIcon: Icons.chevron_right,
                         onTap: _openCategoryIconThemes,
                       ),
@@ -554,10 +556,12 @@ class _SettingsPageState extends State<SettingsPage> {
                       SettingsRow(
                         icon: Icons.volunteer_activism_outlined,
                         title: AppLocalizations.of(context).creditsTitle,
-                        trailing: ExternalLinks.originalRepository,
-                        trailingIcon: Icons.open_in_new_rounded,
-                        onTap: () => _openRepository(
-                          ExternalLinks.openOriginalRepository,
+                        trailing: '',
+                        trailingIcon: Icons.chevron_right,
+                        onTap: () => Navigator.of(context).push<void>(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const CreditsPage(),
+                          ),
                         ),
                       ),
                     ],
@@ -670,6 +674,17 @@ class _SettingsPageState extends State<SettingsPage> {
             _colorByte(picked.b),
       ),
     );
+  }
+
+  String _categoryIconThemeLabel(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final preset = VeriFinScope.of(context).categoryIconThemes.preset;
+    return switch (preset) {
+      CategoryIconPreset.builtin => l10n.categoryIconThemeBuiltin,
+      CategoryIconPreset.line => l10n.categoryIconThemeLine,
+      CategoryIconPreset.colored => l10n.categoryIconThemeColored,
+      CategoryIconPreset.emoji => l10n.categoryIconThemeEmoji,
+    };
   }
 
   void _openCategoryIconThemes() {

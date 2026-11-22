@@ -86,10 +86,7 @@ class VeriStyleTokens extends ThemeExtension<VeriStyleTokens> {
   static VeriStyleTokens of(BuildContext context) {
     final ext = Theme.of(context).extension<VeriStyleTokens>();
     if (ext != null) return ext;
-    return forMode(
-      Theme.of(context).brightness,
-      ThemeColorMode.warmPaper,
-    );
+    return forMode(Theme.of(context).brightness, ThemeColorMode.warmPaper);
   }
 
   static VeriStyleTokens? maybeOf(BuildContext context) =>
@@ -426,7 +423,8 @@ Color _primaryForMode(Brightness brightness, ThemeColorPreference pref) {
   };
 }
 
-class _AndroidPageTransitionsBuilder extends FadeForwardsPageTransitionsBuilder {
+class _AndroidPageTransitionsBuilder
+    extends FadeForwardsPageTransitionsBuilder {
   const _AndroidPageTransitionsBuilder();
 
   @override

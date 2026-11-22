@@ -14,7 +14,7 @@ void main() {
     await pumpApp(tester);
     expect(find.byType(HomePage, skipOffstage: false), findsOneWidget);
 
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     await tester.pumpAndSettle();
     // 保活：离屏的首页仍在树里，切回来不必重新构建整页与重跑聚合。
     expect(find.byType(HomePage, skipOffstage: false), findsOneWidget);
@@ -39,7 +39,7 @@ void main() {
     expect(find.text('-45'), findsAtLeastNWidgets(1));
 
     // 资产页：账户余额同步为 -45。
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     expect(find.text('现金账户'), findsAtLeastNWidgets(1));
     expect(find.text('-45'), findsAtLeastNWidgets(1));
 
@@ -49,7 +49,7 @@ void main() {
     await tester.tap(find.byKey(const Key('save_entry_button')));
     await tester.pumpAndSettle();
 
-    await tapBottomTab(tester, 1);
+    await tapBottomTab(tester, assetsTabIndex);
     expect(find.text('-90'), findsAtLeastNWidgets(1));
   });
 }

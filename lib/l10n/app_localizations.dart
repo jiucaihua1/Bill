@@ -4388,6 +4388,174 @@ abstract class AppLocalizations {
   /// **'{count} 条'**
   String countRules(int count);
 
+  /// No description provided for @averagePerExpense.
+  ///
+  /// In zh, this message translates to:
+  /// **'平均每笔支出'**
+  String get averagePerExpense;
+
+  /// No description provided for @selectSubscriptionOrders.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择已有账单'**
+  String get selectSubscriptionOrders;
+
+  /// No description provided for @subscriptionPeriod.
+  ///
+  /// In zh, this message translates to:
+  /// **'付款周期'**
+  String get subscriptionPeriod;
+
+  /// No description provided for @monthlySubscription.
+  ///
+  /// In zh, this message translates to:
+  /// **'月付'**
+  String get monthlySubscription;
+
+  /// No description provided for @biennialSubscription.
+  ///
+  /// In zh, this message translates to:
+  /// **'两年付'**
+  String get biennialSubscription;
+
+  /// No description provided for @quarterlySubscription.
+  ///
+  /// In zh, this message translates to:
+  /// **'季付'**
+  String get quarterlySubscription;
+
+  /// No description provided for @subscriptionMonthCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{months} 个月'**
+  String subscriptionMonthCount(int months);
+
+  /// No description provided for @subscriptionMonthsLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'周期月数'**
+  String get subscriptionMonthsLabel;
+
+  /// No description provided for @subscriptionMonthsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'例如，季付填 3'**
+  String get subscriptionMonthsHint;
+
+  /// No description provided for @subscriptionMonthsOptional.
+  ///
+  /// In zh, this message translates to:
+  /// **'留空表示周期待定'**
+  String get subscriptionMonthsOptional;
+
+  /// No description provided for @subscriptionMonthsInvalid.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入 1 到 9999 的整数'**
+  String get subscriptionMonthsInvalid;
+
+  /// No description provided for @activeSubscriptionItems.
+  ///
+  /// In zh, this message translates to:
+  /// **'今日分摊项目'**
+  String get activeSubscriptionItems;
+
+  /// No description provided for @subscriptionDailyAmount.
+  ///
+  /// In zh, this message translates to:
+  /// **'{amount} / 天'**
+  String subscriptionDailyAmount(String amount);
+
+  /// No description provided for @noActiveSubscriptions.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前筛选下，今天没有需要分摊的订阅。'**
+  String get noActiveSubscriptions;
+
+  /// No description provided for @reviewDuplicateImports.
+  ///
+  /// In zh, this message translates to:
+  /// **'检查重复导入'**
+  String get reviewDuplicateImports;
+
+  /// No description provided for @noDuplicateImports.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有完全相同的导入账单'**
+  String get noDuplicateImports;
+
+  /// No description provided for @duplicateImportExplanation.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前账本中，除内部编号外所有字段都相同的导入流水将合并留一笔。有退款或附件关联的流水会保留。同一分钟内的真实消费也可能完全相同。'**
+  String get duplicateImportExplanation;
+
+  /// No description provided for @duplicateReviewChanged.
+  ///
+  /// In zh, this message translates to:
+  /// **'账单已变化，请重新检查。'**
+  String get duplicateReviewChanged;
+
+  /// No description provided for @duplicateImportsRemoved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已删除 {count} 笔重复账单'**
+  String duplicateImportsRemoved(int count);
+
+  /// No description provided for @subscriptionFilters.
+  ///
+  /// In zh, this message translates to:
+  /// **'筛选'**
+  String get subscriptionFilters;
+
+  /// No description provided for @activeDailySubscriptionCost.
+  ///
+  /// In zh, this message translates to:
+  /// **'今日日均花费'**
+  String get activeDailySubscriptionCost;
+
+  /// No description provided for @customTimeRange.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义时间'**
+  String get customTimeRange;
+
+  /// No description provided for @yearlySubscription.
+  ///
+  /// In zh, this message translates to:
+  /// **'年付'**
+  String get yearlySubscription;
+
+  /// No description provided for @unspecifiedSubscription.
+  ///
+  /// In zh, this message translates to:
+  /// **'周期待定'**
+  String get unspecifiedSubscription;
+
+  /// No description provided for @removeSubscription.
+  ///
+  /// In zh, this message translates to:
+  /// **'移出订阅分析'**
+  String get removeSubscription;
+
+  /// No description provided for @subscriptionPeriodTotals.
+  ///
+  /// In zh, this message translates to:
+  /// **'按付款周期统计'**
+  String get subscriptionPeriodTotals;
+
+  /// No description provided for @subscriptionPickerHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索备注、分类或金额'**
+  String get subscriptionPickerHint;
+
+  /// No description provided for @noSubscriptionCandidates.
+  ///
+  /// In zh, this message translates to:
+  /// **'没有可选的支出账单'**
+  String get noSubscriptionCandidates;
+
   /// No description provided for @subscriptionExpenses.
   ///
   /// In zh, this message translates to:
@@ -4403,7 +4571,7 @@ abstract class AppLocalizations {
   /// No description provided for @subscriptionEmptyHint.
   ///
   /// In zh, this message translates to:
-  /// **'支出备注含「京东 PLUS」「88VIP」「订阅」或「会员」时，对应交易会出现在这里。'**
+  /// **'含会员或订阅关键词的支出会自动出现，也可从右上角选择已有支出账单。'**
   String get subscriptionEmptyHint;
 
   /// No description provided for @dataAndTools.
@@ -4883,7 +5051,7 @@ abstract class AppLocalizations {
   /// No description provided for @creditsIntro.
   ///
   /// In zh, this message translates to:
-  /// **'感谢这些人的支持，Veri Fin 才能一直免费、干净地做下去。'**
+  /// **'日常账本个人版基于 LumiDesk 的 Veri Fin 二次开发。感谢原作者和支持者。'**
   String get creditsIntro;
 
   /// Settings row trailing text: how many supporters the thanks list holds
@@ -4891,18 +5059,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{count} 位'**
   String creditsSupporterCount(int count);
-
-  /// No description provided for @creditsSupportNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'这里没有会员特权，也没有解锁内容——你支持的是这款软件本身能继续做下去。'**
-  String get creditsSupportNote;
-
-  /// No description provided for @creditsSupportAction.
-  ///
-  /// In zh, this message translates to:
-  /// **'在爱发电支持 Veri Fin'**
-  String get creditsSupportAction;
 
   /// No description provided for @openLinkFailed.
   ///

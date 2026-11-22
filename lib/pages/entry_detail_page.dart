@@ -784,9 +784,8 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
       selectedTopId: selectedTopId,
       accent: amountColor,
       onSelected: _selectCategory,
-      collapsedId: quick && !_categoryTouched
-          ? selectedTopId
-          : _collapsedCategoryId,
+      // 默认展开当前选中大类的二级分类，避免快速记账页中间留出大片空白。
+      collapsedId: _collapsedCategoryId,
       onToggleBranch: quick ? _toggleCategoryBranch : null,
       onOpenAll: () => unawaited(_showAllCategories()),
       allLabel: AppLocalizations.of(context).allLabel,
@@ -1122,6 +1121,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
                         maxFractionDigits: CurrencyCatalog.require(
                           amountCode,
                         ).minorUnit,
+                        layout: controller.numberPadLayout,
                         submitEnabled: canSave,
                         blockReason: saveReason,
                         amountLeading: noteField,
@@ -2245,6 +2245,9 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
           : 0,
       reimbursable: _type == EntryType.expense && _reimbursable,
       excludedFromBudget: _type == EntryType.expense && _excludedFromBudget,
+      subscriptionMark: _type == EntryType.expense
+          ? original?.subscriptionMark ?? SubscriptionMark.automatic
+          : SubscriptionMark.automatic,
       refundedBaseAmount: original?.refundedBaseAmount ?? 0,
     );
   }
@@ -2792,8 +2795,10 @@ class _EntryCategoryTile extends StatelessWidget {
         ? null
         : Icon(
             expanded! ? Icons.expand_more : Icons.chevron_right,
-            size: 14,
-            color: onPath ? accent : scheme.onSurfaceVariant,
+            size: 12,
+            color: onPath
+                ? accent
+                : scheme.onSurfaceVariant.withValues(alpha: 0.45),
           );
     return Semantics(
       key: selected ? Key('entry_category_selected_${category.id}') : null,
@@ -2803,8 +2808,8 @@ class _EntryCategoryTile extends StatelessWidget {
       child: Material(
         key: Key('entry_category_capsule_${category.id}'),
         color: onPath
-            ? Color.alphaBlend(accent.withValues(alpha: 0.12), tokens.cardColor)
-            : (iconGrid ? tokens.surfaceAltColor : tokens.cardColor),
+            ? Color.alphaBlend(accent.withValues(alpha: 0.10), tokens.cardColor)
+            : (iconGrid ? Colors.transparent : tokens.cardColor),
         shape: shape,
         clipBehavior: Clip.antiAlias,
         child: InkWell(

@@ -2390,14 +2390,104 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get averagePerExpense => '平均每笔支出';
+
+  @override
+  String get selectSubscriptionOrders => '选择已有账单';
+
+  @override
+  String get subscriptionPeriod => '付款周期';
+
+  @override
+  String get monthlySubscription => '月付';
+
+  @override
+  String get biennialSubscription => '两年付';
+
+  @override
+  String get quarterlySubscription => '季付';
+
+  @override
+  String subscriptionMonthCount(int months) {
+    return '$months 个月';
+  }
+
+  @override
+  String get subscriptionMonthsLabel => '周期月数';
+
+  @override
+  String get subscriptionMonthsHint => '例如，季付填 3';
+
+  @override
+  String get subscriptionMonthsOptional => '留空表示周期待定';
+
+  @override
+  String get subscriptionMonthsInvalid => '请输入 1 到 9999 的整数';
+
+  @override
+  String get activeSubscriptionItems => '今日分摊项目';
+
+  @override
+  String subscriptionDailyAmount(String amount) {
+    return '$amount / 天';
+  }
+
+  @override
+  String get noActiveSubscriptions => '当前筛选下，今天没有需要分摊的订阅。';
+
+  @override
+  String get reviewDuplicateImports => '检查重复导入';
+
+  @override
+  String get noDuplicateImports => '没有完全相同的导入账单';
+
+  @override
+  String get duplicateImportExplanation =>
+      '当前账本中，除内部编号外所有字段都相同的导入流水将合并留一笔。有退款或附件关联的流水会保留。同一分钟内的真实消费也可能完全相同。';
+
+  @override
+  String get duplicateReviewChanged => '账单已变化，请重新检查。';
+
+  @override
+  String duplicateImportsRemoved(int count) {
+    return '已删除 $count 笔重复账单';
+  }
+
+  @override
+  String get subscriptionFilters => '筛选';
+
+  @override
+  String get activeDailySubscriptionCost => '今日日均花费';
+
+  @override
+  String get customTimeRange => '自定义时间';
+
+  @override
+  String get yearlySubscription => '年付';
+
+  @override
+  String get unspecifiedSubscription => '周期待定';
+
+  @override
+  String get removeSubscription => '移出订阅分析';
+
+  @override
+  String get subscriptionPeriodTotals => '按付款周期统计';
+
+  @override
+  String get subscriptionPickerHint => '搜索备注、分类或金额';
+
+  @override
+  String get noSubscriptionCandidates => '没有可选的支出账单';
+
+  @override
   String get subscriptionExpenses => '订阅支出';
 
   @override
   String get recognizedFromNotes => '按备注识别';
 
   @override
-  String get subscriptionEmptyHint =>
-      '支出备注含「京东 PLUS」「88VIP」「订阅」或「会员」时，对应交易会出现在这里。';
+  String get subscriptionEmptyHint => '含会员或订阅关键词的支出会自动出现，也可从右上角选择已有支出账单。';
 
   @override
   String get dataAndTools => '数据与工具';
@@ -2667,18 +2757,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get creditsTitle => '鸣谢';
 
   @override
-  String get creditsIntro => '感谢这些人的支持，Veri Fin 才能一直免费、干净地做下去。';
+  String get creditsIntro => '日常账本个人版基于 LumiDesk 的 Veri Fin 二次开发。感谢原作者和支持者。';
 
   @override
   String creditsSupporterCount(int count) {
     return '$count 位';
   }
-
-  @override
-  String get creditsSupportNote => '这里没有会员特权，也没有解锁内容——你支持的是这款软件本身能继续做下去。';
-
-  @override
-  String get creditsSupportAction => '在爱发电支持 Veri Fin';
 
   @override
   String get openLinkFailed => '没能打开浏览器，请稍后再试。';

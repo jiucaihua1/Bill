@@ -109,7 +109,7 @@ void main() {
     // 四个根目的地与顺序在所有样式下都不变，是样式解耦的硬约束。
     expect(
       host.spec.destinations.map((destination) => destination.label).toList(),
-      <String>['首页', '资产', '看板', '我的'],
+      <String>['首页', '看板', '资产', '我的'],
     );
   });
 
@@ -171,7 +171,7 @@ void main() {
     expect(find.text('停靠底栏'), findsOneWidget);
     expect(find.text('整宽贴底的不透明底栏，切换时图标扫过'), findsOneWidget);
     // 预览就是样式自己的 buildBar：四个条目与常显标签一起渲染，不是另画的缩略图。
-    for (final label in <String>['首页', '资产', '看板', '我的']) {
+    for (final label in <String>['首页', '看板', '资产', '我的']) {
       expect(
         find.descendant(
           of: find.byKey(const ValueKey<String>('navigation_style_docked')),
@@ -207,7 +207,7 @@ void main() {
       reason: '预览必须避开 premium shader 的滚动位置缓存',
     );
     // 玻璃预览同样复用 buildBar：四个条目与常显标签一起渲染。
-    for (final label in <String>['首页', '资产', '看板', '我的']) {
+    for (final label in <String>['首页', '看板', '资产', '我的']) {
       expect(
         find.descendant(
           of: find.byKey(

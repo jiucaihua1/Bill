@@ -134,7 +134,7 @@ void writeRepoVersion(Directory root, RepoVersion next) {
   final appVersionText = appVersion.readAsStringSync();
   final updatedAppVersion = appVersionText.replaceFirst(
     RegExp(r"const String appVersionLabel = '[^']*';"),
-    "const String appVersionLabel = '${next.tag}+${next.build}';",
+    "const String appVersionLabel = '${next.name}';",
   );
   if (updatedAppVersion == appVersionText) {
     throw ScriptException('lib/app/app_version.dart 的 appVersionLabel 未被更新。');

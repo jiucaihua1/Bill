@@ -17,7 +17,7 @@ void main() {
 
   testWidgets('看板 Tab 切换：默认周统计，月统计与年统计各有面板', (tester) async {
     await pumpApp(tester, LocalKeyValueStore());
-    await tapBottomTab(tester, 2); // 看板
+    await tapBottomTab(tester, reportsTabIndex); // 看板
     await tester.pumpAndSettle();
 
     final dailyEntry = find.byKey(
@@ -83,7 +83,7 @@ void main() {
     );
     controller.dispose();
     await pumpApp(tester, store);
-    await tapBottomTab(tester, 2);
+    await tapBottomTab(tester, reportsTabIndex);
     await tester.pumpAndSettle();
     expect(periodArrow(tester, '下一周').onPressed, isNull);
     await tester.tap(find.byTooltip('上一周'));
@@ -145,7 +145,7 @@ void main() {
       ..dispose();
 
     await pumpApp(tester, store);
-    await tapBottomTab(tester, 2); // 看板 · 周统计
+    await tapBottomTab(tester, reportsTabIndex); // 看板 · 周统计
     await tester.pumpAndSettle();
 
     // 右上角口径切换与资产汇总卡的那一个同为紧凑档（30dp），不再是 40dp 的大号。
@@ -204,7 +204,7 @@ void main() {
 
   testWidgets('资产汇总面板：正/负资产可切换，中心可切换口径', (tester) async {
     await pumpApp(tester, LocalKeyValueStore());
-    await tapBottomTab(tester, 2); // 看板 · 周统计
+    await tapBottomTab(tester, reportsTabIndex); // 看板 · 周统计
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
@@ -231,7 +231,7 @@ void main() {
 
   testWidgets('年统计面板：本年摘要、月度收支与排行卡', (tester) async {
     await pumpApp(tester, LocalKeyValueStore());
-    await tapBottomTab(tester, 2); // 看板
+    await tapBottomTab(tester, reportsTabIndex); // 看板
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('年统计').first);
@@ -297,7 +297,7 @@ void main() {
     controller.dispose();
 
     await pumpApp(tester, store);
-    await tapBottomTab(tester, 2); // 看板
+    await tapBottomTab(tester, reportsTabIndex); // 看板
     await tester.pumpAndSettle();
     await tester.tap(find.text('年统计').first);
     await tester.pumpAndSettle();
@@ -329,7 +329,7 @@ void main() {
     controller.dispose();
 
     await pumpApp(tester, store);
-    await tapBottomTab(tester, 2); // 看板
+    await tapBottomTab(tester, reportsTabIndex); // 看板
     await tester.pumpAndSettle();
     await tester.tap(find.text('年统计').first);
     await tester.pumpAndSettle();
@@ -385,7 +385,7 @@ void main() {
     controller.dispose();
 
     await pumpApp(tester, store);
-    await tapBottomTab(tester, 2); // 看板 · 周统计
+    await tapBottomTab(tester, reportsTabIndex); // 看板 · 周统计
     await tester.pumpAndSettle();
     expect(find.text('资产金额'), findsOneWidget);
 
@@ -428,7 +428,7 @@ void main() {
     controller.dispose();
 
     await pumpApp(tester, store);
-    await tapBottomTab(tester, 2); // 看板 · 周统计
+    await tapBottomTab(tester, reportsTabIndex); // 看板 · 周统计
     await tester.pumpAndSettle();
 
     // 默认只列前 5 个账户（其余并入「其他」），并提供展开入口。
@@ -476,7 +476,7 @@ void main() {
     controller.dispose();
 
     await pumpApp(tester, store);
-    await tapBottomTab(tester, 2); // 看板 · 周统计
+    await tapBottomTab(tester, reportsTabIndex); // 看板 · 周统计
     await tester.pumpAndSettle();
     await tester.tap(find.text('负资产').first);
     await tester.pumpAndSettle();
@@ -622,7 +622,7 @@ void main() {
       ..dispose();
 
     await pumpApp(tester, store);
-    await tapBottomTab(tester, 2); // 看板
+    await tapBottomTab(tester, reportsTabIndex); // 看板
     await tester.pumpAndSettle();
     await tester.tap(find.text('年统计').first);
     await tester.pumpAndSettle();

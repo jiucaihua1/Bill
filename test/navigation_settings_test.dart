@@ -41,7 +41,10 @@ void main() {
   testWidgets('shows the main tabs and switches between pages', (
     WidgetTester tester,
   ) async {
-    await pumpApp(tester);
+    await pumpApp(
+      tester,
+      LocalKeyValueStore()..write('verifin.nav_style.v1', 'docked'),
+    );
 
     // 停靠底栏不透明、整宽贴底，内容不延伸到它背后。
     expect(
@@ -70,10 +73,10 @@ void main() {
     expect(find.text('日常账本'), findsOneWidget);
 
     await tapBottomTab(tester, 1);
-    expect(find.text('净资产'), findsAtLeastNWidgets(1));
+    expect(find.text('周收支'), findsOneWidget);
 
     await tapBottomTab(tester, 2);
-    expect(find.text('预算与统计'), findsOneWidget);
+    expect(find.text('净资产'), findsAtLeastNWidgets(1));
 
     await tapBottomTab(tester, 3);
     expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
@@ -174,7 +177,7 @@ void main() {
     await tapBottomTab(tester, 3);
     await tester.pumpAndSettle();
 
-    // 从「我的」回到相邻的「看板」。切页必须由点击同步发起；若依赖底栏动画结束时
+    // 从「我的」回到相邻的「资产」。切页必须由点击同步发起；若依赖底栏动画结束时
     // 的回调，这里推进 100ms 后页面还停在原处。
     await tester.tapAt(rootTabCenter(tester, 2));
     await tester.pump();
@@ -185,9 +188,9 @@ void main() {
         .controller!;
     final page = controller.page!;
     expect(page, lessThan(3), reason: '点击后 100ms 内页面应已在移动，说明切页与底栏动画同时起步');
-    expect(page, greaterThan(2), reason: '此时应还在过渡中，未到看板');
+    expect(page, greaterThan(2), reason: '此时应还在过渡中，未到资产');
 
-    // 走完整段动画后应正好落在看板页。
+    // 走完整段动画后应正好落在资产页。
     await tester.pump(VeriRootNavigationStyle.defaultSwitchDuration);
     await tester.pumpAndSettle();
     expect(controller.page!.round(), 2);
@@ -306,7 +309,7 @@ void main() {
     await tester.pump(VeriRootNavigationStyle.defaultSwitchDuration);
     await tester.pumpAndSettle();
     expect(controller.page!.round(), 1);
-    expect(barIndex(), 1, reason: '底栏要跟着落到资产页');
+    expect(barIndex(), 1, reason: '底栏要跟着落到看板页');
   });
 
   testWidgets('切页动画被页面点击打断后底栏仍与页面一致', (WidgetTester tester) async {

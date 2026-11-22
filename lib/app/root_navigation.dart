@@ -18,7 +18,7 @@ class VeriNavigationDestination {
   final String label;
 }
 
-/// 四个根目的地的标准定义（首页 / 资产 / 看板 / 我的）。
+/// 四个根目的地的标准定义（首页 / 看板 / 资产 / 我的）。
 ///
 /// 壳层与样式选择页预览共用同一份定义，避免两处各写一套图标和标签。
 List<VeriNavigationDestination> veriRootNavigationDestinations(
@@ -30,14 +30,14 @@ List<VeriNavigationDestination> veriRootNavigationDestinations(
     label: l10n.tabHome,
   ),
   VeriNavigationDestination(
-    icon: Icons.account_balance_wallet_outlined,
-    selectedIcon: Icons.account_balance_wallet_rounded,
-    label: l10n.tabAssets,
-  ),
-  VeriNavigationDestination(
     icon: Icons.bar_chart_outlined,
     selectedIcon: Icons.bar_chart_rounded,
     label: l10n.tabReports,
+  ),
+  VeriNavigationDestination(
+    icon: Icons.account_balance_wallet_outlined,
+    selectedIcon: Icons.account_balance_wallet_rounded,
+    label: l10n.tabAssets,
   ),
   VeriNavigationDestination(
     icon: Icons.person_outline_rounded,

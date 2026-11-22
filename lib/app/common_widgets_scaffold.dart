@@ -215,9 +215,7 @@ class VeriHeader extends StatelessWidget {
           );
     // 最小高度而非固定高度：系统字号放大时标题/副标题两行不能被裁掉。
     return ConstrainedBox(
-      constraints: BoxConstraints(
-        minHeight: prominent ? 62 : veriHeaderHeight,
-      ),
+      constraints: BoxConstraints(minHeight: prominent ? 62 : veriHeaderHeight),
       child: Row(
         children: <Widget>[
           if (showBack) ...<Widget>[

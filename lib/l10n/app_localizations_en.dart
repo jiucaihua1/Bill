@@ -2444,6 +2444,99 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get averagePerExpense => 'Average per expense';
+
+  @override
+  String get selectSubscriptionOrders => 'Select expenses';
+
+  @override
+  String get subscriptionPeriod => 'Billing period';
+
+  @override
+  String get monthlySubscription => 'Monthly';
+
+  @override
+  String get biennialSubscription => 'Two-year';
+
+  @override
+  String get quarterlySubscription => 'Quarterly';
+
+  @override
+  String subscriptionMonthCount(int months) {
+    return '$months months';
+  }
+
+  @override
+  String get subscriptionMonthsLabel => 'Billing period in months';
+
+  @override
+  String get subscriptionMonthsHint => 'Enter 3 for quarterly';
+
+  @override
+  String get subscriptionMonthsOptional => 'Leave blank if unknown';
+
+  @override
+  String get subscriptionMonthsInvalid => 'Enter a whole number from 1 to 9999';
+
+  @override
+  String get activeSubscriptionItems => 'Subscriptions active today';
+
+  @override
+  String subscriptionDailyAmount(String amount) {
+    return '$amount / day';
+  }
+
+  @override
+  String get noActiveSubscriptions =>
+      'No subscriptions in this selection contribute to today’s cost.';
+
+  @override
+  String get reviewDuplicateImports => 'Review duplicate imports';
+
+  @override
+  String get noDuplicateImports => 'No identical imported entries';
+
+  @override
+  String get duplicateImportExplanation =>
+      'Imported entries in this ledger with identical fields apart from their IDs will be reduced to one copy. Entries linked to refunds or attachments are kept. Separate payments made in the same minute can also be identical.';
+
+  @override
+  String get duplicateReviewChanged =>
+      'Transactions changed. Review them again.';
+
+  @override
+  String duplicateImportsRemoved(int count) {
+    return 'Removed $count duplicate entries';
+  }
+
+  @override
+  String get subscriptionFilters => 'Filters';
+
+  @override
+  String get activeDailySubscriptionCost => 'Daily cost today';
+
+  @override
+  String get customTimeRange => 'Custom date range';
+
+  @override
+  String get yearlySubscription => 'Yearly';
+
+  @override
+  String get unspecifiedSubscription => 'Unspecified';
+
+  @override
+  String get removeSubscription => 'Remove from subscriptions';
+
+  @override
+  String get subscriptionPeriodTotals => 'Spending by billing period';
+
+  @override
+  String get subscriptionPickerHint => 'Search notes, categories or amounts';
+
+  @override
+  String get noSubscriptionCandidates => 'No eligible expenses';
+
+  @override
   String get subscriptionExpenses => 'Subscriptions';
 
   @override
@@ -2451,7 +2544,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get subscriptionEmptyHint =>
-      'Expenses with a subscription or membership in their notes appear here, including JD PLUS and 88VIP.';
+      'Membership and subscription expenses are matched from notes. You can also select existing expenses at the top right.';
 
   @override
   String get dataAndTools => 'Data & tools';
@@ -2724,19 +2817,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get creditsIntro =>
-      'Veri Fin stays free and clean thanks to these people.';
+      'Bill is based on Veri Fin by LumiDesk. Thank you to the original authors and supporters.';
 
   @override
   String creditsSupporterCount(int count) {
     return '$count people';
   }
-
-  @override
-  String get creditsSupportNote =>
-      'No memberships, no locked features — you are supporting the software itself.';
-
-  @override
-  String get creditsSupportAction => 'Support Veri Fin on Afdian';
 
   @override
   String get openLinkFailed => 'Could not open the browser. Please try again.';

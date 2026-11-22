@@ -293,49 +293,66 @@ class SummaryMetric extends StatelessWidget {
     required this.value,
     required this.color,
     this.detail,
+    this.onTap,
   });
 
   final String label;
   final String value;
   final Color color;
   final String? detail;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final textColor = Theme.of(context).colorScheme.onSurface;
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: <Widget>[
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: textColor.withValues(alpha: 0.68),
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: color,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          if (detail != null) ...<Widget>[
-            const SizedBox(height: 4),
-            Text(
-              detail!,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: textColor.withValues(alpha: 0.62),
-                fontWeight: FontWeight.w700,
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: <Widget>[
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: textColor.withValues(alpha: 0.68),
+                ),
               ),
             ),
+            if (onTap != null)
+              const Icon(Icons.chevron_right_rounded, size: 16),
           ],
+        ),
+        const SizedBox(height: 7),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: color,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        if (detail != null) ...<Widget>[
+          const SizedBox(height: 4),
+          Text(
+            detail!,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: textColor.withValues(alpha: 0.62),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
-      ),
+      ],
+    );
+    return Expanded(
+      child: onTap == null
+          ? content
+          : Material(
+              type: MaterialType.transparency,
+              child: InkWell(onTap: onTap, child: content),
+            ),
     );
   }
 }

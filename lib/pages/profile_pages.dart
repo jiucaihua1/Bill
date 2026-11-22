@@ -121,52 +121,45 @@ class ProfilePage extends StatelessWidget {
                       const Icon(Icons.chevron_right),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: VeriStyleTokens.of(context).surfaceAltColor,
-                            borderRadius: BorderRadius.circular(
-                              VeriStyleTokens.of(context).innerRadius,
+                  const SizedBox(height: 14),
+                  IntrinsicHeight(
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Builder(
+                              builder: (context) {
+                                final (value, label) = bookkeepingDurationStat(
+                                  AppLocalizations.of(context),
+                                  bookkeepingDays(controller.entries),
+                                );
+                                return ProfileStat(label: label, value: value);
+                              },
                             ),
                           ),
-                          child: Builder(
-                            builder: (context) {
-                              final (value, label) = bookkeepingDurationStat(
-                                AppLocalizations.of(context),
-                                bookkeepingDays(controller.entries),
-                              );
-                              return ProfileStat(label: label, value: value);
-                            },
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: VerticalDivider(
+                            width: 1,
+                            thickness: 1,
+                            color: VeriStyleTokens.of(context).borderColor,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: VeriStyleTokens.of(context).surfaceAltColor,
-                            borderRadius: BorderRadius.circular(
-                              VeriStyleTokens.of(context).innerRadius,
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: ProfileStat(
+                              label: AppLocalizations.of(
+                                context,
+                              ).entryCountStat,
+                              value: '${controller.entries.length}',
                             ),
                           ),
-                          child: ProfileStat(
-                            label: AppLocalizations.of(context).entryCountStat,
-                            value: '${controller.entries.length}',
-                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -317,7 +310,7 @@ class ProfilePage extends StatelessWidget {
                 icon: Icons.subscriptions_outlined,
                 color: Theme.of(context).colorScheme.primary,
                 label: AppLocalizations.of(context).subscriptionExpenses,
-                subtitle: AppLocalizations.of(context).recognizedFromNotes,
+                subtitle: AppLocalizations.of(context).subscriptionPeriodTotals,
                 onTap: () => Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
                     builder: (_) =>

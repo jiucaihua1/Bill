@@ -31,8 +31,10 @@ void main() {
 
     for (final key in presetKeyToEmoji.keys) {
       final linePath = categoryPresetSvgAsset(CategoryIconPreset.line, key)!;
-      final coloredPath =
-          categoryPresetSvgAsset(CategoryIconPreset.colored, key)!;
+      final coloredPath = categoryPresetSvgAsset(
+        CategoryIconPreset.colored,
+        key,
+      )!;
       expect(lineOnDisk, contains(linePath), reason: linePath);
       expect(coloredOnDisk, contains(coloredPath), reason: coloredPath);
 
@@ -58,10 +60,7 @@ void main() {
         reason: entry.key,
       );
       expect(
-        resolveCategoryPresetKey(
-          iconCode: 'category',
-          categoryName: entry.key,
-        ),
+        resolveCategoryPresetKey(iconCode: 'category', categoryName: entry.key),
         entry.value,
       );
     }

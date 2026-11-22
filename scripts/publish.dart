@@ -99,6 +99,10 @@ Future<int> _run(List<String> arguments) async {
     }
   }
 
+  if (!File('${root.path}/.github/workflows/flutter.yml').existsSync()) {
+    throw ScriptException('Bill 个人版请按 README 的签名流程构建与发布。');
+  }
+
   step('计算下一个版本');
   final current = readRepoVersion(root);
   final next = current.bump(spec);

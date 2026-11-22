@@ -24,7 +24,7 @@ void main() {
 
     expect(
       appVersionLabel,
-      'v$pubspecVersion',
+      pubspecVersion.split('+').first,
       reason: 'lib/app/app_version.dart 的 appVersionLabel 与 pubspec.yaml 不一致',
     );
 
