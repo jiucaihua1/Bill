@@ -158,7 +158,7 @@ void main() {
     await pumpPage(tester);
 
     expect(find.byKey(const Key('widget_save')), findsNothing);
-    expect(find.textContaining('请先打开一次 Veri Fin'), findsOneWidget);
+    expect(find.textContaining('请先打开小禾记账'), findsOneWidget);
     expect(find.byKey(const Key('widget_open_app')), findsOneWidget);
   });
 

@@ -156,10 +156,10 @@ class _VeriFinBootstrapState extends State<VeriFinBootstrap> {
     );
   }
 
-  String _diagnosticsText() {
+  String _diagnosticsText(String appTitle) {
     final coordinator = _coordinator;
     final buffer = StringBuffer()
-      ..writeln('Veri Fin $appVersionLabel')
+      ..writeln('$appTitle $appVersionLabel')
       ..writeln('stage: ${coordinator.stage.name}')
       ..writeln('elapsed: ${coordinator.elapsed.inMilliseconds}ms')
       ..writeln('timings: ${coordinator.timingSummary}');
@@ -178,9 +178,9 @@ class _VeriFinBootstrapState extends State<VeriFinBootstrap> {
     return buffer.toString().trimRight();
   }
 
-  Future<bool> _copyDiagnostics() async {
+  Future<bool> _copyDiagnostics(String appTitle) async {
     try {
-      await Clipboard.setData(ClipboardData(text: _diagnosticsText()));
+      await Clipboard.setData(ClipboardData(text: _diagnosticsText(appTitle)));
       widget.errors.info('Startup: diagnostics copied', source: 'startup');
       return true;
     } catch (error, stackTrace) {
@@ -206,7 +206,7 @@ class _StartupPage extends StatefulWidget {
   final StartupCoordinator coordinator;
   final bool showProgress;
   final VoidCallback onRetry;
-  final Future<bool> Function() onCopy;
+  final Future<bool> Function(String appTitle) onCopy;
 
   @override
   State<_StartupPage> createState() => _StartupPageState();
@@ -223,7 +223,7 @@ class _StartupPageState extends State<_StartupPage> {
   }
 
   Future<void> _copy() async {
-    final copied = await widget.onCopy();
+    final copied = await widget.onCopy(AppLocalizations.of(context).appTitle);
     if (!mounted || !copied) {
       return;
     }

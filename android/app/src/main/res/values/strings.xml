@@ -4,6 +4,7 @@
      test/widget_string_parity_test.dart 强制一致；这里每个条目都必须被原生代码或
      清单引用，否则同一文件的「无死资源」用例会失败。 -->
 <resources>
+    <string name="app_name">小禾记账</string>
     <!-- 模板规范名：同时是选择器里显示的组件名（Manifest receiver label）。 -->
     <string name="widget_template_quick_entry">快速记账</string>
     <string name="widget_template_budget">预算进度</string>

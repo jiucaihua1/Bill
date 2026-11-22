@@ -40,7 +40,7 @@ void main() {
 
     await _pumpOnboarding(tester, controller);
 
-    expect(find.text('欢迎使用 Veri Fin'), findsOneWidget);
+    expect(find.text('欢迎使用小禾记账'), findsOneWidget);
 
     // 第 1 步 → 账户步骤。
     await tester.tap(find.byKey(const Key('onboarding_next')));
@@ -59,7 +59,7 @@ void main() {
     // 初始余额与预算都走统一数字键盘（引导页不再弹系统键盘）。
     await tester.tap(find.byKey(const Key('onboarding_account_balance')));
     await tester.pumpAndSettle();
-    for (final key in <String>['-', '5', '00']) {
+    for (final key in <String>['-', '5', '0', '0']) {
       await tester.tap(find.byKey(Key('number_key_$key')));
       await tester.pump();
     }

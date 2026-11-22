@@ -107,7 +107,7 @@ Future<PickedBackupFile?> pickBackupFile() async {
 
 /// 备份文件类型过滤：zip / 旧版明文与加密信封 json / 新版加密容器 verifin。
 const XTypeGroup _backupTypeGroup = XTypeGroup(
-  label: 'Veri Fin backup',
+  label: 'Xiaohe Ledger backup',
   extensions: <String>['json', 'zip', 'verifin'],
   mimeTypes: <String>['application/json', 'application/zip'],
 );

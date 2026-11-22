@@ -2,6 +2,7 @@
 <!-- Widget-facing copy. Keep in sync with values/strings.xml: the template names must
      match lib/l10n/app_*.arb (enforced by test/widget_string_parity_test.dart). -->
 <resources>
+    <string name="app_name">Xiaohe Ledger</string>
     <!-- Template names: also the labels shown in the Android widget picker. -->
     <string name="widget_template_quick_entry">Quick entry</string>
     <string name="widget_template_budget">Budget progress</string>

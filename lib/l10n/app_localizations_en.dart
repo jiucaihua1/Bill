@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -14,7 +15,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get appTitle => 'Veri Fin';
+  String get appTitle => 'Xiaohe Ledger';
 
   @override
   String get statRangeLabel => 'Range';
@@ -952,9 +953,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String lastSevenDaysSeries(String series) {
     return 'Last 7 days · $series';
   }
-
-  @override
-  String get personalEditionName => 'Daily Ledger · Personal Edition';
 
   @override
   String get statPeriodWeek => 'Week';
@@ -2364,7 +2362,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nextStep => 'Next';
 
   @override
-  String get onboardWelcomeTitle => 'Welcome to Veri Fin';
+  String get onboardWelcomeTitle => 'Welcome to Xiaohe Ledger';
 
   @override
   String get onboardWelcomeDesc =>
@@ -2817,7 +2815,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get creditsIntro =>
-      'Bill is based on Veri Fin by LumiDesk. Thank you to the original authors and supporters.';
+      'Xiaohe Ledger is based on Veri Fin by LumiDesk. Thank you to the original authors and supporters.';
 
   @override
   String creditsSupporterCount(int count) {
@@ -3052,7 +3050,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get platformCsvTemplate => 'CSV template';
 
   @override
-  String get platformCsvTemplateHint => 'Veri Fin CSV template';
+  String get platformCsvTemplateHint => 'Xiaohe Ledger CSV template';
 
   @override
   String get importGroupSoftware => 'Apps / payment platforms';
@@ -4179,7 +4177,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get bioUnlockReason => 'Verify biometrics to unlock Veri Fin';
+  String get bioUnlockReason => 'Verify biometrics to unlock Xiaohe Ledger';
 
   @override
   String get verifyFailedRetry => 'Verification failed; try again';
@@ -4284,15 +4282,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get widgetGalleryTitle => 'Desktop widgets';
 
   @override
-  String get widgetGallerySubtitle =>
-      'Preview the fixed VeriFin widget templates';
+  String get widgetGallerySubtitle => 'Preview Xiaohe Ledger widgets';
 
   @override
   String get widgetGalleryShort => 'Template preview';
 
   @override
   String get widgetHowToAddDesc =>
-      'Long-press an empty spot on your home screen → choose Widgets → find Veri Fin → drag the widget you want onto the screen.';
+      'Long-press an empty spot on your home screen → choose Widgets → find Xiaohe Ledger → drag the widget you want onto the screen.';
 
   @override
   String get widgetConfigureHint =>
@@ -4348,7 +4345,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get widgetNoLedgerYet =>
-      'No book is available yet. Open the Veri Fin app once to create your book, then come back to configure this widget.';
+      'No book is available yet. Open Xiaohe Ledger to create your book, then come back to configure this widget.';
 
   @override
   String get widgetOpenApp => 'Open app';

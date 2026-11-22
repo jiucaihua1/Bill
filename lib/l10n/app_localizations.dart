@@ -107,7 +107,7 @@ abstract class AppLocalizations {
   /// 应用名称
   ///
   /// In zh, this message translates to:
-  /// **'Veri Fin'**
+  /// **'小禾记账'**
   String get appTitle;
 
   /// No description provided for @statRangeLabel.
@@ -1831,12 +1831,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'近7天{series}'**
   String lastSevenDaysSeries(String series);
-
-  /// No description provided for @personalEditionName.
-  ///
-  /// In zh, this message translates to:
-  /// **'日常账本 · 个人版'**
-  String get personalEditionName;
 
   /// No description provided for @statPeriodWeek.
   ///
@@ -4247,7 +4241,7 @@ abstract class AppLocalizations {
   /// No description provided for @onboardWelcomeTitle.
   ///
   /// In zh, this message translates to:
-  /// **'欢迎使用 Veri Fin'**
+  /// **'欢迎使用小禾记账'**
   String get onboardWelcomeTitle;
 
   /// No description provided for @onboardWelcomeDesc.
@@ -5051,7 +5045,7 @@ abstract class AppLocalizations {
   /// No description provided for @creditsIntro.
   ///
   /// In zh, this message translates to:
-  /// **'日常账本个人版基于 LumiDesk 的 Veri Fin 二次开发。感谢原作者和支持者。'**
+  /// **'小禾记账基于 LumiDesk 的 Veri Fin 二次开发。感谢原作者和支持者。'**
   String get creditsIntro;
 
   /// Settings row trailing text: how many supporters the thanks list holds
@@ -7457,7 +7451,7 @@ abstract class AppLocalizations {
   /// No description provided for @bioUnlockReason.
   ///
   /// In zh, this message translates to:
-  /// **'验证生物识别以解锁 Veri Fin'**
+  /// **'验证生物识别以解锁小禾记账'**
   String get bioUnlockReason;
 
   /// No description provided for @verifyFailedRetry.
@@ -7661,7 +7655,7 @@ abstract class AppLocalizations {
   /// No description provided for @widgetGallerySubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'查看 VeriFin 提供的固定组件样式'**
+  /// **'预览小禾记账的桌面小组件'**
   String get widgetGallerySubtitle;
 
   /// No description provided for @widgetGalleryShort.
@@ -7673,7 +7667,7 @@ abstract class AppLocalizations {
   /// No description provided for @widgetHowToAddDesc.
   ///
   /// In zh, this message translates to:
-  /// **'长按桌面空白处 → 选择「小组件」→ 找到 Veri Fin → 拖动想要的小组件到桌面。'**
+  /// **'长按桌面空白处 → 选择「小组件」→ 找到小禾记账 → 拖动想要的小组件到桌面。'**
   String get widgetHowToAddDesc;
 
   /// No description provided for @widgetConfigureHint.
@@ -7781,7 +7775,7 @@ abstract class AppLocalizations {
   /// No description provided for @widgetNoLedgerYet.
   ///
   /// In zh, this message translates to:
-  /// **'还没有可选的账本。请先打开一次 Veri Fin 应用创建设置，再回来配置这个小组件。'**
+  /// **'还没有可选的账本。请先打开小禾记账创建账本，再回来配置这个小组件。'**
   String get widgetNoLedgerYet;
 
   /// No description provided for @widgetOpenApp.

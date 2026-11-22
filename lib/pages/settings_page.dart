@@ -607,7 +607,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  '${AppLocalizations.of(context).personalEditionName} $appVersionLabel',
+                  '${AppLocalizations.of(context).appTitle} $appVersionLabel',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: Theme.of(
