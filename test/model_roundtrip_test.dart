@@ -59,6 +59,11 @@ void main() {
     note: '',
     occurredAt: DateTime(2026, 1, 2, 3, 4, 5),
   );
+  final entryDiscounted = entryMinimal.copyWith(
+    id: 'entry-discounted',
+    discountAmount: 0.25,
+  );
+  final entryFixtures = [entryFull, entryMinimal, entryDiscounted];
 
   final book = LedgerBook(
     id: 'book-x',
@@ -162,7 +167,7 @@ void main() {
 
   group('JSON 往返（备份导出→导入）', () {
     test('LedgerEntry 全字段与全空字段', () {
-      for (final entry in <LedgerEntry>[entryFull, entryMinimal]) {
+      for (final entry in entryFixtures) {
         final restored = LedgerEntry.fromJson(jsonRoundTrip(entry.toJson()));
         expect(restored.toJson(), entry.toJson());
       }
@@ -266,7 +271,7 @@ void main() {
 
     test('全部账目类模型经数据库往返后 toJson 不变', () async {
       final repo = await openRepo();
-      await repo.saveEntries(<LedgerEntry>[entryFull, entryMinimal]);
+      await repo.saveEntries(entryFixtures);
       await repo.saveBooks(<LedgerBook>[book]);
       await repo.saveAccounts(<Account>[accountFull]);
       await repo.saveAccountGroups(<AccountGroup>[accountGroup]);
@@ -277,14 +282,12 @@ void main() {
       await repo.saveExchangeRates(<ExchangeRate>[exchangeRate]);
 
       final entries = await repo.loadEntries();
-      expect(
-        entries.singleWhere((e) => e.id == entryFull.id).toJson(),
-        entryFull.toJson(),
-      );
-      expect(
-        entries.singleWhere((e) => e.id == entryMinimal.id).toJson(),
-        entryMinimal.toJson(),
-      );
+      for (final entry in entryFixtures) {
+        expect(
+          entries.singleWhere((e) => e.id == entry.id).toJson(),
+          entry.toJson(),
+        );
+      }
       expect((await repo.loadBooks()).single.toJson(), book.toJson());
       expect((await repo.loadAccounts()).single.toJson(), accountFull.toJson());
       expect(

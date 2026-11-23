@@ -175,7 +175,7 @@ object AutoCapturePermissions {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val enabled = prefs.getBoolean(KEY_AUTO_ENABLED, false)
         val persistent = prefs.getBoolean(KEY_PERSISTENT_NOTIFICATION, true)
-        AutoBookkeepingForegroundService.sync(context, enabled, persistent, summary)
+        if (enabled && persistent) AutoBookkeepingForegroundService.updateSummary(context, summary)
     }
 
     fun openPermissionSettings(context: Context, kind: String): Boolean {

@@ -96,11 +96,12 @@ void main() {
     await tester.tap(find.text('收入'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('entry_type_selected_income')), findsOneWidget);
+    final selectedIncome = controller.categoriesForType(EntryType.income).first;
     expect(
       tester
           .widget<CategoryGlyph>(
             find.descendant(
-              of: find.byKey(const Key('entry_category_salary')),
+              of: find.byKey(Key('entry_category_${selectedIncome.id}')),
               matching: find.byType(CategoryGlyph),
             ),
           )
@@ -110,11 +111,14 @@ void main() {
 
     await tester.tap(find.text('转账'));
     await tester.pumpAndSettle();
+    final selectedTransfer = controller
+        .categoriesForType(EntryType.transfer)
+        .first;
     expect(
       tester
           .widget<CategoryGlyph>(
             find.descendant(
-              of: find.byKey(const Key('entry_category_transfer_out')),
+              of: find.byKey(Key('entry_category_${selectedTransfer.id}')),
               matching: find.byType(CategoryGlyph),
             ),
           )
@@ -129,6 +133,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     final controller = await makeController();
+    await controller.setMultiCurrencyEnabled(true);
     await tester.pumpWidget(
       VeriFinScope(
         controller: controller,
@@ -138,8 +143,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('更多信息'), findsOneWidget);
-    expect(find.byKey(const Key('entry_metadata_date')), findsOneWidget);
-    expect(find.byKey(const Key('entry_metadata_time')), findsOneWidget);
+    expect(find.byKey(const Key('entry_metadata_datetime')), findsOneWidget);
     expect(find.byKey(const Key('entry_metadata_tags')), findsOneWidget);
     expect(
       find.byKey(const Key('entry_metadata_reimbursable')),

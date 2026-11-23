@@ -253,6 +253,65 @@ List<String> yearMonthAxisLabels() {
   return List<String>.generate(12, (index) => '${index + 1}');
 }
 
+/// 以 [anchor]（默认本月）收尾的连续 12 个自然月，每月 1 号。
+List<DateTime> rolling12Months([DateTime? anchor]) {
+  final now = anchor ?? DateTime.now();
+  return List<DateTime>.generate(
+    12,
+    (i) => DateTime(now.year, now.month - 11 + i, 1),
+  );
+}
+
+List<String> rollingMonthAxisLabels(List<DateTime> months) =>
+    months.map((m) => '${m.month}').toList(growable: false);
+
+/// 近 12 个自然月逐月月末余额（全部账户一次遍历，按 [months] 顺序输出）。
+Map<String, List<double>> accountRollingMonthlyBalanceSeriesBatch(
+  List<Account> accounts,
+  List<LedgerEntry> entries,
+  List<DateTime> months,
+) {
+  final start = months.first;
+  final baselines = <String, double>{
+    for (final account in accounts) account.id: account.initialBalance,
+  };
+  final monthlyDeltas = <String, List<double>>{
+    for (final account in accounts) account.id: List<double>.filled(12, 0),
+  };
+  for (final entry in entries) {
+    final effectDate = accountEffectDate(entry);
+    final slot =
+        (effectDate.year - start.year) * 12 + (effectDate.month - start.month);
+    if (slot >= 12) continue;
+    final fromId = entry.accountId;
+    final toId = entry.toAccountId;
+    for (final accountId in <String>[
+      fromId,
+      if (toId != null && toId != fromId) toId,
+    ]) {
+      final deltas = monthlyDeltas[accountId];
+      if (deltas == null) continue;
+      final delta = accountDeltaForEntry(entry, accountId);
+      if (delta == 0) continue;
+      if (slot < 0) {
+        baselines[accountId] = baselines[accountId]! + delta;
+      } else {
+        deltas[slot] += delta;
+      }
+    }
+  }
+  final result = <String, List<double>>{};
+  for (final account in accounts) {
+    var running = baselines[account.id]!;
+    final deltas = monthlyDeltas[account.id]!;
+    result[account.id] = List<double>.generate(12, (i) {
+      running += deltas[i];
+      return running;
+    });
+  }
+  return result;
+}
+
 /// 账本里最早的记账日（无交易返回 `null`）。期间选择器用它作为可选范围的下界：
 /// 不给出早于「开始记账」的月份与年份。
 DateTime? earliestEntryDate(List<LedgerEntry> entries) {

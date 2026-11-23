@@ -1453,6 +1453,16 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
 
   bool get hideUnitInSingleCurrency => _hideUnitInSingleCurrency;
 
+  bool get multiCurrencyEnabled => _multiCurrencyEnabled;
+
+  Future<void> setMultiCurrencyEnabled(bool enabled) async {
+    if (_multiCurrencyEnabled == enabled) return;
+    _multiCurrencyEnabled = enabled;
+    amount_format.multiCurrencyEnabled = enabled;
+    await _store.writeAndFlush(_multiCurrencyKey, enabled.toString());
+    notifyListeners();
+  }
+
   void setMoneyDisplayPreferences({
     required MoneyUnitStyle unitStyle,
     required bool hideInSingleCurrency,
@@ -2107,6 +2117,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   Future<EntrySaveResult> saveEntryAggregateDraftResult({
     required LedgerEntry entry,
     required bool isNew,
+    String? suggestedTagLabel,
     List<LedgerEntry> refunds = const <LedgerEntry>[],
     List<Attachment> attachments = const <Attachment>[],
     String? rememberRateCurrencyCode,
@@ -2145,6 +2156,19 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
         _tags.any((tag) => tag.id == tagId && tag.bookId == bookId);
     if (entry.tagIds.any((tagId) => !tagInBook(tagId, entry.bookId))) {
       return _entrySaveValidationFailure(EntryValidationCode.tagOutOfScope);
+    }
+    Tag? newTag;
+    final tagLabel = suggestedTagLabel?.trim();
+    if (tagLabel != null && tagLabel.isNotEmpty) {
+      final tag = _tags
+          .where((tag) => tag.bookId == entry.bookId && tag.label == tagLabel)
+          .firstOrNull;
+      newTag = tag == null
+          ? Tag(id: _generateId('tag'), bookId: entry.bookId, label: tagLabel)
+          : null;
+      entry = entry.copyWith(
+        tagIds: {...entry.tagIds, (tag ?? newTag!).id}.toList(),
+      );
     }
     if (refunds.any(
       (refund) =>
@@ -2302,11 +2326,13 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
         nextRates[existingIndex] = candidate;
       }
     }
+    final nextTags = newTag == null ? null : <Tag>[..._tags, newTag];
     try {
       await _repository.saveEntryAggregate(
         entries: nextEntries,
         attachments: nextAttachments,
         exchangeRates: nextRates,
+        tags: nextTags,
       );
     } catch (error, stackTrace) {
       _handlePersistError(error, stackTrace);
@@ -2319,6 +2345,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     _attachments
       ..clear()
       ..addAll(nextAttachments);
+    if (newTag != null) _tags.add(newTag);
     if (nextRates != null) {
       _exchangeRates
         ..clear()

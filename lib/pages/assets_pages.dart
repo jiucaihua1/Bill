@@ -264,18 +264,29 @@ class _AssetsPageState extends State<AssetsPage> {
                                 ),
                           ),
                           const SizedBox(height: 14),
-                          // 去掉「卡中卡」底色块，改用平铺两列 + 细分隔线，左右对齐一致。
                           IntrinsicHeight(
                             child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: <Widget>[
                                 Expanded(
-                                  child: Padding(
+                                  child: Container(
                                     padding: const EdgeInsets.symmetric(
-                                      vertical: 4,
+                                      horizontal: 12,
+                                      vertical: 9,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: veriMetricTileColor(
+                                        context,
+                                        VeriMetricTone.income,
+                                        onCover: hasAssetCover,
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: <Widget>[
                                         Text(
                                           l10n.totalAssetsLabel,
@@ -308,26 +319,13 @@ class _AssetsPageState extends State<AssetsPage> {
                                     ),
                                   ),
                                 ),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                  ),
-                                  child: VerticalDivider(
-                                    width: 1,
-                                    thickness: 1,
-                                    color: hasAssetCover
-                                        ? Colors.white.withValues(alpha: 0.22)
-                                        : tokens.borderColor,
-                                  ),
-                                ),
+                                const SizedBox(width: 10),
                                 Expanded(
                                   child: Material(
                                     color: Colors.transparent,
                                     child: InkWell(
                                       key: const Key('asset_debt_details'),
-                                      borderRadius: BorderRadius.circular(
-                                        veriRadiusSm,
-                                      ),
+                                      borderRadius: BorderRadius.circular(12),
                                       onTap: () =>
                                           Navigator.of(context).push<void>(
                                             MaterialPageRoute<void>(
@@ -335,9 +333,22 @@ class _AssetsPageState extends State<AssetsPage> {
                                                   const _AssetDebtPage(),
                                             ),
                                           ),
-                                      child: Padding(
+                                      child: Container(
                                         padding: const EdgeInsets.symmetric(
-                                          vertical: 4,
+                                          horizontal: 12,
+                                          vertical: 9,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: veriMetricTileColor(
+                                            context,
+                                            (debt ?? 0) > 0
+                                                ? VeriMetricTone.expense
+                                                : VeriMetricTone.neutral,
+                                            onCover: hasAssetCover,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
                                         ),
                                         child: Row(
                                           children: <Widget>[
@@ -465,7 +476,9 @@ class _AssetsPageState extends State<AssetsPage> {
                                     : Theme.of(context).colorScheme.primary,
                                 values: assetTrend.values,
                                 missingIndexes: assetTrend.missingIndexes,
-                                xLabels: yearMonthAxisLabels(),
+                                xLabels: rollingMonthAxisLabels(
+                                  assetTrend.months,
+                                ),
                                 formatYAxisValue: hideAmounts
                                     ? null
                                     : (value) => formatCompactAmount(
@@ -475,11 +488,12 @@ class _AssetsPageState extends State<AssetsPage> {
                                       ),
                                 labelColor: assetCardMutedColor,
                                 highlightLatest: true,
-                                highlightThroughIndex: DateTime.now().month - 1,
+                                highlightThroughIndex:
+                                    assetTrend.months.length - 1,
                                 tooltipOf: (index) => ChartTooltip(
                                   title: AppLocalizations.of(
                                     context,
-                                  ).monthNumber(index + 1),
+                                  ).yearMonth(assetTrend.months[index]),
                                   lines: <ChartTooltipLine>[
                                     ChartTooltipLine(
                                       text: AppLocalizations.of(context)
@@ -748,11 +762,13 @@ typedef _AssetCurrencyConverter =
 
 class _AssetTrendData {
   const _AssetTrendData({
+    required this.months,
     required this.values,
     required this.missingIndexes,
     required this.missingCurrencyCodes,
   });
 
+  final List<DateTime> months;
   final List<double> values;
   final Set<int> missingIndexes;
   final Set<String> missingCurrencyCodes;
@@ -765,13 +781,18 @@ _AssetTrendData _baseCurrencyAssetTrend({
   required List<LedgerEntry> entries,
   required _AssetCurrencyConverter convert,
 }) {
-  final nativeSeries = accountMonthlyBalanceSeriesBatch(accounts, entries);
-  final now = DateTime.now();
+  final months = rolling12Months();
+  final nativeSeries = accountRollingMonthlyBalanceSeriesBatch(
+    accounts,
+    entries,
+    months,
+  );
   final result = List<double>.filled(12, 0);
   final missingIndexes = <int>{};
   final missingCurrencyCodes = <String>{};
   for (var monthIndex = 0; monthIndex < 12; monthIndex += 1) {
-    final monthEnd = DateTime(now.year, monthIndex + 2, 0);
+    final month = months[monthIndex];
+    final monthEnd = DateTime(month.year, month.month + 1, 0);
     var total = 0.0;
     var complete = true;
     for (final account in accounts) {
@@ -803,6 +824,7 @@ _AssetTrendData _baseCurrencyAssetTrend({
     }
   }
   return _AssetTrendData(
+    months: months,
     values: result,
     missingIndexes: missingIndexes,
     missingCurrencyCodes: missingCurrencyCodes,

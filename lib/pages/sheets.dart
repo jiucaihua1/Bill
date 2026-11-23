@@ -931,6 +931,7 @@ Future<double?> showNumberPadSheet(
   int? maxFractionDigits,
   String? currencyCode,
   bool showTitle = true,
+  NumberPadLayout? layout,
 }) {
   final resolvedFractionDigits =
       maxFractionDigits ??
@@ -949,9 +950,27 @@ Future<double?> showNumberPadSheet(
       maxAmount: maxAmount,
       maxFractionDigits: resolvedFractionDigits,
       currencyCode: currencyCode,
-      layout: VeriFinScope.of(context).numberPadLayout,
+      layout: layout ?? VeriFinScope.of(context).numberPadLayout,
       showTitle: showTitle,
     ),
+  );
+}
+
+Future<double?> showEntryDiscountSheet(
+  BuildContext context, {
+  required double grossAmount,
+  required double discountAmount,
+  required String currencyCode,
+  NumberPadLayout? layout,
+}) {
+  return showNumberPadSheet(
+    context,
+    title: AppLocalizations.of(context).entryDiscountLabel,
+    initialAmount: discountAmount > 0 ? discountAmount : null,
+    allowZero: true,
+    maxAmount: maxEntryDiscount(grossAmount, currencyCode),
+    currencyCode: currencyCode,
+    layout: layout,
   );
 }
 

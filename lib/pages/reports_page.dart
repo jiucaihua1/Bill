@@ -840,17 +840,20 @@ class _WeeklyTrendPanelState extends State<_WeeklyTrendPanel> {
                 child: _RecentStatLine(
                   label: l10n.recentTotalExpense,
                   value: formatExpenseAmount(expenseTotal),
+                  tone: VeriMetricTone.expense,
                 ),
               ),
+              const SizedBox(width: 8),
               Expanded(
                 child: _RecentStatLine(
                   label: l10n.recentDailyAvgExpense,
                   value: formatExpenseAmount(_dailyAverage(expenseTotal)),
+                  tone: VeriMetricTone.neutral,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Row(
             children: <Widget>[
               Expanded(
@@ -858,12 +861,15 @@ class _WeeklyTrendPanelState extends State<_WeeklyTrendPanel> {
                   label: l10n.recentTotalIncome,
                   // 与支出侧一致：零值显示「0」，不带小数。
                   value: formatIncomeAmount(incomeTotal),
+                  tone: VeriMetricTone.income,
                 ),
               ),
+              const SizedBox(width: 8),
               Expanded(
                 child: _RecentStatLine(
                   label: l10n.recentDailyAvgIncome,
                   value: formatIncomeAmount(_dailyAverage(incomeTotal)),
+                  tone: VeriMetricTone.neutral,
                 ),
               ),
             ],
@@ -902,38 +908,50 @@ String _weekdayLabel(AppLocalizations l10n, DateTime day) {
 
 /// 「标签：金额」一行的紧凑排布（近 7 日面板底部两列两行）。
 class _RecentStatLine extends StatelessWidget {
-  const _RecentStatLine({required this.label, required this.value});
+  const _RecentStatLine({
+    required this.label,
+    required this.value,
+    required this.tone,
+  });
 
   final String label;
   final String value;
+  final VeriMetricTone tone;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.56),
-            fontWeight: FontWeight.w500,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: veriMetricTileColor(context, tone),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.58),
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.titleSmall?.copyWith(
-            color: theme.colorScheme.onSurface,
-            fontWeight: FontWeight.w800,
+          const SizedBox(height: 2),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -984,32 +1002,36 @@ class _PeriodSummaryPanel extends StatelessWidget {
         children: <Widget>[
           SectionTitle(title: title, trailing: trailing),
           const SizedBox(height: 12),
-          Row(
-            // 指标列高度可能不同（收入/支出带笔数），顶部对齐才不会错位。
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              SummaryMetric(
-                label: incomeLabel,
-                value: formatIncomeAmount(income),
-                color: isZeroAmount(income)
-                    ? zeroColor
-                    : veriSemantic(context, veriIncome),
-                detail: l10n.entriesCount(incomeCount),
-              ),
-              SummaryMetric(
-                label: expenseLabel,
-                value: formatExpenseAmount(expense),
-                color: isZeroAmount(expense)
-                    ? zeroColor
-                    : veriSemantic(context, veriExpense),
-                detail: l10n.entriesCount(expenseCount),
-              ),
-              SummaryMetric(
-                label: netLabel,
-                value: formatSignedAmount(net),
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ],
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                SummaryMetric(
+                  label: incomeLabel,
+                  value: formatIncomeAmount(income),
+                  color: isZeroAmount(income)
+                      ? zeroColor
+                      : veriSemantic(context, veriIncome),
+                  tone: VeriMetricTone.income,
+                  detail: l10n.entriesCount(incomeCount),
+                ),
+                SummaryMetric(
+                  label: expenseLabel,
+                  value: formatExpenseAmount(expense),
+                  color: isZeroAmount(expense)
+                      ? zeroColor
+                      : veriSemantic(context, veriExpense),
+                  tone: VeriMetricTone.expense,
+                  detail: l10n.entriesCount(expenseCount),
+                ),
+                SummaryMetric(
+                  label: netLabel,
+                  value: formatSignedAmount(net),
+                  color: Theme.of(context).colorScheme.onSurface,
+                  tone: VeriMetricTone.neutral,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1153,33 +1175,41 @@ class _BudgetExecutionCard extends StatelessWidget {
           const SizedBox(height: 12),
           // 与本页顶部的收支摘要卡共用 SummaryMetric，保证三块指标的标签/数值字号
           // 与同页其它卡片一致。
-          Row(
-            children: <Widget>[
-              SummaryMetric(
-                label: AppLocalizations.of(context).monthBudgetLabel,
-                value: formatAmount(budget),
-                color: scheme.onSurface,
-              ),
-              SummaryMetric(
-                label: AppLocalizations.of(context).budgetMonthExpense,
-                value: formatExpenseAmount(expense),
-                color: veriSemantic(context, veriExpense),
-              ),
-              SummaryMetric(
-                label: AppLocalizations.of(context).categoryBudgetTitle,
-                value: AppLocalizations.of(context).countItems(budgetedCount),
-                color: scheme.onSurface,
-                // 未设分类预算时没有「执行情况」可判断，绿色「正常」会被误读为
-                // 已设预算且执行良好。
-                detail: overBudgetCount > 0
-                    ? AppLocalizations.of(
-                        context,
-                      ).overCountLabel(overBudgetCount)
-                    : budgetedCount == 0
-                    ? AppLocalizations.of(context).notSet
-                    : AppLocalizations.of(context).normalLabel,
-              ),
-            ],
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                SummaryMetric(
+                  label: AppLocalizations.of(context).monthBudgetLabel,
+                  value: formatAmount(budget),
+                  color: scheme.onSurface,
+                  tone: VeriMetricTone.neutral,
+                ),
+                SummaryMetric(
+                  label: AppLocalizations.of(context).budgetMonthExpense,
+                  value: formatExpenseAmount(expense),
+                  color: veriSemantic(context, veriExpense),
+                  tone: VeriMetricTone.expense,
+                ),
+                SummaryMetric(
+                  label: AppLocalizations.of(context).categoryBudgetTitle,
+                  value: AppLocalizations.of(context).countItems(budgetedCount),
+                  color: scheme.onSurface,
+                  tone: overBudgetCount > 0
+                      ? VeriMetricTone.expense
+                      : VeriMetricTone.primary,
+                  // 未设分类预算时没有「执行情况」可判断，绿色「正常」会被误读为
+                  // 已设预算且执行良好。
+                  detail: overBudgetCount > 0
+                      ? AppLocalizations.of(
+                          context,
+                        ).overCountLabel(overBudgetCount)
+                      : budgetedCount == 0
+                      ? AppLocalizations.of(context).notSet
+                      : AppLocalizations.of(context).normalLabel,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1872,7 +1902,7 @@ class _RankRow extends StatelessWidget {
                     ],
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 12),
                 LinearProgressIndicator(
                   value: percent.clamp(0, 1).toDouble(),
                   minHeight: 5,

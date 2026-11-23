@@ -102,6 +102,7 @@ const String _currencyFractionStyleKey = 'verifin.currency_fraction_style.v1';
 /// 之后只写新键；两个键都加进「初始化清除」清单。
 const String _legacyAmountFormatKey = 'verifin.amount_format.v1';
 const String _moneyUnitStyleKey = 'verifin.money_unit_style.v1';
+const String _multiCurrencyKey = 'verifin.multi_currency.v1';
 const String _hideSingleCurrencyUnitKey =
     'verifin.hide_single_currency_unit.v1';
 const String _autoSuggestKey = 'verifin.auto_suggest.v1';

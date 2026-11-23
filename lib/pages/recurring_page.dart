@@ -663,13 +663,45 @@ class _RecurringRuleEditPageState extends State<RecurringRuleEditPage> {
                       ).dateMonthDay(_startDate),
                       onTap: _pickStartDate,
                     ),
-                    DetailInfoRow(
-                      label: AppLocalizations.of(context).commonNote,
-                      value: _noteController.text.trim().isEmpty
-                          ? AppLocalizations.of(context).noteHint
-                          : _noteController.text.trim(),
-                      placeholder: _noteController.text.trim().isEmpty,
-                      onTap: _editNote,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: <Widget>[
+                          SizedBox(
+                            width: 78,
+                            child: Text(
+                              AppLocalizations.of(context).commonNote,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.62),
+                                  ),
+                            ),
+                          ),
+                          Expanded(
+                            child: TextField(
+                              controller: _noteController,
+                              textAlign: TextAlign.end,
+                              maxLines: 1,
+                              textInputAction: TextInputAction.done,
+                              decoration: InputDecoration(
+                                hintText: AppLocalizations.of(context).noteHint,
+                                filled: false,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              onChanged: (_) => _change(() {}),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1006,19 +1038,6 @@ class _RecurringRuleEditPageState extends State<RecurringRuleEditPage> {
         final controller = VeriFinScope.of(context);
         _resolveAmounts(controller, controller.accounts);
       });
-    }
-  }
-
-  Future<void> _editNote() async {
-    final note = await showTextInputDialog(
-      context: context,
-      title: AppLocalizations.of(context).commonNote,
-      label: AppLocalizations.of(context).commonNote,
-      initialValue: _noteController.text,
-      allowEmpty: true,
-    );
-    if (note != null && mounted) {
-      _change(() => _noteController.text = note);
     }
   }
 

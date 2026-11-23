@@ -47,6 +47,7 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
   bool _monthlyTrend = false;
   late Account _draftAccount;
   late bool _draftDefault;
+  late final TextEditingController _noteController;
   bool _initialized = false;
 
   @override
@@ -64,10 +65,12 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
     _autoSave = AutoSave(save: _save, logger: controller.logger);
     _draftAccount = account;
     _draftDefault = controller.defaultAccountId == account.id;
+    _noteController = TextEditingController(text: account.note);
   }
 
   @override
   void dispose() {
+    _noteController.dispose();
     _autoSave.dispose();
     super.dispose();
   }
@@ -402,14 +405,51 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
                         ),
                       ),
                       const Divider(height: 1),
-                      SettingsRow(
-                        icon: Icons.notes,
-                        title: AppLocalizations.of(context).commonNote,
-                        trailing: currentAccount.note.isEmpty
-                            ? AppLocalizations.of(context).commonNoneShort
-                            : currentAccount.note,
-                        trailingIcon: Icons.chevron_right,
-                        onTap: () => _editAccountNote(currentAccount),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: <Widget>[
+                            Icon(
+                              Icons.notes,
+                              size: 20,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.65),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              AppLocalizations.of(context).commonNote,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: _noteController,
+                                textAlign: TextAlign.end,
+                                maxLines: 1,
+                                textInputAction: TextInputAction.done,
+                                decoration: InputDecoration(
+                                  hintText: AppLocalizations.of(
+                                    context,
+                                  ).noteHint,
+                                  filled: false,
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  disabledBorder: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                onChanged: (value) => _apply(
+                                  () => _draftAccount = _draftAccount.copyWith(
+                                    note: value,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const Divider(height: 1),
                       SettingsRow(
@@ -876,19 +916,6 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
           clearStatementDay: selected == clearValue,
         );
       });
-    }
-  }
-
-  Future<void> _editAccountNote(Account account) async {
-    final note = await showTextInputDialog(
-      context: context,
-      title: AppLocalizations.of(context).accountNoteEditTitle,
-      label: AppLocalizations.of(context).commonNote,
-      initialValue: account.note,
-      allowEmpty: true,
-    );
-    if (note != null && mounted) {
-      _apply(() => _draftAccount = account.copyWith(note: note));
     }
   }
 

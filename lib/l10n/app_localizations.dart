@@ -110,6 +110,24 @@ abstract class AppLocalizations {
   /// **'小禾记账'**
   String get appTitle;
 
+  /// No description provided for @multiCurrencyEnabledLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用多币种与外币'**
+  String get multiCurrencyEnabledLabel;
+
+  /// No description provided for @multiCurrencyEnabledDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'关闭后隐藏记账币种、本位币冲抵额度及汇率入口，仅按单币种记账'**
+  String get multiCurrencyEnabledDesc;
+
+  /// No description provided for @refundDateLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'退款日期'**
+  String get refundDateLabel;
+
   /// No description provided for @statRangeLabel.
   ///
   /// In zh, this message translates to:
@@ -4400,6 +4418,12 @@ abstract class AppLocalizations {
   /// **'付款周期'**
   String get subscriptionPeriod;
 
+  /// No description provided for @viewOriginalBill.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看原始账单'**
+  String get viewOriginalBill;
+
   /// No description provided for @monthlySubscription.
   ///
   /// In zh, this message translates to:
@@ -5078,16 +5102,34 @@ abstract class AppLocalizations {
   /// **'晨间手账（默认）'**
   String get themeColorWarmPaper;
 
+  /// No description provided for @themeColorMatchaZen.
+  ///
+  /// In zh, this message translates to:
+  /// **'抹茶竹韵'**
+  String get themeColorMatchaZen;
+
+  /// No description provided for @themeColorSakuraMist.
+  ///
+  /// In zh, this message translates to:
+  /// **'晚樱暮雪'**
+  String get themeColorSakuraMist;
+
+  /// No description provided for @themeColorCaramelLatte.
+  ///
+  /// In zh, this message translates to:
+  /// **'焦糖拿铁'**
+  String get themeColorCaramelLatte;
+
   /// No description provided for @themeColorHyperCrisp.
   ///
   /// In zh, this message translates to:
-  /// **'澎湃极简'**
+  /// **'澎湃冰蓝'**
   String get themeColorHyperCrisp;
 
   /// No description provided for @themeColorObsidianBento.
   ///
   /// In zh, this message translates to:
-  /// **'墨曜精准'**
+  /// **'墨曜便当'**
   String get themeColorObsidianBento;
 
   /// No description provided for @themeColorDefault.
@@ -6980,6 +7022,12 @@ abstract class AppLocalizations {
   /// **'建设银行'**
   String get autoCaptureCcbName;
 
+  /// No description provided for @autoCaptureTodayExpense.
+  ///
+  /// In zh, this message translates to:
+  /// **'今日支出 {amount}'**
+  String autoCaptureTodayExpense(String amount);
+
   /// No description provided for @autoCaptureCcbHint.
   ///
   /// In zh, this message translates to:
@@ -8749,6 +8797,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'原币金额'**
   String get entryOriginalAmountLabel;
+
+  /// No description provided for @entryDiscountLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'优惠'**
+  String get entryDiscountLabel;
+
+  /// No description provided for @entryGrossAmountLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'原价'**
+  String get entryGrossAmountLabel;
+
+  /// No description provided for @entryDiscountValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'优惠 {amount}'**
+  String entryDiscountValue(String amount);
+
+  /// No description provided for @entryPayableValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'实付 {amount}'**
+  String entryPayableValue(String amount);
 
   /// No description provided for @entryAccountAmountExpense.
   ///

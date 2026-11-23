@@ -343,6 +343,15 @@ class _RefundSheetState extends State<_RefundSheet> {
       _settled = true;
       _settledAt = DateTime.now();
     }
+    _noteController.text = _note;
+  }
+
+  final TextEditingController _noteController = TextEditingController();
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
   }
 
   double get _maxRefund => remainingRefundableAmount(
@@ -482,30 +491,6 @@ class _RefundSheetState extends State<_RefundSheet> {
     });
   }
 
-  Future<void> _pickDate({required bool arrival}) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: arrival ? _settledAt : _initiatedAt,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-    );
-    if (picked == null || !mounted) {
-      return;
-    }
-    setState(() {
-      if (arrival) {
-        _settledAt = picked;
-      } else {
-        _initiatedAt = picked;
-        // 已有退款的三层金额是已保存的历史事实。只改发起日期时不能重新查汇率
-        // 覆盖实际到账金额；新建退款的预计金额才随日期重新计算。
-        if (widget.existing == null) {
-          _resolveAmounts();
-        }
-      }
-    });
-  }
-
   Future<void> _editAccountAmount(String currencyCode) async {
     final value = await showNumberPadSheet(
       context,
@@ -549,21 +534,6 @@ class _RefundSheetState extends State<_RefundSheet> {
       }
       _conversionSource = ConversionSource.manual;
     });
-  }
-
-  Future<void> _editNote() async {
-    final l10n = AppLocalizations.of(context);
-    final value = await showTextInputDialog(
-      context: context,
-      title: l10n.commonNote,
-      label: l10n.commonNote,
-      initialValue: _note,
-      allowEmpty: true,
-    );
-    if (value == null || !mounted) {
-      return;
-    }
-    setState(() => _note = value);
   }
 
   LedgerEntry _buildRefund() => LedgerEntry(
@@ -715,19 +685,25 @@ class _RefundSheetState extends State<_RefundSheet> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  l10n.refundCurrencyLockedHint,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                if (controller.multiCurrencyEnabled) ...<Widget>[
+                  const SizedBox(height: 6),
+                  Text(
+                    l10n.refundCurrencyLockedHint,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.55,
+                      ),
+                    ),
                   ),
-                ),
+                ],
                 DetailInfoRow(
                   label: l10n.refundToAccountLabel,
                   value: accountName,
                   onTap: _pickAccount,
                 ),
-                if (account != null)
+                if (account != null &&
+                    (controller.multiCurrencyEnabled ||
+                        account.currencyCode != widget.expense.currencyCode))
                   CurrencyAmountField(
                     key: const Key('refund_account_amount'),
                     label: l10n.refundAccountAmountLabel,
@@ -738,39 +714,74 @@ class _RefundSheetState extends State<_RefundSheet> {
                     forceUnit: false,
                     onTap: () => _editAccountAmount(account.currencyCode),
                   ),
-                CurrencyAmountField(
-                  key: const Key('refund_base_amount'),
-                  label: l10n.refundBaseAmountLabel,
-                  currencyCode: baseCode,
-                  amount: _baseAmount > 0 ? _baseAmount : null,
-                  missingText: l10n.exchangeRateNotSet,
-                  forceUnit: false,
-                  onTap: () => _editBaseAmount(baseCode),
-                ),
-                CompactSwitchRow(
-                  icon: Icons.check_circle_outline,
-                  title: Text(l10n.refundIsSettledLabel),
-                  value: _settled,
-                  onChanged: (value) => setState(() => _settled = value),
-                ),
-                if (_settled)
-                  DetailInfoRow(
-                    label: l10n.refundArrivalDateLabel,
-                    value:
-                        '${l10n.dateMonthDay(_settledAt)}  ${relativeDay(l10n, _settledAt)}',
-                    onTap: () => _pickDate(arrival: true),
+                if (controller.multiCurrencyEnabled ||
+                    baseCode != widget.expense.currencyCode)
+                  CurrencyAmountField(
+                    key: const Key('refund_base_amount'),
+                    label: l10n.refundBaseAmountLabel,
+                    currencyCode: baseCode,
+                    amount: _baseAmount > 0 ? _baseAmount : null,
+                    missingText: l10n.exchangeRateNotSet,
+                    forceUnit: false,
+                    onTap: () => _editBaseAmount(baseCode),
                   ),
                 DetailInfoRow(
-                  label: l10n.refundInitiatedDateLabel,
+                  label: l10n.refundDateLabel,
                   value:
-                      '${l10n.dateMonthDay(_initiatedAt)}  ${relativeDay(l10n, _initiatedAt)}',
-                  onTap: () => _pickDate(arrival: false),
+                      '${l10n.dateMonthDay(_settledAt)}  ${relativeDay(l10n, _settledAt)}',
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _settledAt,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null && mounted) {
+                      setState(() {
+                        _settled = true;
+                        _settledAt = picked;
+                        _initiatedAt = picked;
+                      });
+                    }
+                  },
                 ),
-                DetailInfoRow(
-                  label: l10n.commonNote,
-                  value: _note.isEmpty ? l10n.noteHint : _note,
-                  placeholder: _note.isEmpty,
-                  onTap: _editNote,
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: <Widget>[
+                      SizedBox(
+                        width: 78,
+                        child: Text(
+                          l10n.commonNote,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.62,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _noteController,
+                          textAlign: TextAlign.end,
+                          maxLines: 1,
+                          textInputAction: TextInputAction.done,
+                          decoration: InputDecoration(
+                            hintText: l10n.noteHint,
+                            filled: false,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onChanged: (value) => setState(() => _note = value),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 14),
                 SizedBox(

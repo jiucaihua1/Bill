@@ -125,10 +125,21 @@ class ProfilePage extends StatelessWidget {
                   const SizedBox(height: 14),
                   IntrinsicHeight(
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
                         Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: veriMetricTileColor(
+                                context,
+                                VeriMetricTone.primary,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             child: Builder(
                               builder: (context) {
                                 final (value, label) = bookkeepingDurationStat(
@@ -140,17 +151,20 @@ class ProfilePage extends StatelessWidget {
                             ),
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: VerticalDivider(
-                            width: 1,
-                            thickness: 1,
-                            color: VeriStyleTokens.of(context).borderColor,
-                          ),
-                        ),
+                        const SizedBox(width: 10),
                         Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: veriMetricTileColor(
+                                context,
+                                VeriMetricTone.neutral,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             child: ProfileStat(
                               label: AppLocalizations.of(
                                 context,
@@ -263,22 +277,23 @@ class ProfilePage extends StatelessWidget {
                   ),
                 ),
               ),
-              _FeatureTileData(
-                icon: Icons.currency_exchange,
-                color: veriCyan,
-                label: AppLocalizations.of(context).currencyRatesTitle,
-                // 单币种账本隐藏单位时不留币种代码；空串保住宫格的行高一致。
-                subtitle:
-                    optionalCurrencyUnit(
-                      controller.activeBook.baseCurrencyCode,
-                    ) ??
-                    '',
-                onTap: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(
-                    builder: (context) => const CurrencyRatesPage(),
+              if (controller.multiCurrencyEnabled)
+                _FeatureTileData(
+                  icon: Icons.currency_exchange,
+                  color: veriCyan,
+                  label: AppLocalizations.of(context).currencyRatesTitle,
+                  // 单币种账本隐藏单位时不留币种代码；空串保住宫格的行高一致。
+                  subtitle:
+                      optionalCurrencyUnit(
+                        controller.activeBook.baseCurrencyCode,
+                      ) ??
+                      '',
+                  onTap: () => Navigator.of(context).push<void>(
+                    MaterialPageRoute<void>(
+                      builder: (context) => const CurrencyRatesPage(),
+                    ),
                   ),
                 ),
-              ),
               // 新增入口一律追加在组末：已有入口的位置不变，避免用户改掉肌肉记忆。
               _FeatureTileData(
                 icon: Icons.savings_outlined,

@@ -3,6 +3,9 @@
   "sameFileSkipped": "同一文件中已有 {count} 笔导入当前账本，本次已跳过。",
   "@sameFileSkipped": {"placeholders": {"count": {"type": "int"}}},
   "appTitle": "小禾记账",
+  "multiCurrencyEnabledLabel": "启用多币种与外币",
+  "multiCurrencyEnabledDesc": "关闭后隐藏记账币种、本位币冲抵额度及汇率入口，仅按单币种记账",
+  "refundDateLabel": "退款日期",
   "statRangeLabel": "统计区间",
   "@appTitle": {
     "description": "应用名称"
@@ -1740,6 +1743,7 @@
   "averagePerExpense": "平均每笔支出",
   "selectSubscriptionOrders": "选择已有账单",
   "subscriptionPeriod": "付款周期",
+  "viewOriginalBill": "查看原始账单",
   "monthlySubscription": "月付",
   "biennialSubscription": "两年付",
   "quarterlySubscription": "季付",
@@ -1990,8 +1994,11 @@
   "themeMode": "主题模式",
   "themeColorLabel": "主题风格",
   "themeColorWarmPaper": "晨间手账（默认）",
-  "themeColorHyperCrisp": "澎湃极简",
-  "themeColorObsidianBento": "墨曜精准",
+  "themeColorMatchaZen": "抹茶竹韵",
+  "themeColorSakuraMist": "晚樱暮雪",
+  "themeColorCaramelLatte": "焦糖拿铁",
+  "themeColorHyperCrisp": "澎湃冰蓝",
+  "themeColorObsidianBento": "墨曜便当",
   "themeColorDefault": "经典蓝",
   "themeColorSystem": "跟随系统动态色",
   "themeColorCustom": "自定义颜色",
@@ -2427,6 +2434,10 @@
   "autoCaptureReviewNotifications": "待确认账单通知",
   "autoCaptureNotificationFlow": "无法在当前页面显示面板时，可从通知打开账单。",
   "autoCaptureCcbName": "建设银行",
+  "autoCaptureTodayExpense": "今日支出 {amount}",
+  "@autoCaptureTodayExpense": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
   "autoCaptureCcbHint": "用手机银行扣款通知辅助核对当前付款页",
   "autoCaptureOverlayPermission": "悬浮窗权限",
   "autoCaptureOverlayFlow": "允许后可在当前应用上方确认账单。",
@@ -3082,6 +3093,16 @@
   "entryCurrencyLabel": "交易币种",
   "entryCurrencyPickTitle": "选择交易币种",
   "entryOriginalAmountLabel": "原币金额",
+  "entryDiscountLabel": "优惠",
+  "entryGrossAmountLabel": "原价",
+  "entryDiscountValue": "优惠 {amount}",
+  "@entryDiscountValue": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "entryPayableValue": "实付 {amount}",
+  "@entryPayableValue": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
   "entryAccountAmountExpense": "账户实际扣款",
   "entryAccountAmountIncome": "账户实际入账",
   "entryLedgerAmountLabel": "计入账本",

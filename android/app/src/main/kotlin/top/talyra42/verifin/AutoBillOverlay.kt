@@ -58,15 +58,21 @@ object AutoBillOverlay {
         }
     }
 
-    fun attach(engine: FlutterEngine) {
+    fun attach(context: Context, engine: FlutterEngine) {
         ledgerChannel = MethodChannel(engine.dartExecutor.binaryMessenger, "verifin/auto_bill_overlay")
         ledgerChannel.setMethodCallHandler { call, result ->
-            if (call.method == "ledgerReady") {
-                ready = true
-                current?.takeIf { it.dialog == null }?.let(::prepare)
-                result.success(null)
-            } else {
-                result.notImplemented()
+            when (call.method) {
+                "ledgerReady" -> {
+                    ready = true
+                    current?.takeIf { it.dialog == null }?.let(::prepare)
+                    result.success(null)
+                }
+                "updateNotificationSummary" -> {
+                    val summary = call.arguments as? String
+                    if (summary != null) AutoCapturePermissions.updateNotificationSummary(context, summary)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
             }
         }
     }

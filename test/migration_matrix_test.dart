@@ -157,6 +157,7 @@ void main() {
       expect(entries, hasLength(4));
       final lunch = entries.singleWhere((e) => e.id == 'e1');
       expect(lunch.amount, 25.5);
+      expect(lunch.discountAmount, 0);
       expect(lunch.note, '午饭');
       expect(lunch.fee, 0);
       expect(lunch.reimbursable, isFalse);

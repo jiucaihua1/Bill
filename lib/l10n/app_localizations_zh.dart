@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -16,6 +15,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get appTitle => '小禾记账';
+
+  @override
+  String get multiCurrencyEnabledLabel => '启用多币种与外币';
+
+  @override
+  String get multiCurrencyEnabledDesc => '关闭后隐藏记账币种、本位币冲抵额度及汇率入口，仅按单币种记账';
+
+  @override
+  String get refundDateLabel => '退款日期';
 
   @override
   String get statRangeLabel => '统计区间';
@@ -2397,6 +2405,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get subscriptionPeriod => '付款周期';
 
   @override
+  String get viewOriginalBill => '查看原始账单';
+
+  @override
   String get monthlySubscription => '月付';
 
   @override
@@ -2775,10 +2786,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get themeColorWarmPaper => '晨间手账（默认）';
 
   @override
-  String get themeColorHyperCrisp => '澎湃极简';
+  String get themeColorMatchaZen => '抹茶竹韵';
 
   @override
-  String get themeColorObsidianBento => '墨曜精准';
+  String get themeColorSakuraMist => '晚樱暮雪';
+
+  @override
+  String get themeColorCaramelLatte => '焦糖拿铁';
+
+  @override
+  String get themeColorHyperCrisp => '澎湃冰蓝';
+
+  @override
+  String get themeColorObsidianBento => '墨曜便当';
 
   @override
   String get themeColorDefault => '经典蓝';
@@ -3773,6 +3793,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get autoCaptureCcbName => '建设银行';
+
+  @override
+  String autoCaptureTodayExpense(String amount) {
+    return '今日支出 $amount';
+  }
 
   @override
   String get autoCaptureCcbHint => '用手机银行扣款通知辅助核对当前付款页';
@@ -4779,6 +4804,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get entryOriginalAmountLabel => '原币金额';
+
+  @override
+  String get entryDiscountLabel => '优惠';
+
+  @override
+  String get entryGrossAmountLabel => '原价';
+
+  @override
+  String entryDiscountValue(String amount) {
+    return '优惠 $amount';
+  }
+
+  @override
+  String entryPayableValue(String amount) {
+    return '实付 $amount';
+  }
 
   @override
   String get entryAccountAmountExpense => '账户实际扣款';

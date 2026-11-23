@@ -111,7 +111,7 @@ flutter test integration_test/ -d <device-id> --flavor diagnostic
 动画连续性由 `test/anchored_menu_test.dart` 用确定性时钟覆盖。仪器测试与帧耗时采样都只做冒烟，
 **不能替代**下面的真机评审。
 
-个人版使用 `diagnostic` flavor，applicationId 是 `top.talyra42.verifin.personalledger`。debug 支持 hot reload，与个人版签名 release 使用相同包名。日常调试用专用模拟器或测试设备，使用已安装个人版的手机验收同签名的 release 包。
+个人版使用 `diagnostic` flavor，applicationId 是 `top.talyra42.verifin.personalledger`。Debug 支持热重载，日常真机测试可用同签名的 Debug 包覆盖安装。明确验收 R8 或发版时构建同签名的 Release 包。
 
 同一工作区的 `flutter test`、`flutter pub get` 与 Android 构建顺序执行，因为它们会更新插件注册文件和依赖元数据。最终图形、OCR 与原生插件行为须在签名 release APK 上验证。
 

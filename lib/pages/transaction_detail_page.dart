@@ -37,6 +37,7 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
   LedgerEntry? _initialEntry;
   late EntryType _type;
   late double _amount;
+  late double _discountAmount;
   late String _currencyCode;
   late double? _accountAmount;
   late double? _toAccountAmount;
@@ -78,6 +79,7 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
     _initialEntry = entry;
     _type = entry.type;
     _amount = entry.amount;
+    _discountAmount = entry.discountAmount;
     _currencyCode = entry.currencyCode;
     _accountAmount = entry.accountAmount;
     _toAccountAmount = entry.toAccountAmount;
@@ -177,106 +179,173 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
                 const SizedBox(height: 12),
                 AutoSaveFailureBanner(autoSave: _autoSave),
                 VeriCard(
-                  onTap: _editAmount,
-                  padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              AppLocalizations.of(context).amountLabel,
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface
-                                        .withValues(alpha: 0.42),
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: _pickCategory,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 2,
+                                ),
+                                child: Row(
+                                  children: <Widget>[
+                                    CategoryIconBox(
+                                      iconCode: category.iconCode,
+                                      categoryName: category.label,
+                                      color: amountColor,
+                                      size: 40,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Row(
+                                        children: <Widget>[
+                                          Flexible(
+                                            child: Text(
+                                              category.label,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleMedium
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 2),
+                                          Icon(
+                                            Icons.chevron_right_rounded,
+                                            size: 18,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurface
+                                                .withValues(alpha: 0.42),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                            const SizedBox(height: 6),
-                            Text(
-                              amountText,
-                              style: Theme.of(context).textTheme.displayLarge
-                                  ?.copyWith(
+                          ),
+                          const SizedBox(width: 8),
+                          if (_refunds.isNotEmpty)
+                            _TypePill(
+                              label: _type.label(AppLocalizations.of(context)),
+                              color: amountColor,
+                            )
+                          else
+                            AnchoredMenuChoice<EntryType>(
+                              key: const Key('transaction_type_choice'),
+                              values: EntryType.userSelectable,
+                              selected: _type,
+                              idOf: (value) =>
+                                  'transaction_detail_type_${value.name}',
+                              labelOf: (value) =>
+                                  value.label(AppLocalizations.of(context)),
+                              iconOf: (value) => switch (value) {
+                                EntryType.expense => Icons.arrow_upward_rounded,
+                                EntryType.income =>
+                                  Icons.arrow_downward_rounded,
+                                EntryType.transfer => Icons.swap_horiz_rounded,
+                                EntryType.refund => Icons.undo_rounded,
+                              },
+                              onSelected: _selectType,
+                              semanticLabel: AppLocalizations.of(
+                                context,
+                              ).pickTypeTitle,
+                              builder: (context, openMenu, menuOpen) =>
+                                  _TypePill(
+                                    label: _type.label(
+                                      AppLocalizations.of(context),
+                                    ),
                                     color: amountColor,
-                                    fontWeight: FontWeight.w800,
+                                    onTap: openMenu,
                                   ),
                             ),
-                          ],
-                        ),
+                        ],
                       ),
-                      CategoryIconBox(
-                        iconCode: category.iconCode,
-                        categoryName: category.label,
-                        color: amountColor,
-                        size: 38,
+                      const SizedBox(height: 12),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: _editAmount,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: <Widget>[
+                              Expanded(
+                                child: Text(
+                                  amountText,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .displayLarge
+                                      ?.copyWith(
+                                        color: amountColor,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                ),
+                              ),
+                              Icon(
+                                Icons.edit_outlined,
+                                size: 16,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.34),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 10),
                 VeriCard(
+                  padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
                   child: Column(
                     children: <Widget>[
-                      if (_refunds.isNotEmpty)
+                      if (_type == EntryType.expense)
                         DetailInfoRow(
-                          label: AppLocalizations.of(context).commonType,
-                          value: _type.label(AppLocalizations.of(context)),
-                        )
-                      else
-                        AnchoredMenuChoice<EntryType>(
-                          key: const Key('transaction_type_choice'),
-                          values: EntryType.userSelectable,
-                          selected: _type,
-                          idOf: (value) =>
-                              'transaction_detail_type_${value.name}',
-                          labelOf: (value) =>
-                              value.label(AppLocalizations.of(context)),
-                          iconOf: (value) => switch (value) {
-                            EntryType.expense => Icons.arrow_upward_rounded,
-                            EntryType.income => Icons.arrow_downward_rounded,
-                            EntryType.transfer => Icons.swap_horiz_rounded,
-                            EntryType.refund => Icons.undo_rounded,
-                          },
-                          onSelected: _selectType,
-                          semanticLabel: AppLocalizations.of(
+                          label: AppLocalizations.of(
                             context,
-                          ).pickTypeTitle,
-                          builder: (context, openMenu, menuOpen) =>
-                              DetailInfoRow(
-                                label: AppLocalizations.of(context).commonType,
-                                value: _type.label(
-                                  AppLocalizations.of(context),
-                                ),
-                                onTap: openMenu,
-                              ),
+                          ).entryDiscountLabel,
+                          value: formatUserMoney(
+                            _discountAmount,
+                            _currencyCode,
+                          ),
+                          onTap: _editDiscount,
                         ),
-                      DetailInfoRow(
-                        label: AppLocalizations.of(context).commonCategory,
-                        value: category.label,
-                        onTap: _pickCategory,
-                      ),
-                      DetailInfoRow(
-                        key: const Key('transaction_currency_field'),
-                        label: AppLocalizations.of(context).entryCurrencyLabel,
-                        value: _currencyCode,
-                        onTap: _type == EntryType.transfer
-                            ? null
-                            : _refunds.isEmpty
-                            ? _pickCurrency
-                            : () => unawaited(
-                                VeriFeedbackHost.of(context).showMessage(
-                                  message: AppLocalizations.of(
-                                    context,
-                                  ).entryCurrencyLockedByRefund,
-                                  tone: VeriFeedbackTone.warning,
+                      if (controller.multiCurrencyEnabled ||
+                          _currencyCode !=
+                              controller.activeBook.baseCurrencyCode)
+                        DetailInfoRow(
+                          key: const Key('transaction_currency_field'),
+                          label: AppLocalizations.of(
+                            context,
+                          ).entryCurrencyLabel,
+                          value: _currencyCode,
+                          onTap: _type == EntryType.transfer
+                              ? null
+                              : _refunds.isEmpty
+                              ? _pickCurrency
+                              : () => unawaited(
+                                  VeriFeedbackHost.of(context).showMessage(
+                                    message: AppLocalizations.of(
+                                      context,
+                                    ).entryCurrencyLockedByRefund,
+                                    tone: VeriFeedbackTone.warning,
+                                  ),
                                 ),
-                              ),
-                      ),
+                        ),
                       if (_type == EntryType.transfer) ...<Widget>[
                         DetailInfoRow(
                           label: AppLocalizations.of(
@@ -323,30 +392,84 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
                               ? null
                               : () => _pickAccount(accounts),
                         ),
-                      ..._buildCurrencyAmountFields(
-                        controller,
-                        accounts,
-                        account,
-                        toAccount,
+                      if (controller.multiCurrencyEnabled ||
+                          _currencyCode !=
+                              controller.activeBook.baseCurrencyCode ||
+                          account.currencyCode != _currencyCode)
+                        ..._buildCurrencyAmountFields(
+                          controller,
+                          accounts,
+                          account,
+                          toAccount,
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: <Widget>[
+                            Expanded(
+                              flex: 3,
+                              child: _CompactMetaCell(
+                                icon: Icons.calendar_today_outlined,
+                                label: AppLocalizations.of(context).dateLabel,
+                                value:
+                                    '${AppLocalizations.of(context).dateMonthDay(_occurredAt)} · ${relativeDay(AppLocalizations.of(context), _occurredAt)}',
+                                onTap: _pickDate,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              flex: 2,
+                              child: _CompactMetaCell(
+                                icon: Icons.schedule_rounded,
+                                label: AppLocalizations.of(context).timeLabel,
+                                value: formatTime(_occurredAt),
+                                onTap: _pickTime,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      DetailInfoRow(
-                        label: AppLocalizations.of(context).dateLabel,
-                        value:
-                            '${AppLocalizations.of(context).dateMonthDay(_occurredAt)}  ${relativeDay(AppLocalizations.of(context), _occurredAt)}',
-                        onTap: _pickDate,
-                      ),
-                      DetailInfoRow(
-                        label: AppLocalizations.of(context).timeLabel,
-                        value: formatTime(_occurredAt),
-                        onTap: _pickTime,
-                      ),
-                      DetailInfoRow(
-                        label: AppLocalizations.of(context).commonNote,
-                        value: _noteController.text.trim().isEmpty
-                            ? AppLocalizations.of(context).noteHint
-                            : _noteController.text.trim(),
-                        placeholder: _noteController.text.trim().isEmpty,
-                        onTap: _editNote,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: <Widget>[
+                            SizedBox(
+                              width: 78,
+                              child: Text(
+                                AppLocalizations.of(context).commonNote,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withValues(alpha: 0.62),
+                                    ),
+                              ),
+                            ),
+                            Expanded(
+                              child: TextField(
+                                controller: _noteController,
+                                textAlign: TextAlign.end,
+                                maxLines: 1,
+                                textInputAction: TextInputAction.done,
+                                decoration: InputDecoration(
+                                  hintText: AppLocalizations.of(
+                                    context,
+                                  ).noteHint,
+                                  filled: false,
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  disabledBorder: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                onChanged: (_) => _touch(),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       DetailInfoRow(
                         label: AppLocalizations.of(context).tagLabel,
@@ -356,53 +479,52 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
                         placeholder: _tagLabels(controller).isEmpty,
                         onTap: _pickTags,
                       ),
-                      if (_type == EntryType.expense)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  AppLocalizations.of(context).markReimbursable,
-                                ),
-                              ),
-                              Switch(
-                                value: _reimbursable,
-                                onChanged: (value) {
-                                  setState(() => _reimbursable = value);
+                      if (_type == EntryType.expense) ...<Widget>[
+                        const SizedBox(height: 6),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: _CompactTogglePill(
+                                label: AppLocalizations.of(
+                                  context,
+                                ).markReimbursable,
+                                selected: _reimbursable,
+                                activeColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                                onTap: () {
+                                  setState(
+                                    () => _reimbursable = !_reimbursable,
+                                  );
                                   _touch();
                                 },
                               ),
-                            ],
-                          ),
-                        ),
-                      // 与「待报销」并列：只脱离预算口径，账户余额与收支统计照旧，
-                      // 因此挂一句说明，避免用户以为这笔钱不算了。
-                      if (_type == EntryType.expense)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  AppLocalizations.of(
-                                    context,
-                                  ).excludedFromBudget,
-                                ),
-                              ),
-                              Switch(
-                                value: _excludedFromBudget,
-                                onChanged: (value) {
-                                  setState(() => _excludedFromBudget = value);
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _CompactTogglePill(
+                                label: AppLocalizations.of(
+                                  context,
+                                ).excludedFromBudget,
+                                selected: _excludedFromBudget,
+                                activeColor: Theme.of(
+                                  context,
+                                ).colorScheme.secondary,
+                                onTap: () {
+                                  setState(
+                                    () => _excludedFromBudget =
+                                        !_excludedFromBudget,
+                                  );
                                   _touch();
                                 },
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
+                      ],
                       if (_type == EntryType.expense && _excludedFromBudget)
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.only(top: 6, bottom: 2),
                           child: Text(
                             AppLocalizations.of(context).excludedFromBudgetHint,
                             style: Theme.of(context).textTheme.labelSmall
@@ -736,6 +858,7 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
       _currencyCode = selected.code;
       _currencyTouched = true;
       _amount = normalizeCurrencyAmount(_amount, _currencyCode);
+      _discountAmount = normalizeCurrencyAmount(_discountAmount, _currencyCode);
       _accountAmountTouched = false;
       _baseAmountTouched = false;
       _rememberRate = false;
@@ -759,10 +882,27 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
     if (amount == null || amount <= 0 || !mounted) {
       return;
     }
+    _setAmount(amount);
+  }
+
+  Future<void> _editDiscount() async {
+    final gross = _amount + _discountAmount;
+    final discount = await showEntryDiscountSheet(
+      context,
+      grossAmount: gross,
+      discountAmount: _discountAmount,
+      currencyCode: _currencyCode,
+    );
+    if (!mounted || discount == null || discount == _discountAmount) return;
+    _setAmount(gross - discount, discountAmount: discount);
+  }
+
+  void _setAmount(double amount, {double? discountAmount}) {
     setState(() {
       final controller = VeriFinScope.of(context);
       final previousAmount = _amount;
       _amount = normalizeCurrencyAmount(amount, _currencyCode);
+      if (discountAmount != null) _discountAmount = discountAmount;
       if (_conversionSource == ConversionSource.manual ||
           _conversionSource == ConversionSource.imported ||
           _conversionSource == ConversionSource.legacy) {
@@ -936,6 +1076,7 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
     if (_type == selected || _refunds.isNotEmpty) return;
     setState(() {
       _type = selected;
+      if (selected != EntryType.expense) _discountAmount = 0;
       final controller = VeriFinScope.of(context);
       if (controller.categoryById(_categoryId).type != _type) {
         _categoryId = controller.categoriesForType(_type).first.id;
@@ -1194,20 +1335,6 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
     _touch();
   }
 
-  Future<void> _editNote() async {
-    final note = await showTextInputDialog(
-      context: context,
-      title: AppLocalizations.of(context).noteEditTitle,
-      label: AppLocalizations.of(context).commonNote,
-      initialValue: _noteController.text,
-      allowEmpty: true,
-    );
-    if (note != null && mounted) {
-      setState(() => _noteController.text = note);
-      _touch();
-    }
-  }
-
   double get _refundTotal =>
       _refunds.fold<double>(0, (total, refund) => total + refund.amount);
 
@@ -1221,6 +1348,7 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
     return entry.copyWith(
       type: _type,
       amount: normalizeCurrencyAmount(_amount, _currencyCode),
+      discountAmount: _discountAmount,
       currencyCode: _currencyCode,
       accountAmount: noAccount
           ? null
@@ -1353,6 +1481,184 @@ void openEntryDetail(BuildContext context, LedgerEntry entry) {
       builder: (context) => TransactionDetailPage(entryId: entry.id),
     ),
   );
+}
+
+class _TypePill extends StatelessWidget {
+  const _TypePill({required this.label, required this.color, this.onTap});
+
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final pill = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (onTap != null) ...<Widget>[
+            const SizedBox(width: 2),
+            Icon(Icons.keyboard_arrow_down_rounded, size: 15, color: color),
+          ],
+        ],
+      ),
+    );
+    if (onTap == null) return pill;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: pill,
+      ),
+    );
+  }
+}
+
+class _CompactMetaCell extends StatelessWidget {
+  const _CompactMetaCell({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = VeriStyleTokens.of(context);
+    return Material(
+      color: tokens.surfaceAltColor,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            children: <Widget>[
+              Icon(
+                icon,
+                size: 14,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.56),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        fontSize: 10,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.52),
+                      ),
+                    ),
+                    Text(
+                      value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactTogglePill extends StatelessWidget {
+  const _CompactTogglePill({
+    required this.label,
+    required this.selected,
+    required this.activeColor,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final Color activeColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = VeriStyleTokens.of(context);
+    final fg = selected
+        ? activeColor
+        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65);
+    return Material(
+      color: selected
+          ? activeColor.withValues(alpha: 0.11)
+          : tokens.surfaceAltColor,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected
+                  ? activeColor.withValues(alpha: 0.35)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                size: 15,
+                color: fg,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: fg,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// 多选模式底部操作栏：全选 / 删除 / 改分类 / 改账户。

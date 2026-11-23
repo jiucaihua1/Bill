@@ -113,6 +113,7 @@
 |---|---|---|---|
 | `showNumberPadSheet` | Sheet 函数 | `sheets.dart` | **四行数字键盘弹窗**，整格「清空」在左下，「确认」在右下。支持四则算式、结果预览、可选负数与零、金额上限。数字默认按电话顺序，可在设置中切换计算器顺序。货币金额按 `currencyCode` 的 ISO minor unit 限制小数位，汇率输入使用 `maxFractionDigits:10`。按键和确认触感统一走 `VeriHaptics` |
 | `NumberPadSheet` | Widget | `entry_sheets.dart` | 经 `showNumberPadSheet` 打开通用金额弹层。手动记账页使用 `.inline` 固定四行数字键盘，底部「再记」保存并开始下一笔，「完成」保存并返回 |
+| `showEntryDiscountSheet` | Sheet 函数 | `sheets.dart` | 支出表单、交易详情和自动记账确认共用的优惠金额键盘。输入零可清除优惠，实付金额至少保留一个最小货币单位 |
 | `showCurrencyPickerSheet` | Sheet 函数 | `sheets.dart` | 可搜索的离线 ISO 4217 法定货币选择器（代码/中英文名/符号，支持常用/业务优先币种与排除项）；取消返回 `null` |
 | `evaluateAmountExpression` / `amountExpressionHasOperator` | 纯函数 | `calc_expression.dart` | 算式求值（不完整返回 null，结果已规整到分）/ 是否含运算符 |
 | `CurrencyCatalog` | 静态目录 | `currency_catalog.dart` | 离线 ISO 4217 法定货币定义、常用币种排序与中英文搜索；业务层不得另建货币清单 |

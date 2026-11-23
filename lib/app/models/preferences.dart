@@ -48,6 +48,9 @@ enum ThemePreference {
 /// 「墨曜精准（obsidianBento）」两套完整风格，并保留经典蓝、系统动态色和自定义颜色。
 enum ThemeColorMode {
   warmPaper,
+  matchaZen,
+  sakuraMist,
+  caramelLatte,
   hyperCrisp,
   obsidianBento,
   defaultColor,
@@ -402,7 +405,6 @@ class PagePanelSpec {
 
 const List<PagePanelSpec> homePanelSpecs = <PagePanelSpec>[
   PagePanelSpec(id: 'trend'),
-  PagePanelSpec(id: 'recent'),
   PagePanelSpec(id: 'budget'),
   PagePanelSpec(id: 'calendar'),
 ];

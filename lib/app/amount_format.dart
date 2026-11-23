@@ -19,6 +19,9 @@ MoneyUnitStyle moneyUnitStyle = MoneyUnitStyle.symbol;
 /// 单币种账本是否隐藏每一处金额旁重复出现的货币单位。
 bool hideUnitInSingleCurrency = true;
 
+/// 是否启用多币种 / 外币功能；关闭时隐藏全应用的外币选择、本位币冲抵与汇率入口。
+bool multiCurrencyEnabled = false;
+
 /// 当前活动账本是否实际涉及多个币种，由 [VeriFinController] 随状态同步。
 bool activeBookUsesMultipleCurrencies = false;
 

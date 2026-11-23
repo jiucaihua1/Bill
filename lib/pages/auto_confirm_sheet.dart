@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 
 import '../app/app_theme.dart';
 import '../app/auto_bill_overlay.dart';
+import '../app/auto_bill_rules.dart';
 import '../app/category_icon_theme.dart';
+import '../app/currency_math.dart';
 import '../app/entry_sheets.dart';
 import '../app/haptics.dart';
 import '../app/ledger_math.dart';
@@ -101,7 +103,7 @@ Future<void> showAutoConfirmCaptureSheet(
   bool preview = false,
 }) async {
   final controller = VeriFinScope.of(context);
-  final data = AutoBillReviewData.fromController(controller);
+  final data = AutoBillReviewData.fromController(controller, draft);
   await showVeriModalSheet<void>(
     context: context,
     useSafeArea: true,
@@ -144,12 +146,17 @@ class AutoConfirmCaptureSheet extends StatefulWidget {
 
 class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
   late EntryType _type;
-  late double _amount;
+  late double _grossAmount;
+  late double _discountAmount;
+  double get _amount =>
+      normalizeCurrencyAmount(_grossAmount - _discountAmount, 'CNY');
   late String _categoryId;
   String _accountId = '';
   String? _toAccountId;
   late TextEditingController _noteController;
   final List<String> _tagIds = <String>[];
+  Tag? _platformTag;
+  late final List<Tag> _availableTags;
   bool _reimbursable = false;
   bool _excludedFromBudget = false;
   bool _saving = false;
@@ -163,17 +170,36 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
   void initState() {
     super.initState();
     _type = EntryType.fromStorage(widget.draft['type'] as String? ?? 'expense');
-    _amount = (widget.draft['amount'] as num).toDouble();
+    _discountAmount = _type == EntryType.expense
+        ? (widget.draft['discountAmount'] as num?)?.toDouble() ?? 0
+        : 0;
+    _grossAmount = (widget.draft['amount'] as num).toDouble() + _discountAmount;
     _noteController = TextEditingController(
       text: widget.draft['note'] as String? ?? '',
     );
     final categories = _categoriesForType(_type);
-    final key = widget.draft['categoryKey'];
+    final fields = widget.data.fields;
+    final categoryId = fields['suggestedCategoryId'];
     final selected =
-        categories.where((c) => key != null && c.key == key).firstOrNull ??
+        categories.where((c) => c.id == categoryId).firstOrNull ??
         categories.where((c) => c.isUncategorized).firstOrNull;
     _categoryId = selected?.id ?? '';
     _collapsedCategoryId = selected?.parentId ?? selected?.id;
+    final accountId = fields['suggestedAccountId'];
+    if (accountId is String && widget.data.accounts.containsKey(accountId)) {
+      _accountId = accountId;
+    }
+    _platformTag = AutoBillSuggestions(
+      platformTag: fields['suggestedPlatformTag'] as String?,
+    ).tagFor(widget.data.bookId, widget.data.tags);
+    final platformTag = _platformTag;
+    if (platformTag != null) _tagIds.add(platformTag.id);
+    _availableTags = [
+      ...widget.data.tags,
+      if (platformTag != null &&
+          platformTag.id == AutoBillSuggestions.draftTagId)
+        platformTag,
+    ];
   }
 
   @override
@@ -188,8 +214,22 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
       title: AppLocalizations.of(context).amountLabel,
       initialAmount: _amount,
       currencyCode: 'CNY',
+      layout: widget.data.numberPadLayout,
     );
-    if (mounted && next != null && next > 0) setState(() => _amount = next);
+    if (mounted && next != null && next > 0) {
+      setState(() => _grossAmount = next + _discountAmount);
+    }
+  }
+
+  Future<void> _editDiscount() async {
+    final next = await showEntryDiscountSheet(
+      context,
+      grossAmount: _grossAmount,
+      discountAmount: _discountAmount,
+      currencyCode: 'CNY',
+      layout: widget.data.numberPadLayout,
+    );
+    if (mounted && next != null) setState(() => _discountAmount = next);
   }
 
   Future<void> _pickCategory() async {
@@ -236,7 +276,7 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
           constraints: BoxConstraints(
             maxHeight: MediaQuery.sizeOf(context).height * 0.6,
           ),
-          child: TagSelectorSheet(tags: widget.data.tags, selectedIds: _tagIds),
+          child: TagSelectorSheet(tags: _availableTags, selectedIds: _tagIds),
         ),
       ),
     );
@@ -272,12 +312,17 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
     final saved = await widget.onSave({
       'bookId': widget.data.bookId,
       'amount': _amount,
+      'discountAmount': _discountAmount,
       'type': _type.storageValue,
       'categoryId': _categoryId,
       'accountId': _accountId,
       'toAccountId': _toAccountId,
       'note': _noteController.text,
-      'tagIds': List<String>.of(_tagIds),
+      'tagIds': _tagIds
+          .where((id) => id != AutoBillSuggestions.draftTagId)
+          .toList(),
+      if (_tagIds.contains(AutoBillSuggestions.draftTagId))
+        'suggestedTagLabel': _platformTag?.label,
       'reimbursable': _reimbursable,
       'excludedFromBudget': _excludedFromBudget,
     });
@@ -414,6 +459,9 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
                               final list = _categoriesForType(candidate);
                               setState(() {
                                 _type = candidate;
+                                if (candidate != EntryType.expense) {
+                                  _discountAmount = 0;
+                                }
                                 _categoryId =
                                     list
                                         .where((c) => c.isUncategorized)
@@ -518,11 +566,28 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
                           label: Text(
                             _tagIds.isEmpty
                                 ? l10n.tagLabel
+                                : _tagIds.length == 1 &&
+                                      _tagIds.contains(_platformTag?.id)
+                                ? _platformTag!.label
                                 : l10n.entryTagCount(_tagIds.length),
                           ),
                           onPressed: _pickTags,
                         ),
                         if (_type == EntryType.expense) ...<Widget>[
+                          ActionChip(
+                            avatar: const Icon(
+                              Icons.local_offer_outlined,
+                              size: 14,
+                            ),
+                            label: Text(
+                              _discountAmount > 0
+                                  ? l10n.entryDiscountValue(
+                                      formatAmount(_discountAmount),
+                                    )
+                                  : l10n.entryDiscountLabel,
+                            ),
+                            onPressed: _editDiscount,
+                          ),
                           FilterChip(
                             label: Text(l10n.badgeReimbursable),
                             selected: _reimbursable,

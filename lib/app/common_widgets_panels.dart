@@ -346,11 +346,23 @@ class CalendarPreview extends StatefulWidget {
     required this.entries,
     required this.currencyCode,
     this.onDayTap,
+    this.accounts = const <Account>[],
+    this.categories = const <Category>[],
+    this.tags = const <Tag>[],
+    this.recentEntries,
+    this.onEntryTap,
+    this.onViewAllTap,
   });
 
   final List<LedgerEntry> entries;
   final String currencyCode;
   final ValueChanged<DateTime>? onDayTap;
+  final List<Account> accounts;
+  final List<Category> categories;
+  final List<Tag> tags;
+  final List<LedgerEntry>? recentEntries;
+  final ValueChanged<LedgerEntry>? onEntryTap;
+  final VoidCallback? onViewAllTap;
 
   @override
   State<CalendarPreview> createState() => _CalendarPreviewState();
@@ -361,6 +373,7 @@ class _CalendarPreviewState extends State<CalendarPreview> {
     DateTime.now().year,
     DateTime.now().month,
   );
+  DateTime? _selectedDate;
 
   @override
   Widget build(BuildContext context) {
@@ -526,31 +539,47 @@ class _CalendarPreviewState extends State<CalendarPreview> {
                 day,
               );
 
+              final isToday =
+                  day == now.day &&
+                  _visibleMonth.year == now.year &&
+                  _visibleMonth.month == now.month;
+              final isSelected =
+                  _selectedDate != null &&
+                  _selectedDate!.year == date.year &&
+                  _selectedDate!.month == date.month &&
+                  _selectedDate!.day == date.day;
+
               return InkWell(
                 borderRadius: BorderRadius.circular(veriRadiusSm),
-                onTap: widget.onDayTap == null
+                onTap: (widget.recentEntries == null && widget.onDayTap == null)
                     ? null
                     : () {
                         VeriHaptics.tick();
-                        widget.onDayTap!(date);
+                        if (widget.recentEntries != null) {
+                          setState(() {
+                            _selectedDate = isSelected ? null : date;
+                          });
+                        } else {
+                          widget.onDayTap?.call(date);
+                        }
                       },
                 child: Container(
                   alignment: Alignment.topCenter,
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   decoration: BoxDecoration(
-                    color:
-                        day == now.day &&
-                            _visibleMonth.year == now.year &&
-                            _visibleMonth.month == now.month
+                    color: isSelected
                         ? Theme.of(
                             context,
-                          ).colorScheme.primary.withValues(alpha: 0.12)
+                          ).colorScheme.primary.withValues(alpha: 0.20)
+                        : isToday
+                        ? Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.10)
                         : Colors.transparent,
                     border: Border.all(
-                      color:
-                          day == now.day &&
-                              _visibleMonth.year == now.year &&
-                              _visibleMonth.month == now.month
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : isToday
                           ? Theme.of(
                               context,
                             ).colorScheme.primary.withValues(alpha: 0.16)
@@ -615,6 +644,116 @@ class _CalendarPreviewState extends State<CalendarPreview> {
             Align(
               alignment: Alignment.centerRight,
               child: MoneyUnitLabel(currencyCode: widget.currencyCode),
+            ),
+          ],
+          if (widget.recentEntries != null) ...<Widget>[
+            const SizedBox(height: 12),
+            Divider(height: 1, color: VeriStyleTokens.of(context).borderColor),
+            const SizedBox(height: 10),
+            Builder(
+              builder: (context) {
+                final selected = _selectedDate;
+                final list = selected == null
+                    ? widget.recentEntries!
+                    : widget.entries
+                          .where(
+                            (e) =>
+                                e.type != EntryType.refund &&
+                                e.occurredAt.year == selected.year &&
+                                e.occurredAt.month == selected.month &&
+                                e.occurredAt.day == selected.day,
+                          )
+                          .take(8)
+                          .toList();
+                final headerTitle = selected == null
+                    ? l10n.panelRecentLabel
+                    : l10n.dateMonthDay(selected);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            headerTitle,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        if (selected != null)
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              minimumSize: Size.zero,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            onPressed: () =>
+                                setState(() => _selectedDate = null),
+                            child: Text(l10n.panelRecentLabel),
+                          ),
+                        if (widget.onViewAllTap != null ||
+                            (selected != null && widget.onDayTap != null))
+                          InkWell(
+                            borderRadius: BorderRadius.circular(veriRadiusSm),
+                            onTap: () {
+                              if (selected != null && widget.onDayTap != null) {
+                                widget.onDayTap!(selected);
+                              } else {
+                                widget.onViewAllTap?.call();
+                              }
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 4,
+                              ),
+                              child: Icon(
+                                Icons.chevron_right_rounded,
+                                size: 20,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.42),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    if (list.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Text(
+                          l10n.commonNone,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.45),
+                              ),
+                        ),
+                      )
+                    else
+                      for (final item in list.indexed) ...<Widget>[
+                        TransactionTile(
+                          item.$2,
+                          accounts: widget.accounts,
+                          categories: widget.categories,
+                          tags: widget.tags,
+                          showDate: selected == null,
+                          baseCurrencyCode: widget.currencyCode,
+                          onTap: widget.onEntryTap == null
+                              ? null
+                              : () => widget.onEntryTap!(item.$2),
+                        ),
+                        if (item.$1 != list.length - 1)
+                          const SizedBox(height: 4),
+                      ],
+                  ],
+                );
+              },
             ),
           ],
         ],

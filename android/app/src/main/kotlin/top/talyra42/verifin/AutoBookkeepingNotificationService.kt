@@ -4,6 +4,7 @@ import android.app.Notification
 import android.os.Build
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Log
 
 /**
  * 自动记账通知监听服务：读取微信、支付宝、京东、拼多多等支付通知，提取金额与收支方向并触发确认弹窗。
@@ -41,11 +42,17 @@ class AutoBookkeepingNotificationService : NotificationListenerService() {
         val notice = AutoBillParser.paymentNotice(pkg, title, body)
         if (notice != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             if (System.currentTimeMillis() - sbn.postTime in 0L..10_000L) {
-                AutoBookkeepingAccessibilityService.requestPaymentScreen(notice)
+                Log.i("VeriAutoBill", "Payment notification matched for $pkg")
+                val fallback: (() -> Unit)? = if (pkg == AutoBillParser.PKG_ALIPAY &&
+                    WalletBillFields.alipayNotification(title, body) != null
+                ) {
+                    { AutoBillParser.handleNotification(this, pkg, title, body, sbn.postTime) }
+                } else null
+                if (!AutoBookkeepingAccessibilityService.requestPaymentScreen(notice, fallback)) fallback?.invoke()
             }
             return
         }
-        AutoBillParser.handleNotification(this, pkg, title, body)
+        AutoBillParser.handleNotification(this, pkg, title, body, sbn.postTime)
     }
 
     companion object {

@@ -15,7 +15,7 @@ object LedgerFlutterRuntime {
         val cache = FlutterEngineCache.getInstance()
         cache.get(ENGINE_ID)?.let { return it }
         val runtime = FlutterEngine(context.applicationContext)
-        AutoBillOverlay.attach(runtime)
+        AutoBillOverlay.attach(context.applicationContext, runtime)
         val entrypoint = DartExecutor.DartEntrypoint.createDefault()
         if (fromOverlay) {
             runtime.dartExecutor.executeDartEntrypoint(entrypoint, listOf("auto-bill-overlay"))

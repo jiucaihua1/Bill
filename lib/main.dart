@@ -181,6 +181,7 @@ class _VeriFinAppState extends State<VeriFinApp> with WidgetsBindingObserver {
 
   void _handleEntryAdded() {
     BackupCoordinator.maybeBackupAfterEntry(_controller);
+    unawaited(AutoBillOverlayBridge.refreshNotificationSummary(_controller));
   }
 
   void _handlePersistError(Object _) {

@@ -439,3 +439,10 @@ ConvertedAccountBalances convertAccountBalancesToBase({
     staleAccountIds: Set<String>.unmodifiable(staleAccountIds),
   );
 }
+
+/// Keep at least one minor unit payable on an expense.
+double maxEntryDiscount(double grossAmount, String currencyCode) {
+  final minorUnit = currencyAmountTolerance(currencyCode) * 2;
+  if (grossAmount <= minorUnit) return 0;
+  return normalizeCurrencyAmount(grossAmount - minorUnit, currencyCode);
+}

@@ -209,35 +209,13 @@ class TransactionTile extends StatelessWidget {
                   children: <Widget>[
                     Row(
                       children: <Widget>[
-                        if (parentPrefix.isNotEmpty) ...<Widget>[
-                          Flexible(
-                            flex: 3,
-                            child: Text(
-                              parentPrefix,
-                              maxLines: 1,
-                              softWrap: false,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                          ),
-                          Text(
-                            ' · ',
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                        ],
                         Flexible(
-                          flex: 7,
                           child: Text(
-                            debtLabel ?? category.label,
+                            parentPrefix.isNotEmpty
+                                ? '$parentPrefix · ${debtLabel ?? category.label}'
+                                : (debtLabel ?? category.label),
                             maxLines: 1,
+                            softWrap: false,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleLarge
                                 ?.copyWith(
@@ -261,7 +239,20 @@ class TransactionTile extends StatelessWidget {
                           )
                         else if (entry.refundedAmount > 0)
                           _EntryBadge(
-                            text: AppLocalizations.of(context).badgeRefunded,
+                            text:
+                                '退${formatMoney(entry.refundedAmount, entry.currencyCode, display: MoneyCodeDisplay.none)}',
+                            color: veriSemantic(context, veriIncome),
+                          ),
+                        if (entry.discountAmount > 0)
+                          _EntryBadge(
+                            text: AppLocalizations.of(context)
+                                .entryDiscountValue(
+                                  formatMoney(
+                                    entry.discountAmount,
+                                    entry.currencyCode,
+                                    display: MoneyCodeDisplay.none,
+                                  ),
+                                ),
                             color: veriSemantic(context, veriIncome),
                           ),
                         // 与报销徽标不同，这个标记与报销状态互不影响，可以同时出现。
@@ -279,62 +270,36 @@ class TransactionTile extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Row(
-                      children: <Widget>[
-                        Flexible(
-                          flex: 3,
-                          child: Text(
-                            stamp,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: subStyle,
-                          ),
-                        ),
-                        if (entry.note.isNotEmpty) ...<Widget>[
-                          Text(' · ', style: subStyle),
-                          Flexible(
-                            child: Text(
-                              entry.note,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: subStyle,
+                    Text.rich(
+                      TextSpan(
+                        style: subStyle,
+                        children: <InlineSpan>[
+                          TextSpan(text: stamp),
+                          if (entry.note.isNotEmpty) ...<InlineSpan>[
+                            const TextSpan(text: ' · '),
+                            TextSpan(text: entry.note),
+                          ],
+                          if (runningBalanceText != null)
+                            TextSpan(
+                              text: '  $runningBalanceText',
+                              style: subStyle?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
+                          if (tagLabels.isNotEmpty)
+                            TextSpan(
+                              text: '  ${_tagSuffix(tagLabels)}',
+                              style: subStyle?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.72),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                         ],
-                        if (runningBalanceText != null)
-                          Flexible(
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 6),
-                              child: Text(
-                                runningBalanceText,
-                                maxLines: 1,
-                                softWrap: false,
-                                overflow: TextOverflow.ellipsis,
-                                style: subStyle?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        if (tagLabels.isNotEmpty)
-                          Flexible(
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 6),
-                              child: Text(
-                                _tagSuffix(tagLabels),
-                                maxLines: 1,
-                                softWrap: false,
-                                overflow: TextOverflow.ellipsis,
-                                style: subStyle?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.primary.withValues(alpha: 0.7),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -343,14 +308,56 @@ class TransactionTile extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: <Widget>[
-                  Text(
-                    amountText,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: amountColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
+                  if (entry.type == EntryType.expense &&
+                      (entry.discountAmount > 0 || entry.refundedAmount > 0))
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(
+                          formatMoney(
+                            entry.grossAmount,
+                            entry.currencyCode,
+                            display: display,
+                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                decoration: TextDecoration.lineThrough,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.40),
+                                fontSize: 12,
+                              ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          entry.refundedAmount == 0
+                              ? amountText
+                              : formatSignedMoney(
+                                  -(entry.amount - entry.refundedAmount).clamp(
+                                    0.0,
+                                    entry.amount,
+                                  ),
+                                  entry.currencyCode,
+                                  display: display,
+                                ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: amountColor,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ],
+                    )
+                  else
+                    Text(
+                      amountText,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: amountColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 3),
                   Container(
                     padding: const EdgeInsets.symmetric(

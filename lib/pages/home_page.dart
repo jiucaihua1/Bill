@@ -50,6 +50,19 @@ class HomePage extends StatelessWidget {
         .where((e) => e.type != EntryType.refund)
         .take(5)
         .toList();
+    final todayExpenses = entries
+        .where(
+          (e) =>
+              e.type == EntryType.expense &&
+              e.occurredAt.year == now.year &&
+              e.occurredAt.month == now.month &&
+              e.occurredAt.day == now.day,
+        )
+        .toList();
+    final todayExpenseTotal = todayExpenses.fold<double>(
+      0,
+      (sum, entry) => sum + entry.netBaseAmount,
+    );
     // 预算面板按预算周期取数（键月 + 周期窗口）；首页其余统计仍按自然月。
     final budgetKeyMonth = controller.budgetKeyMonthFor(now);
     final budgetWindow = controller.budgetWindow(budgetKeyMonth);
@@ -78,6 +91,20 @@ class HomePage extends StatelessWidget {
             config: trendConfig,
             metricContext: metricContext,
             chartValues: trendChartValues,
+            todayExpenses: todayExpenses,
+            todayExpenseTotal: todayExpenseTotal,
+            accounts: controller.accounts,
+            categories: controller.categories,
+            tags: controller.tags,
+            baseCurrencyCode: controller.activeBook.baseCurrencyCode,
+            onEntryTap: (entry) => openEntryDetail(context, entry),
+            onTodayExpenseTap: () {
+              Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (context) => TransactionsPage(initialDate: now),
+                ),
+              );
+            },
             onTap: () {
               Navigator.of(context).push<void>(
                 MaterialPageRoute<void>(
@@ -89,53 +116,6 @@ class HomePage extends StatelessWidget {
                 ),
               );
             },
-          );
-        case 'recent':
-          return VeriCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                SectionHeaderAction(
-                  title: AppLocalizations.of(context).panelRecentLabel,
-                  trailing: recentEntries.isEmpty
-                      ? AppLocalizations.of(context).commonNone
-                      : formatSignedAmount(
-                          recentEntries.fold<double>(
-                            0,
-                            (sum, entry) => sum + signedAmount(entry),
-                          ),
-                        ),
-                  onTap: () {
-                    Navigator.of(context).push<void>(
-                      MaterialPageRoute<void>(
-                        builder: (context) => const TransactionsPage(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                if (recentEntries.isEmpty)
-                  EmptyState(
-                    icon: Icons.receipt_long_outlined,
-                    title: AppLocalizations.of(context).homeNoEntriesTitle,
-                    description: AppLocalizations.of(context).homeNoEntriesDesc,
-                  )
-                else
-                  for (final item in recentEntries.indexed) ...<Widget>[
-                    TransactionTile(
-                      item.$2,
-                      accounts: controller.accounts,
-                      categories: controller.categories,
-                      tags: controller.tags,
-                      showDate: true,
-                      baseCurrencyCode: controller.activeBook.baseCurrencyCode,
-                      onTap: () => openEntryDetail(context, item.$2),
-                    ),
-                    if (item.$1 != recentEntries.length - 1)
-                      const SizedBox(height: 4),
-                  ],
-              ],
-            ),
           );
         case 'budget':
           return BudgetPanel(
@@ -158,6 +138,18 @@ class HomePage extends StatelessWidget {
           return CalendarPreview(
             entries: entries,
             currencyCode: controller.activeBook.baseCurrencyCode,
+            accounts: controller.accounts,
+            categories: controller.categories,
+            tags: controller.tags,
+            recentEntries: recentEntries,
+            onEntryTap: (entry) => openEntryDetail(context, entry),
+            onViewAllTap: () {
+              Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (context) => const TransactionsPage(),
+                ),
+              );
+            },
             onDayTap: (date) {
               Navigator.of(context).push<void>(
                 MaterialPageRoute<void>(
@@ -359,6 +351,14 @@ class HomeTrendPanel extends StatelessWidget {
     required this.metricContext,
     required this.chartValues,
     required this.onTap,
+    this.todayExpenses = const <LedgerEntry>[],
+    this.todayExpenseTotal = 0,
+    this.accounts = const <Account>[],
+    this.categories = const <Category>[],
+    this.tags = const <Tag>[],
+    this.baseCurrencyCode = 'CNY',
+    this.onEntryTap,
+    this.onTodayExpenseTap,
   });
 
   final DateWindow window;
@@ -366,6 +366,14 @@ class HomeTrendPanel extends StatelessWidget {
   final HomeMetricContext metricContext;
   final List<double> chartValues;
   final VoidCallback onTap;
+  final List<LedgerEntry> todayExpenses;
+  final double todayExpenseTotal;
+  final List<Account> accounts;
+  final List<Category> categories;
+  final List<Tag> tags;
+  final String baseCurrencyCode;
+  final ValueChanged<LedgerEntry>? onEntryTap;
+  final VoidCallback? onTodayExpenseTap;
 
   @override
   Widget build(BuildContext context) {
@@ -507,17 +515,10 @@ class HomeTrendPanel extends StatelessWidget {
               const SizedBox(height: 12),
               IntrinsicHeight(
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
                     for (final (index, slot) in cardSlots.indexed) ...[
-                      if (index > 0)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: VerticalDivider(
-                            width: 1,
-                            thickness: 1,
-                            color: VeriStyleTokens.of(context).borderColor,
-                          ),
-                        ),
+                      if (index > 0) const SizedBox(width: 8),
                       Expanded(
                         key: ValueKey(slot),
                         child: _MetricTile(
@@ -572,6 +573,41 @@ class HomeTrendPanel extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            SectionHeaderAction(
+              title: l10n.metricTodayExpense,
+              trailing: todayExpenses.isEmpty
+                  ? l10n.commonNone
+                  : formatExpenseAmount(todayExpenseTotal),
+              onTap: onTodayExpenseTap,
+            ),
+            const SizedBox(height: 6),
+            if (todayExpenses.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Text(
+                  l10n.homeNoEntriesTitle,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: mutedColor),
+                ),
+              )
+            else
+              for (final item in todayExpenses.indexed) ...<Widget>[
+                TransactionTile(
+                  item.$2,
+                  accounts: accounts,
+                  categories: categories,
+                  tags: tags,
+                  showDate: false,
+                  baseCurrencyCode: baseCurrencyCode,
+                  onTap: onEntryTap == null ? null : () => onEntryTap!(item.$2),
+                ),
+                if (item.$1 != todayExpenses.length - 1)
+                  const SizedBox(height: 4),
+              ],
           ],
         ),
       ),
@@ -604,10 +640,18 @@ class _MetricTile extends StatelessWidget {
       Theme.of(context).brightness,
       inkColor: Theme.of(context).colorScheme.onSurface,
     );
+    final tone = metric.name.contains('Avg')
+        ? VeriMetricTone.neutral
+        : color == veriSemantic(context, veriIncome)
+        ? VeriMetricTone.income
+        : color == veriSemantic(context, veriExpense)
+        ? VeriMetricTone.expense
+        : VeriMetricTone.neutral;
     return _TrendMetric(
       label: homeMetricLabel(AppLocalizations.of(context), metric),
       value: formatHomeMetric(metric, value),
       color: color,
+      tone: tone,
       dark: dark,
     );
   }
@@ -618,38 +662,48 @@ class _TrendMetric extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    required this.tone,
     required this.dark,
   });
 
   final String label;
   final String value;
   final Color color;
+  final VeriMetricTone tone;
   final bool dark;
 
   @override
   Widget build(BuildContext context) {
-    // 不再给小指标套底色块（避免「卡中卡」），改为平铺 + 分隔线。
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: veriMetricTileColor(context, tone, onCover: dark),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.56),
+              color: dark
+                  ? Colors.white.withValues(alpha: 0.72)
+                  : Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.58),
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 4),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: dark ? Colors.white.withValues(alpha: 0.90) : color,
+              color: dark ? Colors.white.withValues(alpha: 0.94) : color,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -803,9 +857,12 @@ class BudgetPanel extends StatelessWidget {
                             color: overspent
                                 ? expenseColor
                                 : veriSemantic(context, veriIncome),
+                            tone: overspent
+                                ? VeriMetricTone.expense
+                                : VeriMetricTone.income,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: _BudgetMetricCell(
                             label: AppLocalizations.of(
@@ -816,11 +873,14 @@ class BudgetPanel extends StatelessWidget {
                               (remaining < 0 ? 0.0 : remaining) / remainingDays,
                             ),
                             color: Theme.of(context).colorScheme.onSurface,
+                            tone: remaining > 0
+                                ? VeriMetricTone.primary
+                                : VeriMetricTone.neutral,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Row(
                       children: <Widget>[
                         Expanded(
@@ -830,9 +890,10 @@ class BudgetPanel extends StatelessWidget {
                             ).entryTypeExpense,
                             value: formatExpenseAmount(expense),
                             color: Theme.of(context).colorScheme.onSurface,
+                            tone: VeriMetricTone.expense,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: _BudgetMetricCell(
                             label: AppLocalizations.of(context).budgetLegend,
@@ -840,6 +901,7 @@ class BudgetPanel extends StatelessWidget {
                             color: Theme.of(
                               context,
                             ).colorScheme.onSurface.withValues(alpha: 0.72),
+                            tone: VeriMetricTone.neutral,
                           ),
                         ),
                       ],
@@ -864,39 +926,48 @@ class _BudgetMetricCell extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
+    required this.tone,
   });
 
   final String label;
   final String value;
   final Color color;
+  final VeriMetricTone tone;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: Theme.of(
-              context,
-            ).colorScheme.onSurface.withValues(alpha: 0.56),
-            fontWeight: FontWeight.w500,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: veriMetricTileColor(context, tone),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.58),
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: color,
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

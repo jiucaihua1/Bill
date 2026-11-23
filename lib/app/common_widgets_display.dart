@@ -21,12 +21,14 @@ class AccountIconBox extends StatelessWidget {
       height: size,
       padding: EdgeInsets.all((size * 0.14).clamp(3, 6).toDouble()),
       decoration: BoxDecoration(
-        color: isGeneric ? tokens.surfaceAltColor : Colors.white,
+        color: isGeneric
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.11)
+            : tokens.surfaceAltColor.withValues(alpha: 0.55),
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
           color: isGeneric
-              ? tokens.borderColor
-              : Colors.black.withValues(alpha: 0.08),
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.22)
+              : tokens.borderColor,
         ),
       ),
       child: SvgPicture.asset(
@@ -286,12 +288,46 @@ class MoneyUnitLabel extends StatelessWidget {
   }
 }
 
+enum VeriMetricTone { neutral, income, expense, primary }
+
+Color veriMetricTileColor(
+  BuildContext context,
+  VeriMetricTone tone, {
+  bool onCover = false,
+}) {
+  if (onCover) {
+    return switch (tone) {
+      VeriMetricTone.income => Colors.white.withValues(alpha: 0.16),
+      VeriMetricTone.expense => Colors.white.withValues(alpha: 0.14),
+      VeriMetricTone.primary => Colors.white.withValues(alpha: 0.16),
+      VeriMetricTone.neutral => Colors.white.withValues(alpha: 0.12),
+    };
+  }
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  final alpha = isDark ? 0.16 : 0.085;
+  return switch (tone) {
+    VeriMetricTone.income => veriSemantic(
+      context,
+      veriIncome,
+    ).withValues(alpha: alpha),
+    VeriMetricTone.expense => veriSemantic(
+      context,
+      veriExpense,
+    ).withValues(alpha: alpha),
+    VeriMetricTone.primary => Theme.of(
+      context,
+    ).colorScheme.primary.withValues(alpha: alpha),
+    VeriMetricTone.neutral => VeriStyleTokens.of(context).surfaceAltColor,
+  };
+}
+
 class SummaryMetric extends StatelessWidget {
   const SummaryMetric({
     super.key,
     required this.label,
     required this.value,
     required this.color,
+    this.tone = VeriMetricTone.neutral,
     this.detail,
     this.onTap,
   });
@@ -299,60 +335,78 @@ class SummaryMetric extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
+  final VeriMetricTone tone;
   final String? detail;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final textColor = Theme.of(context).colorScheme.onSurface;
-    final content = Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: <Widget>[
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Flexible(
-              child: Text(
-                label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: textColor.withValues(alpha: 0.68),
+    final content = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: BoxDecoration(
+        color: veriMetricTileColor(context, tone),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: textColor.withValues(alpha: 0.68),
+                  ),
                 ),
               ),
-            ),
-            if (onTap != null)
-              const Icon(Icons.chevron_right_rounded, size: 16),
-          ],
-        ),
-        const SizedBox(height: 7),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: color,
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
+              if (onTap != null)
+                const Icon(Icons.chevron_right_rounded, size: 16),
+            ],
           ),
-        ),
-        if (detail != null) ...<Widget>[
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
-            detail!,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: textColor.withValues(alpha: 0.62),
-              fontWeight: FontWeight.w700,
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: color,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
             ),
           ),
+          if (detail != null) ...<Widget>[
+            const SizedBox(height: 4),
+            Text(
+              detail!,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: textColor.withValues(alpha: 0.62),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ],
-      ],
+      ),
     );
     return Expanded(
-      child: onTap == null
-          ? content
-          : Material(
-              type: MaterialType.transparency,
-              child: InkWell(onTap: onTap, child: content),
-            ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: onTap == null
+            ? content
+            : Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: onTap,
+                  child: content,
+                ),
+              ),
+      ),
     );
   }
 }

@@ -3,6 +3,9 @@
   "sameFileSkipped": "Skipped {count} transactions already imported from this file into this book.",
   "@sameFileSkipped": {"placeholders": {"count": {"type": "int"}}},
   "appTitle": "Xiaohe Ledger",
+  "multiCurrencyEnabledLabel": "Multi-currency support",
+  "multiCurrencyEnabledDesc": "When off, hides currency pickers, base-currency offset, and exchange rates",
+  "refundDateLabel": "Refund date",
   "statRangeLabel": "Range",
   "backupInvalidFile": "The backup file is invalid or corrupted.",
   "fileEmptyError": "The file is empty.",
@@ -921,6 +924,7 @@
   "averagePerExpense": "Average per expense",
   "selectSubscriptionOrders": "Select expenses",
   "subscriptionPeriod": "Billing period",
+  "viewOriginalBill": "View original bill",
   "monthlySubscription": "Monthly",
   "biennialSubscription": "Two-year",
   "quarterlySubscription": "Quarterly",
@@ -1067,6 +1071,9 @@
   "themeMode": "Theme",
   "themeColorLabel": "Theme style",
   "themeColorWarmPaper": "Warm Paper (Default)",
+  "themeColorMatchaZen": "Matcha Bamboo",
+  "themeColorSakuraMist": "Sakura Mist",
+  "themeColorCaramelLatte": "Caramel Latte",
   "themeColorHyperCrisp": "Hyper Crisp",
   "themeColorObsidianBento": "Obsidian Bento",
   "themeColorDefault": "Classic Blue",
@@ -1413,6 +1420,10 @@
   "autoCaptureReviewNotifications": "Bill review notifications",
   "autoCaptureNotificationFlow": "Use the notification if the review panel cannot appear over the current app.",
   "autoCaptureCcbName": "China Construction Bank",
+  "autoCaptureTodayExpense": "Today's spending {amount}",
+  "@autoCaptureTodayExpense": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
   "autoCaptureCcbHint": "Use bank debit notifications to help check the current payment screen",
   "autoCaptureOverlayPermission": "Display over other apps",
   "autoCaptureOverlayFlow": "Allow this to review detected bills over the current app.",
@@ -1968,6 +1979,16 @@
   "entryCurrencyLabel": "Transaction currency",
   "entryCurrencyPickTitle": "Choose transaction currency",
   "entryOriginalAmountLabel": "Original amount",
+  "entryDiscountLabel": "Discount",
+  "entryGrossAmountLabel": "Original price",
+  "entryDiscountValue": "Discount {amount}",
+  "@entryDiscountValue": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "entryPayableValue": "Paid {amount}",
+  "@entryPayableValue": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
   "entryAccountAmountExpense": "Actual account charge",
   "entryAccountAmountIncome": "Actual account credit",
   "entryLedgerAmountLabel": "Recorded in ledger",

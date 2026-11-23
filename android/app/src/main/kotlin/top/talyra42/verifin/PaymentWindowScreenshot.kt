@@ -137,6 +137,29 @@ internal fun paymentAmountLines(result: Text, region: Rect): String =
         .sortedBy { it.boundingBox?.top }
         .joinToString("\n") { it.text }
 
+internal fun alipayReceiptRows(result: Text): String = alipayReceiptRows(
+    result.textBlocks.asSequence().flatMap { it.lines.asSequence() }
+        .mapNotNull { line -> line.boundingBox?.let { it to line.text } }
+        .toList(),
+)
+
+/** Reunites the two columns in a receipt row from accessibility or OCR. */
+internal fun alipayReceiptRows(lines: List<Pair<Rect, String>>): String {
+    val rows = mutableListOf<MutableList<Pair<Rect, String>>>()
+    for (line in lines.distinct().sortedBy { it.first.centerY() }) {
+        val row = rows.lastOrNull()
+        val first = row?.first()?.first
+        if (row != null && first != null &&
+            kotlin.math.abs(line.first.centerY() - first.centerY()) <= minOf(line.first.height(), first.height()) / 2
+        ) {
+            row.add(line)
+        } else {
+            rows.add(mutableListOf(line))
+        }
+    }
+    return rows.joinToString("\n") { row -> row.sortedBy { it.first.left }.joinToString(" ") { it.second } }
+}
+
 internal fun recognizeScaledPaymentAmount(
     context: Context, bitmap: Bitmap, region: Rect, recognizer: TextRecognizer,
 ): Task<String> {

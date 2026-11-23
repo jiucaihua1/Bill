@@ -137,6 +137,132 @@ class VeriStyleTokens extends ThemeExtension<VeriStyleTokens> {
                   ),
                 ],
               );
+      case ThemeColorMode.matchaZen:
+        return isDark
+            ? VeriStyleTokens(
+                canvasColor: const Color(0xFF0E1512),
+                cardColor: const Color(0xFF16201B),
+                surfaceAltColor: const Color(0xFF1E2B24),
+                raisedSurfaceColor: const Color(0xFF23322A),
+                borderColor: const Color(0xFF2F4439),
+                inkColor: const Color(0xFFEAF3EE),
+                expenseColor: const Color(0xFFEB7352),
+                incomeColor: const Color(0xFF39C698),
+                transferColor: const Color(0xFF59A5D8),
+                warningColor: const Color(0xFFE8B048),
+                cardRadius: 18,
+                innerRadius: 12,
+                buttonRadius: 14,
+                pillHasBorder: true,
+                cardShadow: const <BoxShadow>[],
+              )
+            : const VeriStyleTokens(
+                canvasColor: Color(0xFFECF3ED),
+                cardColor: Color(0xFFFAFCFA),
+                surfaceAltColor: Color(0xFFE2ECE4),
+                raisedSurfaceColor: Color(0xFFFFFFFF),
+                borderColor: Color(0xFFD0DFD3),
+                inkColor: Color(0xFF16241C),
+                expenseColor: Color(0xFFC94F2E),
+                incomeColor: Color(0xFF177D5E),
+                transferColor: Color(0xFF266D9E),
+                warningColor: Color(0xFF9C6408),
+                cardRadius: 18,
+                innerRadius: 12,
+                buttonRadius: 14,
+                pillHasBorder: true,
+                cardShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x0916241C),
+                    blurRadius: 12,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              );
+      case ThemeColorMode.sakuraMist:
+        return isDark
+            ? VeriStyleTokens(
+                canvasColor: const Color(0xFF171014),
+                cardColor: const Color(0xFF23181E),
+                surfaceAltColor: const Color(0xFF2E2027),
+                raisedSurfaceColor: const Color(0xFF35252D),
+                borderColor: Colors.white.withValues(alpha: 0.085),
+                inkColor: const Color(0xFFF7ECEF),
+                expenseColor: const Color(0xFFF06779),
+                incomeColor: const Color(0xFF3EC4A4),
+                transferColor: const Color(0xFF7B9CF0),
+                warningColor: const Color(0xFFF5B14C),
+                cardRadius: 24,
+                innerRadius: 16,
+                buttonRadius: 20,
+                pillHasBorder: false,
+                cardShadow: const <BoxShadow>[],
+              )
+            : const VeriStyleTokens(
+                canvasColor: Color(0xFFF8EFF2),
+                cardColor: Color(0xFFFFFAFB),
+                surfaceAltColor: Color(0xFFF2E3E8),
+                raisedSurfaceColor: Color(0xFFFFFCFD),
+                borderColor: Color(0xFFE8D5DC),
+                inkColor: Color(0xFF281920),
+                expenseColor: Color(0xFFC83C52),
+                incomeColor: Color(0xFF18826B),
+                transferColor: Color(0xFF4768B8),
+                warningColor: Color(0xFFA16207),
+                cardRadius: 24,
+                innerRadius: 16,
+                buttonRadius: 20,
+                pillHasBorder: false,
+                cardShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x0D6B2943),
+                    blurRadius: 16,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+              );
+      case ThemeColorMode.caramelLatte:
+        return isDark
+            ? VeriStyleTokens(
+                canvasColor: const Color(0xFF17120E),
+                cardColor: const Color(0xFF231B15),
+                surfaceAltColor: const Color(0xFF2E241C),
+                raisedSurfaceColor: const Color(0xFF362A20),
+                borderColor: const Color(0xFF433529),
+                inkColor: const Color(0xFFF5ECE3),
+                expenseColor: const Color(0xFFEB6B52),
+                incomeColor: const Color(0xFF46B88D),
+                transferColor: const Color(0xFF6BA0D6),
+                warningColor: const Color(0xFFF2AE46),
+                cardRadius: 16,
+                innerRadius: 12,
+                buttonRadius: 14,
+                pillHasBorder: true,
+                cardShadow: const <BoxShadow>[],
+              )
+            : const VeriStyleTokens(
+                canvasColor: Color(0xFFF2EAE1),
+                cardColor: Color(0xFFFFFBF7),
+                surfaceAltColor: Color(0xFFEADFD2),
+                raisedSurfaceColor: Color(0xFFFFFDFB),
+                borderColor: Color(0xFFDCCEC0),
+                inkColor: Color(0xFF291D14),
+                expenseColor: Color(0xFFC4452B),
+                incomeColor: Color(0xFF237A5A),
+                transferColor: Color(0xFF366C9C),
+                warningColor: Color(0xFF9A5B06),
+                cardRadius: 16,
+                innerRadius: 12,
+                buttonRadius: 14,
+                pillHasBorder: true,
+                cardShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: Color(0x0C4A2F1B),
+                    blurRadius: 12,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              );
       case ThemeColorMode.hyperCrisp:
         return isDark
             ? VeriStyleTokens(
@@ -150,68 +276,68 @@ class VeriStyleTokens extends ThemeExtension<VeriStyleTokens> {
                 incomeColor: const Color(0xFF27C6AA),
                 transferColor: const Color(0xFF5D82FF),
                 warningColor: const Color(0xFFFFB33E),
-                cardRadius: 22,
-                innerRadius: 14,
-                buttonRadius: 18,
+                cardRadius: 24,
+                innerRadius: 15,
+                buttonRadius: 20,
                 pillHasBorder: false,
                 cardShadow: const <BoxShadow>[],
               )
             : const VeriStyleTokens(
-                canvasColor: Color(0xFFF2F4F9),
+                canvasColor: Color(0xFFEDF2FA),
                 cardColor: Color(0xFFFFFFFF),
-                surfaceAltColor: Color(0xFFF3F6FC),
+                surfaceAltColor: Color(0xFFE8EFF9),
                 raisedSurfaceColor: Color(0xFFFFFFFF),
-                borderColor: Color(0xFFE3E8F2),
-                inkColor: Color(0xFF121723),
+                borderColor: Color(0xFFDDE6F4),
+                inkColor: Color(0xFF101828),
                 expenseColor: Color(0xFFD62E4E),
                 incomeColor: Color(0xFF0A8570),
-                transferColor: Color(0xFF2952E3),
+                transferColor: Color(0xFF2454FF),
                 warningColor: Color(0xFF9A6000),
-                cardRadius: 22,
-                innerRadius: 14,
-                buttonRadius: 18,
+                cardRadius: 24,
+                innerRadius: 15,
+                buttonRadius: 20,
                 pillHasBorder: false,
                 cardShadow: <BoxShadow>[
                   BoxShadow(
-                    color: Color(0x0B142044),
-                    blurRadius: 18,
-                    offset: Offset(0, 4),
+                    color: Color(0x0E142850),
+                    blurRadius: 20,
+                    offset: Offset(0, 5),
                   ),
                 ],
               );
       case ThemeColorMode.obsidianBento:
         return isDark
             ? VeriStyleTokens(
-                canvasColor: const Color(0xFF0A0B0D),
-                cardColor: const Color(0xFF13151A),
+                canvasColor: const Color(0xFF08090B),
+                cardColor: const Color(0xFF121419),
                 surfaceAltColor: const Color(0xFF1A1D24),
                 raisedSurfaceColor: const Color(0xFF20242D),
-                borderColor: Colors.white.withValues(alpha: 0.11),
+                borderColor: Colors.white.withValues(alpha: 0.14),
                 inkColor: const Color(0xFFF5F7FA),
                 expenseColor: const Color(0xFFF2576E),
                 incomeColor: const Color(0xFF29C29D),
                 transferColor: const Color(0xFF60A5FA),
                 warningColor: const Color(0xFFF0A32F),
-                cardRadius: 14,
-                innerRadius: 10,
-                buttonRadius: 12,
+                cardRadius: 12,
+                innerRadius: 8,
+                buttonRadius: 10,
                 pillHasBorder: true,
                 cardShadow: const <BoxShadow>[],
               )
             : const VeriStyleTokens(
-                canvasColor: Color(0xFFECEEF2),
+                canvasColor: Color(0xFFE9ECF1),
                 cardColor: Color(0xFFFFFFFF),
-                surfaceAltColor: Color(0xFFF3F5F8),
+                surfaceAltColor: Color(0xFFF1F3F7),
                 raisedSurfaceColor: Color(0xFFFFFFFF),
-                borderColor: Color(0xFFD8DEE8),
+                borderColor: Color(0xFFCBD2DD),
                 inkColor: Color(0xFF111317),
                 expenseColor: Color(0xFFC82C44),
                 incomeColor: Color(0xFF0B7D66),
                 transferColor: Color(0xFF235CB8),
                 warningColor: Color(0xFF965D00),
-                cardRadius: 14,
-                innerRadius: 10,
-                buttonRadius: 12,
+                cardRadius: 12,
+                innerRadius: 8,
+                buttonRadius: 10,
                 pillHasBorder: true,
                 cardShadow: <BoxShadow>[],
               );
@@ -413,8 +539,14 @@ Color _primaryForMode(Brightness brightness, ThemeColorPreference pref) {
   return switch (pref.mode) {
     ThemeColorMode.warmPaper =>
       isDark ? const Color(0xFF4DA889) : const Color(0xFF2B6B56),
+    ThemeColorMode.matchaZen =>
+      isDark ? const Color(0xFF47C496) : const Color(0xFF1F6E58),
+    ThemeColorMode.sakuraMist =>
+      isDark ? const Color(0xFFE87A9E) : const Color(0xFFA83B5E),
+    ThemeColorMode.caramelLatte =>
+      isDark ? const Color(0xFFD68D5E) : const Color(0xFF8C4A27),
     ThemeColorMode.hyperCrisp =>
-      isDark ? const Color(0xFF5D82FF) : const Color(0xFF2F5BFF),
+      isDark ? const Color(0xFF5D82FF) : const Color(0xFF2454FF),
     ThemeColorMode.obsidianBento =>
       isDark ? const Color(0xFFF0A32F) : const Color(0xFF181B22),
     ThemeColorMode.defaultColor => veriRoyal,

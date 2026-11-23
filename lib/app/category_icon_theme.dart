@@ -96,9 +96,9 @@ class CategoryIconThemeScope extends InheritedNotifier<CategoryIconThemes> {
 
   const CategoryIconThemeScope.snapshot({
     super.key,
-    required CategoryIconPreset preset,
+    required CategoryIconPreset this._preset,
     required super.child,
-  }) : _preset = preset;
+  });
 
   final CategoryIconPreset? _preset;
 

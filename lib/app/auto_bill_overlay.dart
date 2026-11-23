@@ -2,18 +2,39 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
-import 'currency_math.dart';
+import 'auto_bill_rules.dart';
 import 'backup/backup_coordinator.dart';
 import 'category_icon_presets.dart';
+import 'currency_math.dart';
+import 'l10n_outside_context.dart';
+import 'ledger_math.dart';
 import 'models.dart';
 import 'veri_fin_controller.dart';
 import 'widgets/widget_service.dart';
 
+String autoBookkeepingNotificationSummary(VeriFinController controller) {
+  final today = DateTime.now();
+  final expense = controller.entries
+      .where(
+        (entry) =>
+            entry.type == EntryType.expense &&
+            calendarDaysBetween(entry.occurredAt, today) == 0,
+      )
+      .fold<double>(0, (total, entry) => total + entry.netBaseAmount);
+  return l10nForPreference(
+    controller.localePreference,
+  ).autoCaptureTodayExpense(formatExpenseAmount(expense));
+}
+
 class AutoBillReviewData {
   AutoBillReviewData(this.fields);
 
-  factory AutoBillReviewData.fromController(VeriFinController controller) {
+  factory AutoBillReviewData.fromController(
+    VeriFinController controller,
+    Map<Object?, Object?> draft,
+  ) {
     return AutoBillReviewData({
+      ...AutoBillSuggestions.forDraft(controller, draft).toFields(),
       'bookId': controller.activeBook.id,
       'bookName': controller.activeBook.name,
       'baseCurrency': controller.activeBook.baseCurrencyCode,
@@ -27,6 +48,7 @@ class AutoBillReviewData {
       ],
       'tags': [for (final tag in controller.tags) tag.toJson()],
       'theme': controller.themePreference.name,
+      'numberPadLayout': controller.numberPadLayout.name,
       'themeColors': controller.themeColorPreference.encode(),
       'locale': controller.localePreference.name,
       'categoryIconPreset': controller.categoryIconThemes.preset.name,
@@ -38,6 +60,8 @@ class AutoBillReviewData {
   String get bookName => fields['bookName']! as String;
   String get bookId => fields['bookId']! as String;
   bool get canSave => fields['baseCurrency'] == 'CNY';
+  NumberPadLayout get numberPadLayout =>
+      NumberPadLayout.fromStorage(fields['numberPadLayout'] as String?);
   CategoryIconPreset get categoryIconPreset =>
       CategoryIconPreset.values.asNameMap()[fields['categoryIconPreset']] ??
       CategoryIconPreset.builtin;
@@ -79,17 +103,39 @@ class AutoBillOverlayBridge {
       final args = call.arguments;
       if (args is! Map<Object?, Object?>) return null;
       return switch (call.method) {
-        'prepare' => _prepare(controller),
+        'prepare' => _prepare(controller, args),
         'save' => commit(controller, args),
         _ => throw MissingPluginException(call.method),
       };
     });
     unawaited(_announceReady());
+    unawaited(refreshNotificationSummary(controller));
   }
 
-  Future<Map<String, Object?>> _prepare(VeriFinController controller) async {
+  static Future<void> refreshNotificationSummary(
+    VeriFinController controller,
+  ) async {
+    try {
+      await _channel.invokeMethod<void>(
+        'updateNotificationSummary',
+        autoBookkeepingNotificationSummary(controller),
+      );
+    } on MissingPluginException {
+      // Desktop and widget tests have no Android status notification.
+    } on PlatformException catch (error) {
+      controller.logger?.warning(
+        'Could not update auto-bookkeeping status: ${error.code}',
+        source: 'auto-capture',
+      );
+    }
+  }
+
+  Future<Map<String, Object?>> _prepare(
+    VeriFinController controller,
+    Map<Object?, Object?> draft,
+  ) async {
     await controller.categoryIconThemes.restore();
-    return AutoBillReviewData.fromController(controller).fields;
+    return AutoBillReviewData.fromController(controller, draft).fields;
   }
 
   Future<void> _announceReady() async {
@@ -107,12 +153,14 @@ class AutoBillOverlayBridge {
     final id = args['id'];
     final book = controller.activeBook;
     final amount = args['amount'];
+    final discount = args['discountAmount'] ?? 0;
     final timestamp = args['occurredAt'];
     final category = args['categoryId'];
     final account = args['accountId'];
     final destination = args['toAccountId'];
     final note = args['note'];
     final tags = args['tagIds'];
+    final suggestedTag = args['suggestedTagLabel'];
     final type = switch (args['type']) {
       'expense' => EntryType.expense,
       'income' => EntryType.income,
@@ -126,11 +174,16 @@ class AutoBillOverlayBridge {
         amount is! num ||
         !amount.isFinite ||
         amount <= 0 ||
-        amount >= 1000000 ||
+        discount is! num ||
+        !discount.isFinite ||
+        discount < 0 ||
+        (type != EntryType.expense && discount != 0) ||
+        amount + discount >= 1000000 ||
         timestamp is! int ||
         category is! String ||
         account is! String ||
         note is! String ||
+        suggestedTag != null && suggestedTag is! String ||
         tags is! List<Object?> ||
         tags.any((tag) => tag is! String)) {
       return false;
@@ -156,11 +209,13 @@ class AutoBillOverlayBridge {
     if (normalized <= 0) return false;
     final result = await controller.saveEntryAggregateDraftResult(
       isNew: true,
+      suggestedTagLabel: suggestedTag as String?,
       entry: LedgerEntry(
         id: entryId,
         bookId: book.id,
         type: type,
         amount: normalized,
+        discountAmount: normalizeCurrencyAmount(discount, 'CNY'),
         currencyCode: 'CNY',
         categoryId: category,
         accountId: account,
@@ -179,6 +234,7 @@ class AutoBillOverlayBridge {
     if (result.isSuccess) {
       if (controller.onEntryAdded == null) {
         unawaited(BackupCoordinator.maybeBackupAfterEntry(controller));
+        unawaited(refreshNotificationSummary(controller));
       }
       if (controller.onWidgetDataChanged == null) {
         unawaited(pushWidgetProjection(controller, force: true));

@@ -148,6 +148,15 @@ class _SettingsPageState extends State<SettingsPage> {
                           ThemeColorMode.warmPaper => AppLocalizations.of(
                             context,
                           ).themeColorWarmPaper,
+                          ThemeColorMode.matchaZen => AppLocalizations.of(
+                            context,
+                          ).themeColorMatchaZen,
+                          ThemeColorMode.sakuraMist => AppLocalizations.of(
+                            context,
+                          ).themeColorSakuraMist,
+                          ThemeColorMode.caramelLatte => AppLocalizations.of(
+                            context,
+                          ).themeColorCaramelLatte,
                           ThemeColorMode.hyperCrisp => AppLocalizations.of(
                             context,
                           ).themeColorHyperCrisp,
@@ -166,6 +175,10 @@ class _SettingsPageState extends State<SettingsPage> {
                         },
                         iconOf: (value) => switch (value) {
                           ThemeColorMode.warmPaper => Icons.menu_book_outlined,
+                          ThemeColorMode.matchaZen => Icons.spa_outlined,
+                          ThemeColorMode.sakuraMist =>
+                            Icons.local_florist_outlined,
+                          ThemeColorMode.caramelLatte => Icons.coffee_outlined,
                           ThemeColorMode.hyperCrisp => Icons.blur_on_rounded,
                           ThemeColorMode.obsidianBento =>
                             Icons.grid_view_rounded,
@@ -186,6 +199,15 @@ class _SettingsPageState extends State<SettingsPage> {
                             ThemeColorMode.warmPaper => AppLocalizations.of(
                               context,
                             ).themeColorWarmPaper,
+                            ThemeColorMode.matchaZen => AppLocalizations.of(
+                              context,
+                            ).themeColorMatchaZen,
+                            ThemeColorMode.sakuraMist => AppLocalizations.of(
+                              context,
+                            ).themeColorSakuraMist,
+                            ThemeColorMode.caramelLatte => AppLocalizations.of(
+                              context,
+                            ).themeColorCaramelLatte,
                             ThemeColorMode.hyperCrisp => AppLocalizations.of(
                               context,
                             ).themeColorHyperCrisp,
@@ -328,6 +350,25 @@ class _SettingsPageState extends State<SettingsPage> {
                         value: _showRunningBalance,
                         onChanged: (value) =>
                             _change(() => _showRunningBalance = value),
+                      ),
+                      const Divider(height: 1),
+                      CompactSwitchRow(
+                        key: const Key('multi_currency_enabled'),
+                        icon: Icons.currency_exchange_outlined,
+                        title: Text(
+                          AppLocalizations.of(
+                            context,
+                          ).multiCurrencyEnabledLabel,
+                        ),
+                        subtitle: Text(
+                          AppLocalizations.of(context).multiCurrencyEnabledDesc,
+                        ),
+                        value: VeriFinScope.of(context).multiCurrencyEnabled,
+                        onChanged: (value) => unawaited(
+                          VeriFinScope.of(
+                            context,
+                          ).setMultiCurrencyEnabled(value),
+                        ),
                       ),
                     ],
                   ),

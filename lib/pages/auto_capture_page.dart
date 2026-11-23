@@ -4,10 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app/app_theme.dart';
+import '../app/auto_bill_overlay.dart';
 import '../app/common_widgets.dart';
 import '../app/feedback.dart';
-import '../app/ledger_math.dart';
-import '../app/models.dart';
 import '../app/platform_bridge.dart';
 import '../app/veri_fin_scope.dart';
 import '../l10n/app_localizations.dart';
@@ -112,30 +111,10 @@ class _AutoBookkeepingPageState extends State<AutoBookkeepingPage>
     );
   }
 
-  String _buildNotificationSummary(BuildContext context) {
-    final controller = VeriFinScope.of(context);
-    final now = DateTime.now();
-    final todayExpense = controller.entries
-        .where(
-          (e) =>
-              e.type == EntryType.expense &&
-              e.occurredAt.year == now.year &&
-              e.occurredAt.month == now.month &&
-              e.occurredAt.day == now.day,
-        )
-        .fold<double>(0, (sum, e) => sum + e.netBaseAmount);
-    final enabledNames = _platforms(context)
-        .where((p) => _enabledPlatforms[p.id] ?? true)
-        .map((p) => p.name.split(' ').first)
-        .join('、');
-    final platformText = enabledNames.isEmpty ? '暂无' : enabledNames;
-    return '今日支出 ${formatExpenseAmount(todayExpense)} · 已适配：$platformText';
-  }
-
   Future<void> _toggleAutoEnabled(bool value) async {
     await AppCaptureBridge.setAutoBookkeepingEnabled(
       value,
-      summary: _buildNotificationSummary(context),
+      summary: autoBookkeepingNotificationSummary(VeriFinScope.of(context)),
     );
     await _refreshStatus();
   }
@@ -143,7 +122,7 @@ class _AutoBookkeepingPageState extends State<AutoBookkeepingPage>
   Future<void> _togglePersistentNotification(bool value) async {
     await AppCaptureBridge.setPersistentAutoNotification(
       value,
-      summary: _buildNotificationSummary(context),
+      summary: autoBookkeepingNotificationSummary(VeriFinScope.of(context)),
     );
     await _refreshStatus();
   }

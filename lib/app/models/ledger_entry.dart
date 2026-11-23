@@ -115,6 +115,7 @@ class LedgerEntry {
     required this.bookId,
     required this.type,
     required this.amount,
+    this.discountAmount = 0,
     this.currencyCode = defaultCurrencyCode,
     double? accountAmount,
     double? toAccountAmount,
@@ -145,8 +146,10 @@ class LedgerEntry {
   final String bookId;
   final EntryType type;
 
-  /// 商户/现金原始金额及其币种。
+  /// 商户/现金实付金额及其币种，支出优惠已扣除。
   final double amount;
+  final double discountAmount;
+  double get grossAmount => amount + discountAmount;
   final String currencyCode;
 
   /// 来源/到账账户的真实变动金额，单位由关联账户的 [Account.currencyCode] 决定。
@@ -225,6 +228,7 @@ class LedgerEntry {
     String? bookId,
     EntryType? type,
     double? amount,
+    double? discountAmount,
     String? currencyCode,
     double? accountAmount,
     bool clearAccountAmount = false,
@@ -255,6 +259,9 @@ class LedgerEntry {
       bookId: bookId ?? this.bookId,
       type: type ?? this.type,
       amount: amount ?? this.amount,
+      discountAmount: (type ?? this.type) == EntryType.expense
+          ? discountAmount ?? this.discountAmount
+          : 0,
       currencyCode: currencyCode ?? this.currencyCode,
       accountAmount: clearAccountAmount
           ? null
@@ -289,6 +296,7 @@ class LedgerEntry {
       'bookId': bookId,
       'type': type.storageValue,
       'amount': amount,
+      if (discountAmount != 0) 'discountAmount': discountAmount,
       'currencyCode': currencyCode,
       if (accountAmount != null) 'accountAmount': accountAmount,
       if (toAccountAmount != null) 'toAccountAmount': toAccountAmount,
@@ -319,6 +327,7 @@ class LedgerEntry {
       bookId: json['bookId'] as String? ?? defaultLedgerBookId,
       type: type,
       amount: amount,
+      discountAmount: (json['discountAmount'] as num?)?.toDouble() ?? 0,
       currencyCode: (json['currencyCode'] as String? ?? defaultCurrencyCode)
           .toUpperCase(),
       accountAmount: (json['accountAmount'] as num?)?.toDouble(),

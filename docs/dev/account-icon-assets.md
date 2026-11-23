@@ -1,10 +1,10 @@
 # 账户图标资源
 
-账户图标统一放在 `assets/account_icons/`，由 `AccountIconBox` 负责白底、10% 内边距和描边；SVG 自身负责图形与颜色。品牌图标保留品牌色，通用图标使用与含义相符的固定颜色，不跟随主题主色。
+账户图标统一放在 `assets/account_icons/`，由 `AccountIconBox` 提供容器与描边，内边距为图标盒尺寸的 14%（最小 3、最大 6 逻辑像素）。品牌图标保留 SVG 的品牌色，通用图标在组件中按主题主色着色。
 
 ## 七个通用图标
 
-| code | 文件 | 图形 | 主色 |
+| code | 文件 | 图形 | SVG 填充色 |
 |---|---|---|---|
 | `wallet` | `generic_wallet.svg` | Wallet | `#346EDB` |
 | `credit` | `generic_credit.svg` | Credit Card | `#7B61D1` |
@@ -12,9 +12,9 @@
 | `cash` | `generic_cash.svg` | Money | `#16A36F` |
 | `investment` | `generic_investment.svg` | Chart Line Up | `#E9862D` |
 | `savings` | `generic_savings.svg` | Piggy Bank | `#D95C8A` |
-| `card` | `generic_card.svg` | Cards | `#2A8FB0` |
+| `card` | `generic_card.svg` | 单张银行卡 | `#2B6B56` |
 
-图形来自 [Phosphor Icons Core](https://github.com/phosphor-icons/core) 的 Duotone SVG，按其 MIT License 使用；本项目仅把 `currentColor` 固化为上表语义色，以保证 Flutter SVG 与不同主题下结果一致。
+通用银行卡使用项目内的单卡图形。其余通用图形来自 Phosphor Icons Core 的 Duotone SVG，按其 MIT License 使用，资源文件采用表中固定填充色。[Phosphor Icons Core](https://github.com/phosphor-icons/core)
 
 ## 品牌扩充与分组
 

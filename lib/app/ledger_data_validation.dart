@@ -111,7 +111,11 @@ LedgerDataValidationIssue? validateLedgerEntries({
         entry.id,
       );
     }
-    if (!positive(entry.amount) || !nonNegative(entry.fee)) {
+    if (!positive(entry.amount) ||
+        !nonNegative(entry.fee) ||
+        !nonNegative(entry.discountAmount) ||
+        !entry.grossAmount.isFinite ||
+        entry.type != EntryType.expense && entry.discountAmount != 0) {
       return LedgerDataValidationIssue(
         LedgerDataValidationCode.invalidAmount,
         entry.id,
@@ -155,6 +159,7 @@ LedgerDataValidationIssue? validateLedgerEntries({
     }
     if (requireMinorUnitNormalization &&
         (!normalized(entry.amount, entry.currencyCode) ||
+            !normalized(entry.discountAmount, entry.currencyCode) ||
             entry.accountAmount != null &&
                 account != null &&
                 !normalized(entry.accountAmount!, account.currencyCode) ||

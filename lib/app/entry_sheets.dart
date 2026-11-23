@@ -122,20 +122,54 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
     final bottomInset = _inline
         ? MediaQuery.viewPaddingOf(context).bottom
         : math.max(keyboardInset, MediaQuery.paddingOf(context).bottom);
-    Widget amountRow(Widget display) {
-      final leading = widget.amountLeading;
-      if (leading == null) return display;
-      return Row(
-        children: [
-          Expanded(child: leading),
-          const SizedBox(width: 10),
-          Flexible(child: display),
-        ],
+    final tokens = VeriStyleTokens.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Widget amountDisplayBox(Widget display) {
+      return Container(
+        width: widget.amountLeading == null ? double.infinity : null,
+        padding: EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: _inline ? 6 : 12,
+        ),
+        decoration: BoxDecoration(
+          color: tokens.surfaceAltColor,
+          borderRadius: BorderRadius.circular(tokens.innerRadius),
+        ),
+        child: display,
       );
     }
 
-    final tokens = VeriStyleTokens.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    Widget amountRow(Widget display) {
+      final leading = widget.amountLeading;
+      if (leading == null) return amountDisplayBox(display);
+      return IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Container(
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: tokens.surfaceAltColor,
+                  borderRadius: BorderRadius.circular(tokens.innerRadius),
+                ),
+                child: leading,
+              ),
+            ),
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 112, maxWidth: 180),
+              child: amountDisplayBox(display),
+            ),
+          ],
+        ),
+      );
+    }
+
     final body = Align(
       alignment: Alignment.bottomCenter,
       heightFactor: 1,
@@ -161,63 +195,54 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
               // 数字显示行单独成层：按键只重绘这一行，不带动整块毛玻璃背景
               // 重算模糊（弹层越大越贵）。
               RepaintBoundary(
-                child: Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: _inline ? 6 : 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: tokens.surfaceAltColor,
-                    borderRadius: BorderRadius.circular(tokens.innerRadius),
-                  ),
-                  child: amountRow(
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: <Widget>[
+                child: amountRow(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Text(
+                        key: const Key('number_pad_display'),
+                        _input.isEmpty
+                            ? _inline
+                                  ? formatCurrencyNumber(
+                                      0,
+                                      widget.currencyCode!,
+                                      style: CurrencyFractionStyle.standard,
+                                    )
+                                  : AppLocalizations.of(
+                                      context,
+                                    ).numberPadAmountHint
+                            : _input,
+                        textAlign: TextAlign.end,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.displaySmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: _input.isEmpty
+                                  ? Theme.of(context).colorScheme.onSurface
+                                        .withValues(alpha: 0.32)
+                                  : widget.amountColor,
+                            ),
+                      ),
+                      // 算式模式在右下角展示浅色结果预览；不完整则提示。
+                      if (_hasOperator) ...<Widget>[
+                        const SizedBox(height: 2),
                         Text(
-                          key: const Key('number_pad_display'),
-                          _input.isEmpty
-                              ? _inline
-                                    ? formatCurrencyNumber(
-                                        0,
-                                        widget.currencyCode!,
-                                        style: CurrencyFractionStyle.standard,
-                                      )
-                                    : AppLocalizations.of(
-                                        context,
-                                      ).numberPadAmountHint
-                              : _input,
+                          _result == null
+                              ? AppLocalizations.of(context).calcIncomplete
+                              : '= ${_formatResult(_result!)}',
                           textAlign: TextAlign.end,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.displaySmall
+                          style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: _input.isEmpty
-                                    ? Theme.of(context).colorScheme.onSurface
-                                          .withValues(alpha: 0.32)
-                                    : widget.amountColor,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.45),
+                                fontWeight: FontWeight.w600,
                               ),
                         ),
-                        // 算式模式在右下角展示浅色结果预览；不完整则提示。
-                        if (_hasOperator) ...<Widget>[
-                          const SizedBox(height: 2),
-                          Text(
-                            _result == null
-                                ? AppLocalizations.of(context).calcIncomplete
-                                : '= ${_formatResult(_result!)}',
-                            textAlign: TextAlign.end,
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurface
-                                      .withValues(alpha: 0.45),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                        ],
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),

@@ -88,7 +88,11 @@ void _runContract(String name, Future<LedgerRepository> Function() openRepo) {
     test('各表 save 后 load 内容与顺序原样读回', () async {
       final repo = await openRepo();
       final entries = <LedgerEntry>[
-        _entry('e2', DateTime(2026, 2, 1, 9), note: '较新'),
+        _entry(
+          'e2',
+          DateTime(2026, 2, 1, 9),
+          note: '较新',
+        ).copyWith(discountAmount: 2.5),
         _entry('e1', DateTime(2026, 1, 1, 8), note: '较旧'),
       ];
       final books = <LedgerBook>[

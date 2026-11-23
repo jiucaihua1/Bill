@@ -15,68 +15,230 @@ Future<SubscriptionMark?> _pickSubscriptionPeriod(
   SubscriptionMark current, {
   bool allowRemove = false,
 }) {
-  final l10n = AppLocalizations.of(context);
-  var input = current.months?.toString() ?? '';
-  return showDialog<SubscriptionMark>(
+  return showModalBottomSheet<SubscriptionMark>(
     context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (context, setState) {
-        final months = int.tryParse(input);
-        final valid =
-            input.isEmpty ||
-            (months != null &&
-                months >= 1 &&
-                months <= SubscriptionMark.maxMonths);
-        void save() => Navigator.pop(
-          dialogContext,
-          months == null
-              ? SubscriptionMark.unspecified
-              : SubscriptionMark.forMonths(months),
-        );
-        return AlertDialog(
-          title: Text(l10n.subscriptionPeriod),
-          scrollable: true,
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                initialValue: input,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: InputDecoration(
-                  labelText: l10n.subscriptionMonthsLabel,
-                  hintText: l10n.subscriptionMonthsHint,
-                  errorText: valid ? null : l10n.subscriptionMonthsInvalid,
-                  helperText: l10n.subscriptionMonthsOptional,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (sheetContext) =>
+        _SubscriptionPeriodSheet(current: current, allowRemove: allowRemove),
+  );
+}
+
+class _SubscriptionPeriodSheet extends StatefulWidget {
+  const _SubscriptionPeriodSheet({
+    required this.current,
+    required this.allowRemove,
+  });
+
+  final SubscriptionMark current;
+  final bool allowRemove;
+
+  @override
+  State<_SubscriptionPeriodSheet> createState() =>
+      _SubscriptionPeriodSheetState();
+}
+
+class _SubscriptionPeriodSheetState extends State<_SubscriptionPeriodSheet> {
+  late final TextEditingController _monthsController;
+
+  @override
+  void initState() {
+    super.initState();
+    _monthsController = TextEditingController(
+      text: widget.current.months?.toString() ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _monthsController.dispose();
+    super.dispose();
+  }
+
+  int? get _parsedMonths {
+    final text = _monthsController.text.trim();
+    if (text.isEmpty) return null;
+    return int.tryParse(text);
+  }
+
+  bool get _valid {
+    final text = _monthsController.text.trim();
+    if (text.isEmpty) return true;
+    final months = _parsedMonths;
+    return months != null &&
+        months >= 1 &&
+        months <= SubscriptionMark.maxMonths;
+  }
+
+  void _setMonths(int? months) {
+    setState(() {
+      _monthsController.text = months == null ? '' : '$months';
+      _monthsController.selection = TextSelection.collapsed(
+        offset: _monthsController.text.length,
+      );
+    });
+  }
+
+  void _save() {
+    if (!_valid) return;
+    final months = _parsedMonths;
+    Navigator.pop(
+      context,
+      months == null
+          ? SubscriptionMark.unspecified
+          : SubscriptionMark.forMonths(months),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final tokens = VeriStyleTokens.of(context);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final currentMonths = _parsedMonths;
+    final presets = <({String label, int? months})>[
+      (label: l10n.unspecifiedSubscription, months: null),
+      (label: l10n.monthlySubscription, months: 1),
+      (label: l10n.quarterlySubscription, months: 3),
+      (label: l10n.subscriptionMonthCount(6), months: 6),
+      (label: l10n.yearlySubscription, months: 12),
+      (label: l10n.biennialSubscription, months: 24),
+    ];
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 4, 16, 16 + bottomInset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    l10n.subscriptionPeriod,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
-                onChanged: (value) => setState(() => input = value),
-                onFieldSubmitted: (_) {
-                  if (valid) save();
-                },
-              ),
-              if (allowRemove)
-                TextButton(
-                  onPressed: () =>
-                      Navigator.pop(dialogContext, SubscriptionMark.excluded),
-                  child: Text(l10n.removeSubscription),
-                ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(l10n.commonCancel),
+                if (widget.allowRemove)
+                  TextButton(
+                    onPressed: () =>
+                        Navigator.pop(context, SubscriptionMark.excluded),
+                    style: TextButton.styleFrom(
+                      foregroundColor: veriSemantic(context, veriExpense),
+                    ),
+                    child: Text(l10n.removeSubscription),
+                  ),
+              ],
             ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: presets.map((preset) {
+                final selected = _monthsController.text.trim().isEmpty
+                    ? preset.months == null
+                    : currentMonths == preset.months;
+                return ChoiceChip(
+                  label: Text(preset.label),
+                  selected: selected,
+                  onSelected: (_) => _setMonths(preset.months),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: tokens.surfaceAltColor,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          l10n.subscriptionMonthsLabel,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          l10n.subscriptionMonthsOptional,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.56,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.remove_circle_outline_rounded),
+                    onPressed: (currentMonths ?? 1) > 1
+                        ? () => _setMonths((currentMonths ?? 1) - 1)
+                        : currentMonths == 1
+                        ? () => _setMonths(null)
+                        : null,
+                  ),
+                  SizedBox(
+                    width: 56,
+                    child: TextField(
+                      controller: _monthsController,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: '-',
+                        filled: false,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (_) => _save(),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add_circle_outline_rounded),
+                    onPressed: (currentMonths ?? 0) < SubscriptionMark.maxMonths
+                        ? () => _setMonths((currentMonths ?? 0) + 1)
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+            if (!_valid) ...<Widget>[
+              const SizedBox(height: 6),
+              Text(
+                l10n.subscriptionMonthsInvalid,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: veriSemantic(context, veriExpense),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
             FilledButton(
-              onPressed: valid ? save : null,
+              onPressed: _valid ? _save : null,
               child: Text(l10n.commonSave),
             ),
           ],
-        );
-      },
-    ),
-  );
+        ),
+      ),
+    );
+  }
 }
 
 Future<void> _showDailySubscriptions(
@@ -244,26 +406,19 @@ class _SubscriptionRow extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final period = subscriptionPeriod(entry)!;
     final category = controller.categoryById(entry.categoryId);
-    return ListTile(
-      leading: CategoryIconBox(
-        iconCode: category.iconCode,
-        categoryName: category.label,
-        size: 36,
-      ),
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        entry.note.isEmpty ? category.label : entry.note,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(_periodName(l10n, period)),
-      trailing: Text(
-        formatUserMoney(
-          entry.netBaseAmount,
-          controller.activeBook.baseCurrencyCode,
-        ),
-      ),
-      onTap: () async {
+    return AnchoredMenuChoice<String>(
+      values: const <String>['detail', 'edit_period'],
+      selected: '',
+      idOf: (value) => 'subscription_${entry.id}_$value',
+      labelOf: (value) =>
+          value == 'detail' ? l10n.viewOriginalBill : l10n.subscriptionPeriod,
+      iconOf: (value) =>
+          value == 'detail' ? Icons.receipt_long_outlined : Icons.edit_outlined,
+      onSelected: (value) async {
+        if (value == 'detail') {
+          openEntryDetail(context, entry);
+          return;
+        }
         final picked = await _pickSubscriptionPeriod(
           context,
           period,
@@ -275,6 +430,28 @@ class _SubscriptionRow extends StatelessWidget {
           }, picked);
         }
       },
+      semanticLabel: entry.note.isEmpty ? category.label : entry.note,
+      builder: (context, openMenu, menuOpen) => ListTile(
+        leading: CategoryIconBox(
+          iconCode: category.iconCode,
+          categoryName: category.label,
+          size: 36,
+        ),
+        contentPadding: EdgeInsets.zero,
+        title: Text(
+          entry.note.isEmpty ? category.label : entry.note,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(_periodName(l10n, period)),
+        trailing: Text(
+          formatUserMoney(
+            entry.netBaseAmount,
+            controller.activeBook.baseCurrencyCode,
+          ),
+        ),
+        onTap: openMenu,
+      ),
     );
   }
 }

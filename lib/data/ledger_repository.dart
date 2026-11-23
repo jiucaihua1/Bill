@@ -89,11 +89,12 @@ abstract interface class LedgerRepository {
   /// 绝不在旧字节尚未落盘的窗口里删列。返回是否真的重建了表。
   Future<bool> dropLegacyAttachmentData();
 
-  /// Replaces entries, attachments and optional exchange rates in one transaction.
+  /// Saves entries, attachments, and optional exchange rates and tags atomically.
   Future<void> saveEntryAggregate({
     required List<LedgerEntry> entries,
     required List<Attachment> attachments,
     List<ExchangeRate>? exchangeRates,
+    List<Tag>? tags,
   });
 
   Future<List<RecurringRule>> loadRecurringRules();
@@ -415,12 +416,14 @@ class SqliteLedgerRepository implements LedgerRepository {
     required List<LedgerEntry> entries,
     required List<Attachment> attachments,
     List<ExchangeRate>? exchangeRates,
+    List<Tag>? tags,
   }) {
     final entrySnapshot = List<LedgerEntry>.of(entries);
     final attachmentSnapshot = List<Attachment>.of(attachments);
     final rateSnapshot = exchangeRates == null
         ? null
         : List<ExchangeRate>.of(exchangeRates);
+    final tagSnapshot = tags == null ? null : List<Tag>.of(tags);
     return _enqueueWrite(() async {
       // entries 行映射昂贵且随行数增长：同一份行映射同时供差分与事务后的基线快照复用。
       final entryRows = entrySnapshot.map(_entryToRow).toList(growable: false);
@@ -428,7 +431,14 @@ class SqliteLedgerRepository implements LedgerRepository {
           ?.map(_exchangeRateToRow)
           .toList(growable: false);
       final entryDiff = _diffRows(_rowSnapshots['entries'], _byId(entryRows));
+      final tagDiff = tagSnapshot == null
+          ? null
+          : _diffRows(
+              _rowSnapshots['tags'],
+              _byId(_indexed(tagSnapshot, _tagToRow)),
+            );
       await _db.transaction((txn) async {
+        if (tagDiff != null) await _applyRowDiffInTxn(txn, 'tags', tagDiff);
         await _applyRowDiffInTxn(txn, 'entries', entryDiff);
         await _replaceAttachmentsInTxn(
           txn,
@@ -439,6 +449,7 @@ class SqliteLedgerRepository implements LedgerRepository {
         }
       });
       _seedSnapshot('entries', entryRows);
+      if (tagDiff != null) _rowSnapshots['tags'] = tagDiff.baseline;
       if (rateRows != null) {
         _seedSnapshot('exchange_rates', rateRows);
       }
@@ -898,6 +909,7 @@ class SqliteLedgerRepository implements LedgerRepository {
     'book_id': e.bookId,
     'type': e.type.storageValue,
     'amount': e.amount,
+    'discount_amount': e.discountAmount,
     'currency_code': e.currencyCode,
     'account_amount': e.accountAmount,
     'to_account_amount': e.toAccountAmount,
@@ -924,6 +936,7 @@ class SqliteLedgerRepository implements LedgerRepository {
     bookId: row['book_id'] as String,
     type: EntryType.fromStorage(row['type'] as String),
     amount: (row['amount'] as num).toDouble(),
+    discountAmount: (row['discount_amount'] as num?)?.toDouble() ?? 0,
     currencyCode: row['currency_code'] as String? ?? defaultCurrencyCode,
     accountAmount: (row['account_amount'] as num?)?.toDouble(),
     toAccountAmount: (row['to_account_amount'] as num?)?.toDouble(),

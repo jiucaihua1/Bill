@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../app/ai/ai_entry_parser.dart';
 import '../app/app_theme.dart';
 import '../app/attachment_picker.dart';
+import '../app/auto_bill_rules.dart';
 import '../app/category_suggest.dart';
 import '../app/category_tree.dart';
 import '../app/common_widgets.dart';
@@ -34,7 +35,9 @@ class EntryDetailPage extends StatefulWidget {
     required this.initialAmount,
     this.initialAccountId,
     this.initialDraft,
+    this.initialDiscountAmount = 0,
     this.draftReviewHint,
+    this.suggestedPlatformTag,
   }) : draftEntry = null,
        draftExtraAccounts = null,
        draftExtraCategories = null,
@@ -43,8 +46,10 @@ class EntryDetailPage extends StatefulWidget {
 
   const EntryDetailPage.manual({super.key, this.initialAccountId})
     : initialAmount = 0,
+      initialDiscountAmount = 0,
       initialDraft = null,
       draftReviewHint = null,
+      suggestedPlatformTag = null,
       draftEntry = null,
       draftExtraAccounts = null,
       draftExtraCategories = null,
@@ -66,18 +71,22 @@ class EntryDetailPage extends StatefulWidget {
        draftExtraCategories = extraCategories,
        draftExtraTags = extraTags,
        initialAmount = entry.amount,
+       initialDiscountAmount = entry.discountAmount,
        initialAccountId = null,
        initialDraft = null,
        draftReviewHint = null,
+       suggestedPlatformTag = null,
        inlineNumberPad = false;
 
   final double initialAmount;
+  final double initialDiscountAmount;
   final String? initialAccountId;
   final bool inlineNumberPad;
 
   /// 识别出的草稿：非空时预填表单并显示复核提示，供用户确认后落账。
   final AiEntryDraft? initialDraft;
   final String? draftReviewHint;
+  final Tag? suggestedPlatformTag;
 
   /// 草稿编辑模式下要编辑的交易；非空即进入「返回草稿不落库」模式。
   final LedgerEntry? draftEntry;
@@ -142,6 +151,10 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
   EntryDetailPage get _config => widget.config;
 
   late double _amount = _config.initialAmount;
+  late double _discountAmount = _config.initialDiscountAmount;
+  double _inlineGrossAmount = 0;
+  double get _grossAmount =>
+      _config.inlineNumberPad ? _inlineGrossAmount : _amount + _discountAmount;
   EntryType _type = EntryType.expense;
   _DebtDirection? _debtDirection;
   // 空串 = 尚未选分类；build 时会按当前账本的该类型分类补上首个可用项
@@ -268,6 +281,8 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
       _occurredAt = draft.occurredAt;
       _currencyCode = draft.currencyCode;
       _noteController.text = draft.note;
+      final tag = _config.suggestedPlatformTag;
+      if (tag != null) _tagIds = [tag.id];
     }
   }
 
@@ -759,7 +774,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
     };
     // 用带单位的格式化：单币种账本按偏好隐藏单位，多币种账本必须能看出币种。
     final amountCode = _currencyCode ?? controller.activeBook.baseCurrencyCode;
-    final amountNumber = formatUserMoney(_amount, amountCode);
+    final amountNumber = formatUserMoney(_grossAmount, amountCode);
     // 符号与 formatSignedAmount 保持同一套写法（ASCII 正负号、无空格），
     // 否则这里会成为全应用唯一使用 U+2212 加空格的位置。
     final amountText = switch (_type) {
@@ -807,28 +822,47 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
         labelText: quick ? null : l10n.commonNote,
         hintText: l10n.noteHint,
         prefixIcon: quick ? null : const Icon(Icons.notes),
+        filled: !quick,
         border: quick ? InputBorder.none : null,
+        enabledBorder: quick ? InputBorder.none : null,
+        focusedBorder: quick ? InputBorder.none : null,
+        disabledBorder: quick ? InputBorder.none : null,
         isDense: quick,
+        contentPadding: quick ? EdgeInsets.zero : null,
       ),
     );
-    final dateChip = _EntryMetadataChip(
-      chipKey: const Key('entry_metadata_date'),
+    final dateLabel = quick && DateUtils.isSameDay(_occurredAt, DateTime.now())
+        ? l10n.todayLabel
+        : l10n.dateMonthDay(_occurredAt);
+    final dateTimeChip = _EntryMetadataChip(
+      chipKey: const Key('entry_metadata_datetime'),
       icon: Icons.calendar_today_outlined,
+      label: Text('$dateLabel ${formatTime(_occurredAt)}'),
+      compact: quick,
+      onTap: _pickDateTime,
+    );
+    final discountChip = _EntryMetadataChip(
+      chipKey: const Key('entry_metadata_discount'),
+      icon: Icons.local_offer_outlined,
       label: Text(
-        quick && DateUtils.isSameDay(_occurredAt, DateTime.now())
-            ? l10n.todayLabel
-            : l10n.dateMonthDay(_occurredAt),
+        _discountAmount > 0
+            ? l10n.entryDiscountValue(
+                formatUserMoney(_discountAmount, amountCode),
+              )
+            : l10n.entryDiscountLabel,
       ),
+      selected: _discountAmount > 0,
       compact: quick,
-      onTap: _pickDate,
+      onTap: _grossAmount > 0 || _discountAmount > 0
+          ? () => _editDiscount(amountCode)
+          : null,
     );
-    final timeChip = _EntryMetadataChip(
-      chipKey: const Key('entry_metadata_time'),
-      icon: Icons.schedule_rounded,
-      label: Text(formatTime(_occurredAt)),
-      compact: quick,
-      onTap: _pickTime,
-    );
+    final payable = _discountAmount > 0 && _grossAmount > _discountAmount
+        ? Text(
+            l10n.entryPayableValue(formatUserMoney(_amount, amountCode)),
+            style: Theme.of(context).textTheme.bodySmall,
+          )
+        : null;
     final tagsChip = _EntryMetadataChip(
       chipKey: const Key('entry_metadata_tags'),
       icon: Icons.sell_outlined,
@@ -937,7 +971,11 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
         spacing: 7,
         runSpacing: 7,
         children: <Widget>[
-          if (!quick) ...[dateChip, timeChip, tagsChip],
+          if (!quick) ...[
+            dateTimeChip,
+            if (_type == EntryType.expense) discountChip,
+            tagsChip,
+          ],
           if (quickTransfer && _debtDirection == null && roots.isNotEmpty)
             _EntryMetadataChip(
               chipKey: const Key('quick_transfer_category'),
@@ -995,17 +1033,18 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
                 onTap: attachmentPickingSupported ? openMenu : null,
               ),
             ),
-          _EntryMetadataChip(
-            chipKey: const Key('entry_currency_button'),
-            icon: Icons.currency_exchange_rounded,
-            label: Text(
-              _currencyCode ?? controller.activeBook.baseCurrencyCode,
+          if (controller.multiCurrencyEnabled)
+            _EntryMetadataChip(
+              chipKey: const Key('entry_currency_button'),
+              icon: Icons.currency_exchange_rounded,
+              label: Text(
+                _currencyCode ?? controller.activeBook.baseCurrencyCode,
+              ),
+              selected:
+                  (_currencyCode ?? controller.activeBook.baseCurrencyCode) !=
+                  controller.activeBook.baseCurrencyCode,
+              onTap: _type == EntryType.transfer ? null : _pickCurrency,
             ),
-            selected:
-                (_currencyCode ?? controller.activeBook.baseCurrencyCode) !=
-                controller.activeBook.baseCurrencyCode,
-            onTap: _type == EntryType.transfer ? null : _pickCurrency,
-          ),
         ],
       ),
       // 标记待报销本身不产生任何资金变动，用户容易以为已经「报了」。
@@ -1095,12 +1134,45 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
-                        child: Text(
-                          controller.activeBook.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelMedium,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Icon(
+                                  Icons.menu_book_outlined,
+                                  size: 13,
+                                  color: Theme.of(context).colorScheme.onSurface
+                                      .withValues(alpha: 0.65),
+                                ),
+                                const SizedBox(width: 5),
+                                Flexible(
+                                  child: Text(
+                                    controller.activeBook.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
                       Expanded(
@@ -1131,38 +1203,52 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
                         blockReason: saveReason,
                         amountLeading: noteField,
                         amountColor: amountColor,
-                        metadata: Row(
-                          spacing: 4,
+                        metadata: Column(
                           children: [
-                            Expanded(child: dateChip),
-                            Expanded(child: timeChip),
-                            if (!quickTransfer)
-                              Expanded(
-                                child: _EntryMetadataChip(
-                                  chipKey: const Key('quick_entry_account'),
-                                  icon: Icons.account_balance_wallet_outlined,
-                                  compact: true,
-                                  label: Text(
-                                    hasAccounts && !_noAccount
-                                        ? accountById(accounts, _accountId).name
-                                        : l10n.noAccountLabel,
+                            ?payable,
+                            Row(
+                              spacing: 4,
+                              children: [
+                                Expanded(flex: 2, child: dateTimeChip),
+                                if (_type == EntryType.expense)
+                                  Expanded(child: discountChip),
+                                if (!quickTransfer)
+                                  Expanded(
+                                    child: _EntryMetadataChip(
+                                      chipKey: const Key('quick_entry_account'),
+                                      icon:
+                                          Icons.account_balance_wallet_outlined,
+                                      compact: true,
+                                      label: Text(
+                                        hasAccounts && !_noAccount
+                                            ? accountById(
+                                                accounts,
+                                                _accountId,
+                                              ).name
+                                            : l10n.noAccountLabel,
+                                      ),
+                                      onTap: () => _pickAccount(accounts),
+                                    ),
                                   ),
-                                  onTap: () => _pickAccount(accounts),
+                                if (quickTransfer && _debtDirection == null)
+                                  Expanded(
+                                    child: _EntryMetadataChip(
+                                      chipKey: const Key('fee_field'),
+                                      icon: Icons.paid_outlined,
+                                      compact: true,
+                                      label: Text(l10n.feeLabel),
+                                      selected: _fee > 0,
+                                      onTap: _accountId.isEmpty
+                                          ? null
+                                          : _editFee,
+                                    ),
+                                  ),
+                                Expanded(child: tagsChip),
+                                Expanded(
+                                  child: _buildQuickDetailsMenu(details),
                                 ),
-                              ),
-                            if (quickTransfer && _debtDirection == null)
-                              Expanded(
-                                child: _EntryMetadataChip(
-                                  chipKey: const Key('fee_field'),
-                                  icon: Icons.paid_outlined,
-                                  compact: true,
-                                  label: Text(l10n.feeLabel),
-                                  selected: _fee > 0,
-                                  onTap: _accountId.isEmpty ? null : _editFee,
-                                ),
-                              ),
-                            Expanded(child: tagsChip),
-                            Expanded(child: _buildQuickDetailsMenu(details)),
+                              ],
+                            ),
                           ],
                         ),
                         onAmountChanged: _onInlineAmountChanged,
@@ -1213,6 +1299,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
                         ),
                       ),
                     ),
+                    ?payable,
                     const SizedBox(height: 12),
                     Text(
                       l10n.commonCategory,
@@ -1268,6 +1355,10 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
     final switchingAccounts =
         quick && (type == EntryType.transfer || _type == EntryType.transfer);
     setState(() {
+      if (type != EntryType.expense && _discountAmount > 0) {
+        _amount = _grossAmount;
+        _discountAmount = 0;
+      }
       _type = type;
       _debtDirection = debt;
       _typeTouched = true;
@@ -1721,7 +1812,9 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
     setState(() {
       _currencyCode = selected.code;
       _currencyTouched = true;
-      _amount = normalizeCurrencyAmount(_amount, selected.code);
+      final gross = normalizeCurrencyAmount(_grossAmount, selected.code);
+      _discountAmount = _discountForGross(gross, selected.code);
+      _amount = normalizeCurrencyAmount(gross - _discountAmount, selected.code);
       _accountAmountTouched = false;
       _baseAmountTouched = false;
       _rememberRate = false;
@@ -1740,34 +1833,61 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
     final amount = await showNumberPadSheet(
       context,
       title: AppLocalizations.of(context).entryAmountInputTitle(
-        AppLocalizations.of(context).entryOriginalAmountLabel,
+        _discountAmount > 0
+            ? AppLocalizations.of(context).entryGrossAmountLabel
+            : AppLocalizations.of(context).entryOriginalAmountLabel,
         code,
       ),
-      initialAmount: _amount,
+      initialAmount: _grossAmount,
       maxFractionDigits: CurrencyCatalog.require(code).minorUnit,
     );
 
     if (!mounted || amount == null || amount <= 0) {
       return;
     }
-    _setAmount(amount, code);
+    final discount = _discountForGross(amount, code);
+    _setAmount(amount - discount, code, discountAmount: discount);
+  }
+
+  double _discountForGross(double gross, String code) =>
+      normalizeCurrencyAmount(
+        _discountAmount,
+        code,
+      ).clamp(0.0, maxEntryDiscount(gross, code));
+
+  Future<void> _editDiscount(String code) async {
+    final gross = _grossAmount;
+    final discount = await showEntryDiscountSheet(
+      context,
+      grossAmount: gross,
+      discountAmount: _discountAmount,
+      currencyCode: code,
+    );
+    if (!mounted || discount == null) return;
+    _setAmount(gross - discount, code, discountAmount: discount);
   }
 
   void _onInlineAmountChanged(double? amount) {
-    if (amount == null || amount <= 0 || amount == _amount) return;
     final code =
         _currencyCode ?? VeriFinScope.of(context).activeBook.baseCurrencyCode;
-    _setAmount(amount, code, debounceSuggestion: true);
+    final gross = normalizeCurrencyAmount(amount ?? 0, code);
+    if (gross == _inlineGrossAmount) return;
+    setState(() => _inlineGrossAmount = gross);
+    if (gross > _discountAmount) {
+      _setAmount(gross - _discountAmount, code, debounceSuggestion: true);
+    }
   }
 
   void _setAmount(
     double amount,
     String code, {
+    double? discountAmount,
     bool debounceSuggestion = false,
   }) {
     setState(() {
       final previousAmount = _amount;
       _amount = normalizeCurrencyAmount(amount, code);
+      if (discountAmount != null) _discountAmount = discountAmount;
       final controller = VeriFinScope.of(context);
       final accounts = _availableAccounts(controller);
       if (_conversionSource == ConversionSource.manual ||
@@ -2096,6 +2216,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
   }
 
   bool _canSave(List<Account> accounts) {
+    if (_grossAmount <= _discountAmount) return false;
     if (_type != EntryType.transfer) {
       // 无账户也可保存（只记金额）；否则需有可选账户。
       final hasAccountAmount =
@@ -2119,6 +2240,9 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
   /// 返回 null 表示没有可解释的缺失（例如只是还没有任何改动）。
   String? _saveBlockReason(List<Account> accounts) {
     final l10n = AppLocalizations.of(context);
+    if (_discountAmount > 0 && _grossAmount <= _discountAmount) {
+      return l10n.entrySaveReasonAmount;
+    }
     if (_type == EntryType.transfer) {
       if (_accountFor(accounts, _accountId) == null ||
           _accountFor(accounts, _toAccountId) == null ||
@@ -2145,52 +2269,34 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
     return null;
   }
 
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+  Future<void> _pickDateTime() async {
+    final date = await showDatePicker(
       context: context,
       initialDate: _occurredAt,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
 
-    if (!mounted || picked == null) {
-      return;
-    }
-
-    setState(() {
-      _occurredAt = DateTime(
-        picked.year,
-        picked.month,
-        picked.day,
-        _occurredAt.hour,
-        _occurredAt.minute,
-      );
-      _refreshCurrencyAmounts(
-        VeriFinScope.of(context),
-        _availableAccounts(VeriFinScope.of(context)),
-      );
-    });
-  }
-
-  Future<void> _pickTime() async {
-    final picked = await showTimePicker(
+    if (!mounted || date == null) return;
+    final time = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_occurredAt),
     );
 
-    if (!mounted || picked == null) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
       _occurredAt = DateTime(
-        _occurredAt.year,
-        _occurredAt.month,
-        _occurredAt.day,
-        picked.hour,
-        picked.minute,
+        date.year,
+        date.month,
+        date.day,
+        time?.hour ?? _occurredAt.hour,
+        time?.minute ?? _occurredAt.minute,
       );
+      final controller = VeriFinScope.of(context);
+      _refreshCurrencyAmounts(controller, _availableAccounts(controller));
     });
+    _recomputeSuggestion();
   }
 
   Future<void> _addAttachment({required bool fromCamera}) async {
@@ -2204,10 +2310,16 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
   }
 
   Future<void> _pickTags() async {
+    final platformTag = _config.suggestedPlatformTag;
     final result = await pickEntryTags(
       context: context,
       selectedIds: _tagIds,
-      extraTags: _config.draftExtraTags ?? const <Tag>[],
+      extraTags: [
+        ...?_config.draftExtraTags,
+        if (platformTag != null &&
+            platformTag.id == AutoBillSuggestions.draftTagId)
+          platformTag,
+      ],
     );
     if (!mounted || result == null) {
       return;
@@ -2234,6 +2346,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
       bookId: original?.bookId ?? VeriFinScope.of(context).activeBook.id,
       type: _type,
       amount: normalizeCurrencyAmount(_amount, code),
+      discountAmount: _type == EntryType.expense ? _discountAmount : 0,
       currencyCode: code,
       accountAmount: noAccount || accountCode == null
           ? null
@@ -2253,7 +2366,9 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
       toAccountId: _type == EntryType.transfer ? _toAccountId : null,
       note: _noteController.text.trim(),
       occurredAt: _occurredAt,
-      tagIds: List<String>.of(_tagIds),
+      tagIds: _tagIds
+          .where((id) => id != AutoBillSuggestions.draftTagId)
+          .toList(),
       fee: _type == EntryType.transfer && _debtDirection == null
           ? normalizeCurrencyAmount(_fee, code)
           : 0,
@@ -2276,6 +2391,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
   bool _sameDraft(LedgerEntry left, LedgerEntry right) =>
       left.type == right.type &&
       left.amount == right.amount &&
+      left.discountAmount == right.discountAmount &&
       left.currencyCode == right.currencyCode &&
       left.accountAmount == right.accountAmount &&
       left.toAccountAmount == right.toAccountAmount &&
@@ -2407,6 +2523,9 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
     final result = await controller.saveEntryAggregateDraftResult(
       entry: draft,
       isNew: true,
+      suggestedTagLabel: _tagIds.contains(AutoBillSuggestions.draftTagId)
+          ? _config.suggestedPlatformTag?.label
+          : null,
       attachments: attachments,
       rememberRateCurrencyCode: _rememberRate ? draft.currencyCode : null,
       rememberRateToBase: _rememberRate

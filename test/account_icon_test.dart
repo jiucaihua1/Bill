@@ -43,7 +43,7 @@ void main() {
       'cash': '#16A36F',
       'investment': '#E9862D',
       'savings': '#D95C8A',
-      'card': '#2A8FB0',
+      'card': '#2B6B56',
     };
     for (final entry in genericAccountIconAssetPaths.entries) {
       final path = entry.value;
@@ -171,7 +171,7 @@ void main() {
     }
   });
 
-  testWidgets('默认与品牌账户图标统一使用白底 SVG 和 10% 内边距', (tester) async {
+  testWidgets('通用与品牌账户图标使用各自的主题颜色和 14% 内边距', (tester) async {
     Future<void> pump(Brightness brightness) {
       return tester.pumpWidget(
         MaterialApp(
@@ -207,28 +207,37 @@ void main() {
       );
     }
 
-    await pump(Brightness.dark);
-    expect(find.byType(SvgPicture), findsNWidgets(2));
-    for (final key in const <String>[
-      'generic_account_icon',
-      'brand_account_icon',
-    ]) {
-      final container = iconContainer(key);
-      expect((container.padding! as EdgeInsets).left, closeTo(3.6, 0.001));
-      final decoration = container.decoration! as BoxDecoration;
-      expect(decoration.color, Colors.white);
-      expect(
-        decoration.border!.top.color,
-        Colors.black.withValues(alpha: 0.08),
+    for (final brightness in Brightness.values) {
+      await pump(brightness);
+      expect(find.byType(SvgPicture), findsNWidgets(2));
+      final generic = iconContainer('generic_account_icon');
+      final brand = iconContainer('brand_account_icon');
+      for (final container in [generic, brand]) {
+        expect((container.padding! as EdgeInsets).left, closeTo(5.04, 0.001));
+      }
+      final context = tester.element(
+        find.byKey(const Key('brand_account_icon')),
       );
+      final primary = Theme.of(context).colorScheme.primary;
+      final tokens = VeriStyleTokens.of(context);
+      final genericDecoration = generic.decoration! as BoxDecoration;
+      final brandDecoration = brand.decoration! as BoxDecoration;
+      expect(genericDecoration.color, primary.withValues(alpha: 0.11));
+      expect(
+        genericDecoration.border!.top.color,
+        primary.withValues(alpha: 0.22),
+      );
+      expect(
+        (generic.child! as SvgPicture).colorFilter,
+        ColorFilter.mode(primary, BlendMode.srcIn),
+      );
+      expect(
+        brandDecoration.color,
+        tokens.surfaceAltColor.withValues(alpha: 0.55),
+      );
+      expect(brandDecoration.border!.top.color, tokens.borderColor);
+      expect((brand.child! as SvgPicture).colorFilter, isNull);
     }
-
-    await pump(Brightness.light);
-    expect(
-      (iconContainer('generic_account_icon').decoration! as BoxDecoration)
-          .color,
-      Colors.white,
-    );
   });
 
   testWidgets('新增账户 SVG 均可由正式渲染组件加载', (tester) async {

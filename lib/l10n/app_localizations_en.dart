@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -16,6 +15,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appTitle => 'Xiaohe Ledger';
+
+  @override
+  String get multiCurrencyEnabledLabel => 'Multi-currency support';
+
+  @override
+  String get multiCurrencyEnabledDesc =>
+      'When off, hides currency pickers, base-currency offset, and exchange rates';
+
+  @override
+  String get refundDateLabel => 'Refund date';
 
   @override
   String get statRangeLabel => 'Range';
@@ -2451,6 +2460,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get subscriptionPeriod => 'Billing period';
 
   @override
+  String get viewOriginalBill => 'View original bill';
+
+  @override
   String get monthlySubscription => 'Monthly';
 
   @override
@@ -2833,6 +2845,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get themeColorWarmPaper => 'Warm Paper (Default)';
+
+  @override
+  String get themeColorMatchaZen => 'Matcha Bamboo';
+
+  @override
+  String get themeColorSakuraMist => 'Sakura Mist';
+
+  @override
+  String get themeColorCaramelLatte => 'Caramel Latte';
 
   @override
   String get themeColorHyperCrisp => 'Hyper Crisp';
@@ -3883,6 +3904,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get autoCaptureCcbName => 'China Construction Bank';
+
+  @override
+  String autoCaptureTodayExpense(String amount) {
+    return 'Today\'s spending $amount';
+  }
 
   @override
   String get autoCaptureCcbHint =>
@@ -4938,6 +4964,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get entryOriginalAmountLabel => 'Original amount';
+
+  @override
+  String get entryDiscountLabel => 'Discount';
+
+  @override
+  String get entryGrossAmountLabel => 'Original price';
+
+  @override
+  String entryDiscountValue(String amount) {
+    return 'Discount $amount';
+  }
+
+  @override
+  String entryPayableValue(String amount) {
+    return 'Paid $amount';
+  }
 
   @override
   String get entryAccountAmountExpense => 'Actual account charge';

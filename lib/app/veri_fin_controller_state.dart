@@ -186,6 +186,7 @@ mixin _ControllerState on ChangeNotifier {
   CurrencyFractionStyle _currencyFractionStyle = CurrencyFractionStyle.compact;
   MoneyUnitStyle _moneyUnitStyle = MoneyUnitStyle.symbol;
   bool _hideUnitInSingleCurrency = true;
+  bool _multiCurrencyEnabled = false;
   bool _autoSuggestEnabled = true;
   // 交易列表是否在每行显示该账户当时的结余；默认关闭，避免信息过载。
   bool _showRunningBalance = false;
@@ -282,6 +283,8 @@ mixin _ControllerState on ChangeNotifier {
     _numberPadLayout = NumberPadLayout.fromStorage(
       _store.read(_numberPadLayoutKey),
     );
+    _multiCurrencyEnabled = _store.read(_multiCurrencyKey) == 'true';
+    amount_format.multiCurrencyEnabled = _multiCurrencyEnabled;
     _loadDefaultAccounts();
     _loadBudgetCycleStartDays();
     // 新键存枚举名；老用户只有旧键（'true'/'false'，当时叫「强制两位小数」）时

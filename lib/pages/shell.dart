@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../app/ai/ai_entry_parser.dart';
 import '../app/app_lock_session.dart';
+import '../app/auto_bill_rules.dart';
 import '../app/haptics.dart';
 import '../app/models.dart';
 import '../app/feedback.dart';
@@ -643,28 +644,22 @@ class _VeriFinShellState extends State<VeriFinShell> {
             timestamp is! int) {
           continue;
         }
-        final categoryKey = raw['categoryKey'];
-        if (VeriFinScope.of(context).activeBook.baseCurrencyCode == 'CNY') {
+        final controller = VeriFinScope.of(context);
+        if (controller.activeBook.baseCurrencyCode == 'CNY') {
           await showAutoConfirmCaptureSheet(context, draft: raw);
           continue;
         }
-        final categories = VeriFinScope.of(context).categoriesForType(type);
-        final category =
-            categories
-                .where(
-                  (category) =>
-                      category.key == categoryKey && categoryKey != null,
-                )
-                .firstOrNull ??
-            categories
-                .where((category) => category.isUncategorized)
-                .firstOrNull;
+        final suggestions = AutoBillSuggestions.forDraft(controller, raw);
+        final platformTag = suggestions.tagFor(
+          controller.activeBook.id,
+          controller.tags,
+        );
         final draft = AiEntryDraft(
           type: type,
           amount: amount.toDouble(),
           currencyCode: 'CNY',
-          categoryId: category?.id ?? '',
-          accountId: '',
+          categoryId: suggestions.categoryId ?? '',
+          accountId: suggestions.accountId ?? '',
           toAccountId: null,
           note: raw['note'] as String? ?? '',
           occurredAt: DateTime.fromMillisecondsSinceEpoch(timestamp),
@@ -674,8 +669,12 @@ class _VeriFinShellState extends State<VeriFinShell> {
           MaterialPageRoute<void>(
             builder: (_) => EntryDetailPage(
               initialAmount: draft.amount,
+              initialDiscountAmount: type == EntryType.expense
+                  ? (raw['discountAmount'] as num?)?.toDouble() ?? 0
+                  : 0,
               initialDraft: draft,
               draftReviewHint: reviewHint,
+              suggestedPlatformTag: platformTag,
             ),
           ),
         );

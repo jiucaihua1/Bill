@@ -27,11 +27,11 @@ class AutoBookkeepingForegroundService : Service() {
             return START_NOT_STICKY
         }
         val prefs = getSharedPreferences(AutoCapturePermissions.PREFS_NAME, Context.MODE_PRIVATE)
-        val summary = intent?.getStringExtra(EXTRA_SUMMARY)
-            ?: prefs.getString(KEY_SUMMARY, null)
-            ?: "正在后台监听已适配平台支付动态，点击打开小禾记账"
+        val summary = prefs.getString(KEY_SUMMARY, null)
+            ?.substringBefore(" · 已适配：")
+            ?: "正在后台监听支付动态"
         ensureChannel()
-        val notification = buildNotification(summary)
+        val notification = buildNotification(this, summary)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 NOTIFICATION_ID,
@@ -64,34 +64,43 @@ class AutoBookkeepingForegroundService : Service() {
         manager.createNotificationChannel(channel)
     }
 
-    private fun buildNotification(summary: String): Notification {
-        val openIntent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        }
-        val pendingOpen = PendingIntent.getActivity(
-            this,
-            201,
-            openIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_quick_entry_tile)
-            .setContentTitle("小禾自动记账运行中")
-            .setContentText(summary)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(summary))
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setSilent(true)
-            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-            .setContentIntent(pendingOpen)
-            .build()
-    }
-
     companion object {
         private const val CHANNEL_ID = "verifin_auto_bookkeeping_status"
         private const val NOTIFICATION_ID = 4208
-        private const val EXTRA_SUMMARY = "summary"
         const val KEY_SUMMARY = "notification_summary"
+
+        private fun buildNotification(context: Context, summary: String): Notification {
+            val openIntent = Intent(context, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            val pendingOpen = PendingIntent.getActivity(
+                context,
+                201,
+                openIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            return NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_quick_entry_tile)
+                .setContentTitle("小禾自动记账运行中")
+                .setContentText(summary)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(summary))
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setSilent(true)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                .setContentIntent(pendingOpen)
+                .build()
+        }
+
+        fun updateSummary(context: Context, summary: String) {
+            val prefs = context.getSharedPreferences(AutoCapturePermissions.PREFS_NAME, Context.MODE_PRIVATE)
+            if (prefs.getString(KEY_SUMMARY, null) == summary) return
+            prefs.edit().putString(KEY_SUMMARY, summary).apply()
+            val manager = context.getSystemService(NotificationManager::class.java) ?: return
+            if (manager.activeNotifications.any { it.id == NOTIFICATION_ID && it.tag == null }) {
+                manager.notify(NOTIFICATION_ID, buildNotification(context, summary))
+            }
+        }
 
         fun sync(context: Context, enabled: Boolean, persistent: Boolean, summary: String? = null) {
             val prefs = context.getSharedPreferences(AutoCapturePermissions.PREFS_NAME, Context.MODE_PRIVATE)
@@ -99,9 +108,7 @@ class AutoBookkeepingForegroundService : Service() {
                 prefs.edit().putString(KEY_SUMMARY, summary).apply()
             }
             if (enabled && persistent) {
-                val intent = Intent(context, AutoBookkeepingForegroundService::class.java).apply {
-                    if (summary != null) putExtra(EXTRA_SUMMARY, summary)
-                }
+                val intent = Intent(context, AutoBookkeepingForegroundService::class.java)
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         context.startForegroundService(intent)

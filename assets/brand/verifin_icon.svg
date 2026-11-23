@@ -1,13 +1,34 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
-    <linearGradient id="tessera-sheen" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity=".45"/>
-      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#357E66"/>
+      <stop offset="55%" stop-color="#2B6B56"/>
+      <stop offset="100%" stop-color="#1E4E3E"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFDF8"/>
+      <stop offset="100%" stop-color="#F2EAE0"/>
+    </linearGradient>
+    <linearGradient id="sprout" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F8D47A"/>
+      <stop offset="100%" stop-color="#E2A43B"/>
     </linearGradient>
   </defs>
-  <rect x="8" y="8" width="112" height="112" rx="30" fill="#eef4fb"/>
-  <rect x="34" y="34" width="46" height="46" rx="12" fill="#49B1F5" fill-opacity=".62" transform="rotate(-14 57 57)"/>
-  <rect x="50" y="46" width="46" height="46" rx="12" fill="#00C4B6" fill-opacity=".58" transform="rotate(9 73 69)"/>
-  <rect x="40" y="54" width="46" height="46" rx="12" fill="#7C53D0" fill-opacity=".5" transform="rotate(-3 63 77)"/>
-  <rect x="8" y="8" width="112" height="58" rx="30" fill="url(#tessera-sheen)"/>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- Subtle warm journal notebook card -->
+  <rect x="236" y="216" width="552" height="592" rx="108" fill="url(#paper)"/>
+  <!-- Left binding spine accent -->
+  <rect x="236" y="216" width="84" height="592" rx="42" fill="#E6DCCB"/>
+  <rect x="292" y="216" width="28" height="592" fill="#E6DCCB"/>
+  <!-- Minimalist ledger lines at bottom -->
+  <rect x="372" y="616" width="320" height="28" rx="14" fill="#D9CEBC"/>
+  <rect x="372" y="680" width="216" height="28" rx="14" fill="#E4DBCC"/>
+  <!-- Young rice sprout / "小禾" emblem -->
+  <path d="M532 544 C532 456, 532 392, 532 346" stroke="#2B6B56" stroke-width="34" stroke-linecap="round" fill="none"/>
+  <!-- Left tender leaf -->
+  <path d="M530 468 C450 462, 396 410, 398 344 C462 344, 518 392, 530 468 Z" fill="#3B8D71"/>
+  <!-- Right golden wheat leaf -->
+  <path d="M534 426 C552 346, 616 296, 690 302 C684 374, 622 426, 534 426 Z" fill="url(#sprout)"/>
+  <!-- Top bud dot -->
+  <circle cx="532" cy="316" r="24" fill="#E2A43B"/>
 </svg>

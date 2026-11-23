@@ -32,23 +32,29 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
     private data class OcrResult(val text: String, val amountText: String? = null)
     private data class VisiblePaymentRegion(val displayId: Int, val bounds: Rect)
 
-    private enum class CheckoutKind { MERCHANT, SCAN, PERSONAL_QR, TRANSFER }
+    private enum class CheckoutKind { MERCHANT, SCAN, PERSONAL_QR, TRANSFER, PAYMENT_CODE }
 
     private class Checkout(val orderWindowId: Int, val kind: CheckoutKind) {
         val startedAt = SystemClock.elapsedRealtime()
         val transfer get() = kind == CheckoutKind.TRANSFER
         val scan get() = kind == CheckoutKind.SCAN || kind == CheckoutKind.PERSONAL_QR
-        var resultWindowId: Int? = null
+        var codeWindowId: Int? = null
+        var lastCodeContentEvent: Triple<Int, Int, Long>? = null
+        var result: ResultWindow? = null
         var recognized = false
-        var retried = false
-        var doneControlSeen = false
-        var personalCapturePending = false
-        var personalCaptureRunning = false
-        var personalContentChanged = false
-        var lastPersonalCaptureAt = 0L
+        var lastCandidateCaptureAt = 0L
         var controlsWindowId: Int? = null
         var sawSuccess = false
         var sawReturnToMerchant = false
+    }
+
+    private class ResultWindow(val id: Int) {
+        var retried = false
+        var doneControlSeen = false
+        var sawResultControls = false
+        var capturePending = false
+        var captureRunning = false
+        var contentChanged = false
     }
 
     fun onEvent(event: AccessibilityEvent, recognized: Boolean, visibleTexts: List<String>) {
@@ -57,37 +63,40 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
 
         val stateChanged = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
         val className = event.className?.toString()
-        val entry = when (className) {
-            ORDER_HANDLER, PAY_ENTRY -> CheckoutKind.MERCHANT
-            MERCHANT_SCAN -> CheckoutKind.SCAN
-            QR_REMITTANCE -> CheckoutKind.PERSONAL_QR
-            REMITTANCE -> CheckoutKind.TRANSFER
-            else -> null
-        }
+        val entry = checkoutKind(className)
         if (stateChanged && entry != null) {
+            if (entry == CheckoutKind.PAYMENT_CODE && !BuildConfig.DEBUG) return
             if (session?.orderWindowId != event.windowId || session?.kind != entry) {
                 reset()
-                AutoBillParser.beginWechatPayment()
+                if (entry != CheckoutKind.PAYMENT_CODE) AutoBillParser.beginWechatPayment()
                 session = Checkout(event.windowId, entry)
-                if (entry != CheckoutKind.TRANSFER) Log.i(TAG, "WeChat merchant checkout: ${entry.name}")
+                if (entry == CheckoutKind.PAYMENT_CODE) {
+                    WechatPaymentCodeTrace.record(service, "entry window=${event.windowId} class=$className")
+                } else if (entry != CheckoutKind.TRANSFER) {
+                    Log.i(TAG, "WeChat merchant checkout: ${entry.name}")
+                }
             }
             return
         }
 
-        val checkout = session ?: return
-        if (SystemClock.elapsedRealtime() - checkout.startedAt >= CHECKOUT_TIMEOUT_MS) {
+        val checkout = session ?: run {
+            if (BuildConfig.DEBUG && stateChanged && className == PAGE_FRAGMENT_CONTAINER) {
+                // The preceding short-lived entry may be absent from the accessibility events.
+                session = Checkout(event.windowId, CheckoutKind.PAYMENT_CODE).apply {
+                    codeWindowId = event.windowId
+                }
+                WechatPaymentCodeTrace.record(service, "unclassified display window=${event.windowId}")
+            }
+            return
+        }
+        val timeout = if (checkout.kind == CheckoutKind.PAYMENT_CODE) PAYMENT_CODE_TRACE_TIMEOUT_MS else CHECKOUT_TIMEOUT_MS
+        if (SystemClock.elapsedRealtime() - checkout.startedAt >= timeout) {
             reset()
             return
         }
-        if (checkout.kind == CheckoutKind.PERSONAL_QR) {
-            onPersonalQrEvent(checkout, event, recognized, visibleTexts)
+        if (checkout.kind == CheckoutKind.PAYMENT_CODE) {
+            logPaymentCodeWindowEvent(checkout, event)
             return
-        }
-        if (checkout.resultWindowId == event.windowId && recognized) checkout.recognized = true
-        val resultWindowChanged = stateChanged && when (checkout.kind) {
-            CheckoutKind.TRANSFER, CheckoutKind.SCAN, CheckoutKind.PERSONAL_QR ->
-                className == PAGE_FRAGMENT_CONTAINER && event.windowId != checkout.orderWindowId
-            CheckoutKind.MERCHANT -> className == RESULT_CONTAINER
         }
         // TalkBack focus events can expose success-page controls even when the
         // result container does not send the expected window-state event.
@@ -105,81 +114,142 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
             checkout.sawSuccess && (checkout.sawReturnToMerchant ||
                 (checkout.scan && "完成" in visibleTexts))
         }
-        if ((!resultWindowChanged && !successControls) || checkout.resultWindowId != null) return
-        checkout.resultWindowId = event.windowId
+        if (checkout.kind != CheckoutKind.MERCHANT) {
+            onCandidateEvent(checkout, event, recognized, visibleTexts, successControls)
+            return
+        }
+        if (checkout.result?.id == event.windowId && recognized) checkout.recognized = true
+        val resultWindowChanged = stateChanged && className == RESULT_CONTAINER
+        if ((!resultWindowChanged && !successControls) || checkout.result != null) return
+        val result = ResultWindow(event.windowId)
+        checkout.result = result
         checkout.recognized = recognized
         if (recognized) return
-        if (!checkout.transfer) Log.i(TAG, "WeChat merchant result detected: ${checkout.kind.name}")
+        Log.i(TAG, "WeChat merchant result detected: ${checkout.kind.name}")
+        handler.postDelayed({ takeResultScreenshot(checkout, result) }, RESULT_SETTLE_MS)
+    }
+
+    private fun checkoutKind(className: String?): CheckoutKind? = when (className) {
+        ORDER_HANDLER, PAY_ENTRY -> CheckoutKind.MERCHANT
+        MERCHANT_SCAN -> CheckoutKind.SCAN
+        QR_REMITTANCE -> CheckoutKind.PERSONAL_QR
+        REMITTANCE -> CheckoutKind.TRANSFER
+        PAYMENT_CODE_ENTRY, PAYMENT_CODE_SHORTCUT -> CheckoutKind.PAYMENT_CODE
+        else -> null
+    }
+
+    private fun logPaymentCodeWindowEvent(checkout: Checkout, event: AccessibilityEvent) {
         val windowId = event.windowId
-        handler.postDelayed({ takeResultScreenshot(checkout, windowId) }, RESULT_SETTLE_MS)
+        val stateChanged = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+        val className = event.className?.toString()
+        if (stateChanged &&
+            (className == WECHAT_HOME || className == WECHAT_WALLET || className?.startsWith(WECHAT_COLLECT) == true)
+        ) {
+            WechatPaymentCodeTrace.record(service, "exit window=$windowId")
+            reset()
+            return
+        }
+        if (checkout.codeWindowId == null) {
+            if (!stateChanged || className != PAGE_FRAGMENT_CONTAINER) return
+            checkout.codeWindowId = windowId
+            WechatPaymentCodeTrace.record(service, "display window=$windowId")
+            return
+        }
+        if (!stateChanged) {
+            if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return
+            val now = SystemClock.elapsedRealtime()
+            val previous = checkout.lastCodeContentEvent
+            if (previous?.first == windowId && previous.second == event.contentChangeTypes &&
+                now - previous.third < CANDIDATE_CAPTURE_INTERVAL_MS
+            ) return
+            checkout.lastCodeContentEvent = Triple(windowId, event.contentChangeTypes, now)
+        }
+        val windowClass = className?.takeIf { it.startsWith("$WECHAT.") } ?: "view"
+        val eventName = if (stateChanged) "state" else "content"
+        val sameWindow = checkout.codeWindowId == windowId
+        val activeWindow = service.rootInActiveWindow?.windowId
+        WechatPaymentCodeTrace.record(
+            service,
+            "$eventName window=$windowId sameWindow=$sameWindow active=$activeWindow " +
+                "class=$windowClass changes=${event.contentChangeTypes}",
+        )
+    }
+
+    fun onPaymentCodeWindowsChanged(event: AccessibilityEvent) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+        val checkout = session?.takeIf { it.kind == CheckoutKind.PAYMENT_CODE } ?: return
+        val codeWindow = checkout.codeWindowId ?: return
+        if (SystemClock.elapsedRealtime() - checkout.startedAt >= PAYMENT_CODE_TRACE_TIMEOUT_MS) return
+        val root = service.rootInActiveWindow
+        if (event.windowId != codeWindow && root?.packageName?.toString() != WECHAT) return
+        WechatPaymentCodeTrace.record(
+            service,
+            "windows window=${event.windowId} sameWindow=${event.windowId == codeWindow} " +
+                "active=${root?.windowId} changes=${event.windowChanges}",
+        )
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-    private fun onPersonalQrEvent(
+    private fun onCandidateEvent(
         checkout: Checkout, event: AccessibilityEvent, recognized: Boolean, visibleTexts: List<String>,
+        successControls: Boolean,
     ) {
         if (checkout.recognized) return
         val windowId = event.windowId
         val stateChanged = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-        val candidateChanged = stateChanged && event.className?.toString() == PAGE_FRAGMENT_CONTAINER &&
-            windowId != checkout.orderWindowId && checkout.resultWindowId != windowId
-        if (candidateChanged) {
-            checkout.resultWindowId = windowId
-            checkout.doneControlSeen = false
-            checkout.retried = false
-            checkout.personalCapturePending = false
-            checkout.personalCaptureRunning = false
-            checkout.personalContentChanged = false
-            Log.i(TAG, "WeChat personal QR candidate window changed")
+        // Confirmation and successful result screens can use the same class or window ID.
+        val resultCandidate = stateChanged && event.className?.toString() == PAGE_FRAGMENT_CONTAINER
+        if ((resultCandidate || successControls) && checkout.result?.id != windowId) {
+            checkout.result = ResultWindow(windowId)
+            Log.i(TAG, "WeChat payment candidate window changed: ${checkout.kind.name}")
         }
-        if (checkout.resultWindowId != windowId) return
+        val result = checkout.result?.takeIf { it.id == windowId } ?: return
         if (recognized) {
             checkout.recognized = true
             return
         }
-        val doneAppeared = !checkout.doneControlSeen && visibleTexts.any { it.trim() == "完成" }
-        if (doneAppeared) checkout.doneControlSeen = true
+        val doneAppeared = !result.doneControlSeen && visibleTexts.any { it.trim() == "完成" }
+        if (doneAppeared) result.doneControlSeen = true
+        val successAppeared = successControls && !result.sawResultControls
+        if (successAppeared) result.sawResultControls = true
         val contentChanged = event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
             (event.contentChangeTypes == 0 || event.contentChangeTypes and PAYMENT_CONTENT_CHANGES != 0)
-        if (!stateChanged && !contentChanged && !doneAppeared) return
-        if (checkout.personalCaptureRunning) {
-            checkout.personalContentChanged = true
-        } else if (!checkout.personalCapturePending) {
-            checkout.retried = false
-            schedulePersonalCapture(checkout, windowId, useVisibleRegion = false)
+        if (!stateChanged && !contentChanged && !doneAppeared && !successAppeared) return
+        if (result.captureRunning) {
+            result.contentChanged = true
+        } else if (!result.capturePending) {
+            result.retried = false
+            scheduleCandidateCapture(checkout, result)
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-    private fun schedulePersonalCapture(checkout: Checkout, windowId: Int, useVisibleRegion: Boolean) {
-        if (checkout.personalCapturePending) return
-        checkout.personalCapturePending = true
-        val sinceCapture = SystemClock.elapsedRealtime() - checkout.lastPersonalCaptureAt
-        val delay = maxOf(RESULT_SETTLE_MS, PERSONAL_CAPTURE_INTERVAL_MS - sinceCapture)
+    private fun scheduleCandidateCapture(checkout: Checkout, result: ResultWindow, useVisibleRegion: Boolean = false) {
+        if (result.capturePending) return
+        result.capturePending = true
+        val sinceCapture = SystemClock.elapsedRealtime() - checkout.lastCandidateCaptureAt
+        val delay = maxOf(RESULT_SETTLE_MS, CANDIDATE_CAPTURE_INTERVAL_MS - sinceCapture)
         handler.postDelayed({
-            if (session !== checkout || checkout.resultWindowId != windowId) return@postDelayed
-            checkout.personalCapturePending = false
-            if (!isCurrent(checkout, windowId)) return@postDelayed
-            checkout.personalCaptureRunning = true
-            checkout.personalContentChanged = false
-            checkout.lastPersonalCaptureAt = SystemClock.elapsedRealtime()
-            takeResultScreenshot(checkout, windowId, useVisibleRegion)
+            result.capturePending = false
+            if (!isCurrent(checkout, result)) return@postDelayed
+            result.captureRunning = true
+            result.contentChanged = false
+            checkout.lastCandidateCaptureAt = SystemClock.elapsedRealtime()
+            takeResultScreenshot(checkout, result, useVisibleRegion)
         }, delay)
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-    private fun finishPersonalCapture(checkout: Checkout, windowId: Int, allowVisibleRetry: Boolean = false) {
-        if (checkout.kind != CheckoutKind.PERSONAL_QR ||
-            session !== checkout || checkout.resultWindowId != windowId
-        ) return
-        checkout.personalCaptureRunning = false
+    private fun finishCandidateCapture(checkout: Checkout, result: ResultWindow, retry: Boolean = false) {
+        if (checkout.kind == CheckoutKind.MERCHANT || session !== checkout || checkout.result !== result) return
+        result.captureRunning = false
         if (checkout.recognized) return
-        if (allowVisibleRetry && !checkout.retried) {
-            checkout.retried = true
-            schedulePersonalCapture(checkout, windowId, useVisibleRegion = true)
-        } else if (checkout.personalContentChanged) {
-            checkout.retried = false
-            schedulePersonalCapture(checkout, windowId, useVisibleRegion = false)
+        if (retry && !result.retried) {
+            result.retried = true
+            scheduleCandidateCapture(checkout, result, useVisibleRegion = checkout.kind == CheckoutKind.PERSONAL_QR)
+        } else if (result.contentChanged) {
+            result.retried = false
+            scheduleCandidateCapture(checkout, result)
         }
     }
 
@@ -188,33 +258,34 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
         handler.removeCallbacksAndMessages(null)
     }
 
-    private fun isCurrent(checkout: Checkout, windowId: Int): Boolean {
-        if (session !== checkout || checkout.recognized || checkout.resultWindowId != windowId) return false
+    private fun isCurrent(checkout: Checkout, result: ResultWindow): Boolean {
+        if (session !== checkout || checkout.recognized || checkout.result !== result) return false
         if (SystemClock.elapsedRealtime() - checkout.startedAt >= CHECKOUT_TIMEOUT_MS) return false
         if (!AutoBillParser.isAutoEnabled(service) || !AutoBillParser.isPlatformEnabled(service, WECHAT)) {
             return false
         }
         if (service.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true) return false
         val root = service.rootInActiveWindow
-        if (root != null) return root.windowId == windowId && root.packageName?.toString() == WECHAT
+        if (root != null) return root.windowId == result.id && root.packageName?.toString() == WECHAT
         // Some merchant result windows expose their ID before they expose a node tree.
         return !checkout.transfer && service.windows.any { window ->
-            window.id == windowId && window.type == AccessibilityWindowInfo.TYPE_APPLICATION &&
+            window.id == result.id && window.type == AccessibilityWindowInfo.TYPE_APPLICATION &&
                 (window.isActive || window.isFocused)
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-    private fun takeResultScreenshot(checkout: Checkout, windowId: Int, useVisibleRegion: Boolean = false) {
-        if (!isCurrent(checkout, windowId)) {
-            if (checkout.kind == CheckoutKind.PERSONAL_QR) {
-                finishPersonalCapture(checkout, windowId)
-            } else if (!checkout.transfer && session === checkout && !checkout.recognized) {
+    private fun takeResultScreenshot(checkout: Checkout, result: ResultWindow, useVisibleRegion: Boolean = false) {
+        if (!isCurrent(checkout, result)) {
+            if (checkout.kind != CheckoutKind.MERCHANT) {
+                finishCandidateCapture(checkout, result)
+            } else if (session === checkout && !checkout.recognized) {
                 Log.i(TAG, "WeChat merchant result window no longer available")
-                retryMerchantResult(checkout, windowId)
+                retryMerchantResult(checkout, result)
             }
             return
         }
+        val windowId = result.id
         val visibleRegion = if (useVisibleRegion) visiblePersonalPaymentRegion(windowId) else null
         if (useVisibleRegion && visibleRegion == null) {
             Log.i(TAG, "Visible WeChat personal QR payment region unavailable")
@@ -224,20 +295,20 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
             captureVisiblePaymentRegion(
                 service, visibleRegion.displayId,
                 {
-                    isCurrent(checkout, windowId) &&
+                    isCurrent(checkout, result) &&
                         visiblePersonalPaymentRegion(windowId) == visibleRegion
                 },
                 visibleRegion.bounds,
             ) { image ->
-                if (image != null) recognize(checkout, windowId, image)
-                else finishPersonalCapture(checkout, windowId)
+                if (image != null) recognize(checkout, result, image)
+                else finishCandidateCapture(checkout, result)
             }
             return
         }
         Log.i(TAG, "Reading WeChat payment result with local OCR")
-        capturePaymentWindow(service, windowId, { isCurrent(checkout, windowId) }) { image ->
-            if (image != null) recognize(checkout, windowId, image)
-            else finishPersonalCapture(checkout, windowId)
+        capturePaymentWindow(service, windowId, { isCurrent(checkout, result) }) { image ->
+            if (image != null) recognize(checkout, result, image)
+            else finishCandidateCapture(checkout, result)
         }
     }
 
@@ -258,12 +329,12 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-    private fun recognize(checkout: Checkout, windowId: Int, bitmap: Bitmap) {
+    private fun recognize(checkout: Checkout, candidate: ResultWindow, bitmap: Bitmap) {
         val recognizer = try {
             TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
         } catch (error: RuntimeException) {
             bitmap.recycle()
-            finishPersonalCapture(checkout, windowId)
+            finishCandidateCapture(checkout, candidate)
             Log.w(TAG, "WeChat payment OCR unavailable: ${error.javaClass.simpleName}")
             return
         }
@@ -272,23 +343,23 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
                 .continueWithTask(service.mainExecutor) { task ->
                     val full = task.result
                     when {
-                        !isCurrent(checkout, windowId) -> Tasks.forResult(OcrResult(full.text))
+                        !isCurrent(checkout, candidate) -> Tasks.forResult(OcrResult(full.text))
                         checkout.transfer -> recognizeTransferResult(bitmap, full, recognizer)
-                        else -> recognizeMerchantResult(bitmap, full, recognizer, checkout)
+                        else -> recognizeMerchantResult(bitmap, full, recognizer, checkout, candidate.doneControlSeen)
                     }
                 }
                 .addOnCompleteListener(service.mainExecutor) { task ->
-                    var allowVisibleRetry = false
+                    var retryCandidate = false
                     try {
                         when {
                             !task.isSuccessful -> Log.w(TAG, "WeChat payment OCR failed")
-                            isCurrent(checkout, windowId) -> {
+                            isCurrent(checkout, candidate) -> {
                                 val result = task.result
                                 checkout.recognized = AutoBillParser.handleWechatResultScreenshot(
                                     service, result.text, checkout.transfer, result.amountText,
                                     merchantScan = checkout.scan,
                                     personalQrResult = checkout.kind == CheckoutKind.PERSONAL_QR,
-                                    doneControlSeen = checkout.doneControlSeen,
+                                    doneControlSeen = candidate.doneControlSeen,
                                 )
                                 if (!checkout.recognized) {
                                     if (checkout.transfer) {
@@ -302,7 +373,7 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
                                     } else {
                                         val hasStatus = AutoBillParser.hasWechatMerchantResultMarkers(
                                             result.text, checkout.scan,
-                                            checkout.kind == CheckoutKind.PERSONAL_QR, checkout.doneControlSeen,
+                                            checkout.kind == CheckoutKind.PERSONAL_QR, candidate.doneControlSeen,
                                         )
                                         Log.i(TAG, "WeChat merchant OCR did not match: " +
                                             if (hasStatus) "MISSING_UNIQUE_AMOUNT" else "MISSING_RESULT_MARKERS")
@@ -311,16 +382,16 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
                                         }.filter(String::isNotEmpty).toList()
                                         val doneInImage = "完成" in compact
                                         if (checkout.kind == CheckoutKind.PERSONAL_QR && hasStatus && doneInImage) {
-                                            checkout.doneControlSeen = true
+                                            candidate.doneControlSeen = true
                                         }
                                         Log.i(TAG, "WeChat OCR input: ${bitmap.width}x${bitmap.height}, " +
                                             "lines=${compact.size}, payment=${compact.any { "支付" in it }}, " +
                                             "success=${compact.any { "成功" in it }}, done=$doneInImage")
-                                        if (checkout.kind == CheckoutKind.PERSONAL_QR) {
-                                            allowVisibleRetry = true
-                                        } else {
-                                            retryMerchantResult(checkout, windowId)
-                                        }
+                                    }
+                                    if (checkout.kind == CheckoutKind.MERCHANT) {
+                                        retryMerchantResult(checkout, candidate)
+                                    } else {
+                                        retryCandidate = true
                                     }
                                 }
                             }
@@ -328,31 +399,31 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
                     } finally {
                         bitmap.recycle()
                         recognizer.close()
-                        finishPersonalCapture(checkout, windowId, allowVisibleRetry)
+                        finishCandidateCapture(checkout, candidate, retryCandidate)
                     }
                 }
         } catch (error: RuntimeException) {
             bitmap.recycle()
             recognizer.close()
-            finishPersonalCapture(checkout, windowId)
+            finishCandidateCapture(checkout, candidate)
             Log.w(TAG, "WeChat payment OCR failed to start: ${error.javaClass.simpleName}")
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
-    private fun retryMerchantResult(checkout: Checkout, windowId: Int) {
-        if (checkout.retried) return
-        checkout.retried = true
-        handler.postDelayed({ takeResultScreenshot(checkout, windowId) }, MERCHANT_RETRY_MS)
+    private fun retryMerchantResult(checkout: Checkout, result: ResultWindow) {
+        if (result.retried) return
+        result.retried = true
+        handler.postDelayed({ takeResultScreenshot(checkout, result) }, MERCHANT_RETRY_MS)
     }
 
     private fun recognizeMerchantResult(
-        bitmap: Bitmap, full: Text, recognizer: TextRecognizer, checkout: Checkout,
+        bitmap: Bitmap, full: Text, recognizer: TextRecognizer, checkout: Checkout, doneControlSeen: Boolean,
     ): Task<OcrResult> {
         val region = paymentAmountRegion(bitmap, checkout.kind == CheckoutKind.PERSONAL_QR)
         val amountText = paymentAmountLines(full, region)
         if (!AutoBillParser.hasWechatMerchantResultMarkers(
-                full.text, checkout.scan, checkout.kind == CheckoutKind.PERSONAL_QR, checkout.doneControlSeen,
+                full.text, checkout.scan, checkout.kind == CheckoutKind.PERSONAL_QR, doneControlSeen,
             ) ||
             AutoBillParser.wechatMerchantResultAmount(amountText, cropped = true) != null
         ) {
@@ -414,12 +485,18 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
         const val MERCHANT_SCAN = "com.tencent.mm.plugin.remittance.ui.WalletMerchantPayUI"
         const val QR_REMITTANCE = "com.tencent.mm.plugin.remittance.ui.RemittanceBusiUI"
         const val REMITTANCE = "com.tencent.mm.plugin.remittance.ui.RemittanceUI"
+        const val PAYMENT_CODE_ENTRY = "com.tencent.mm.plugin.offline.ui.WalletOfflineEntranceUI"
+        const val PAYMENT_CODE_SHORTCUT = "com.tencent.mm.plugin.offline.ui.WalletOfflineCoinPurseUI"
+        const val WECHAT_HOME = "com.tencent.mm.ui.LauncherUI"
+        const val WECHAT_WALLET = "com.tencent.mm.plugin.mall.ui.MallIndexUIv2"
+        const val WECHAT_COLLECT = "com.tencent.mm.plugin.collect.ui."
         const val PAGE_FRAGMENT_CONTAINER = "com.tencent.mm.framework.app.UIPageFragmentActivity"
         const val RESULT_SETTLE_MS = 650L
-        const val PERSONAL_CAPTURE_INTERVAL_MS = 1_000L
+        const val CANDIDATE_CAPTURE_INTERVAL_MS = 1_000L
         const val PAYMENT_CONTENT_CHANGES = AccessibilityEvent.CONTENT_CHANGE_TYPE_SUBTREE or
             AccessibilityEvent.CONTENT_CHANGE_TYPE_TEXT or AccessibilityEvent.CONTENT_CHANGE_TYPE_PANE_APPEARED
         const val MERCHANT_RETRY_MS = 700L
         const val CHECKOUT_TIMEOUT_MS = 90_000L
+        const val PAYMENT_CODE_TRACE_TIMEOUT_MS = 300_000L
     }
 }
