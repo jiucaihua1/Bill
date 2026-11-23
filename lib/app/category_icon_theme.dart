@@ -91,9 +91,26 @@ class CategoryIconThemeScope extends InheritedNotifier<CategoryIconThemes> {
     super.key,
     required CategoryIconThemes themes,
     required super.child,
-  }) : super(notifier: themes);
+  }) : _preset = null,
+       super(notifier: themes);
 
-  static CategoryIconThemes? maybeOf(BuildContext context) => context
-      .dependOnInheritedWidgetOfExactType<CategoryIconThemeScope>()
-      ?.notifier;
+  const CategoryIconThemeScope.snapshot({
+    super.key,
+    required CategoryIconPreset preset,
+    required super.child,
+  }) : _preset = preset;
+
+  final CategoryIconPreset? _preset;
+
+  static CategoryIconPreset presetOf(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<CategoryIconThemeScope>();
+    return scope?.notifier?.preset ??
+        scope?._preset ??
+        CategoryIconPreset.builtin;
+  }
+
+  @override
+  bool updateShouldNotify(CategoryIconThemeScope oldWidget) =>
+      _preset != oldWidget._preset || super.updateShouldNotify(oldWidget);
 }

@@ -11,6 +11,7 @@ import '../app/root_navigation.dart';
 import '../app/series_math.dart';
 import '../app/veri_fin_scope.dart';
 import 'ai_chat_page.dart';
+import 'auto_capture_page.dart';
 import 'budget_pages.dart';
 import 'category_management_page.dart';
 import 'currency_rates_page.dart';
@@ -315,6 +316,28 @@ class ProfilePage extends StatelessWidget {
                   MaterialPageRoute<void>(
                     builder: (_) =>
                         const TransactionsPage(subscriptionsOnly: true),
+                  ),
+                ),
+              ),
+              _FeatureTileData(
+                icon: Icons.bolt_outlined,
+                color: veriSemantic(context, veriIncome),
+                label: '自动记账',
+                subtitle: '权限与规则配置',
+                onTap: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const AutoBookkeepingPage(),
+                  ),
+                ),
+              ),
+              _FeatureTileData(
+                icon: Icons.screenshot_rounded,
+                color: veriSemantic(context, veriBlue),
+                label: '截图记账',
+                subtitle: '磁贴与OCR识图',
+                onTap: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (context) => const ScreenshotCapturePage(),
                   ),
                 ),
               ),

@@ -34,6 +34,7 @@ class EntryDetailPage extends StatefulWidget {
     required this.initialAmount,
     this.initialAccountId,
     this.initialDraft,
+    this.draftReviewHint,
   }) : draftEntry = null,
        draftExtraAccounts = null,
        draftExtraCategories = null,
@@ -43,6 +44,7 @@ class EntryDetailPage extends StatefulWidget {
   const EntryDetailPage.manual({super.key, this.initialAccountId})
     : initialAmount = 0,
       initialDraft = null,
+      draftReviewHint = null,
       draftEntry = null,
       draftExtraAccounts = null,
       draftExtraCategories = null,
@@ -66,14 +68,16 @@ class EntryDetailPage extends StatefulWidget {
        initialAmount = entry.amount,
        initialAccountId = null,
        initialDraft = null,
+       draftReviewHint = null,
        inlineNumberPad = false;
 
   final double initialAmount;
   final String? initialAccountId;
   final bool inlineNumberPad;
 
-  /// AI 解析出的草稿：非空时预填表单并显示复核提示，供用户确认/修改后落账。
+  /// 识别出的草稿：非空时预填表单并显示复核提示，供用户确认后落账。
   final AiEntryDraft? initialDraft;
+  final String? draftReviewHint;
 
   /// 草稿编辑模式下要编辑的交易；非空即进入「返回草稿不落库」模式。
   final LedgerEntry? draftEntry;
@@ -736,7 +740,8 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
     }
     _normalizeTransferAccounts(accounts);
     final categories = _categoriesForType(controller, _type);
-    if (!categories.any((category) => category.id == _categoryId)) {
+    if (_config.draftReviewHint == null &&
+        !categories.any((category) => category.id == _categoryId)) {
       // 兜底而非 `categories.first`：某类型一个分类都没有时，宁可先留空（保存前
       // 由用户选，最坏也只是一条无分类交易）也不能让整页 build 抛异常白屏。
       // 上面的类型归一化 + 「不许删光某类型最后一个分类」的保护已让空列表不可达，
@@ -776,7 +781,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
             onChanged: _changeEntryType,
           );
     final roots = rootCategories(categories, _type);
-    final categoryGrid = _EntryCategoryGrid(
+    final categoryGrid = EntryCategoryGrid(
       categories: quick ? roots : _visibleTopChips(roots, selectedTopId),
       iconGrid: quick,
       allCategories: categories,
@@ -1184,7 +1189,10 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
                     ),
                     if (_config.initialDraft != null) ...[
                       const SizedBox(height: 12),
-                      _AiReviewBanner(draft: _config.initialDraft!),
+                      _AiReviewBanner(
+                        draft: _config.initialDraft!,
+                        reviewHint: _config.draftReviewHint,
+                      ),
                     ],
                     const SizedBox(height: 12),
                     typePicker,
@@ -1282,7 +1290,13 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
         _noAccount = type != EntryType.transfer && accounts.isEmpty;
       }
       if (type == EntryType.transfer) _currencyTouched = false;
-      _categoryId = _categoriesForType(controller, type).firstOrNull?.id ?? '';
+      final categories = _categoriesForType(controller, type);
+      final defaultCategory = _config.draftReviewHint == null
+          ? categories.firstOrNull
+          : categories
+                .where((category) => category.isUncategorized)
+                .firstOrNull;
+      _categoryId = defaultCategory?.id ?? '';
       _collapsedCategoryId = quick ? _categoryId : null;
       _normalizeTransferAccounts(accounts);
       _refreshCurrencyAmounts(
@@ -2364,6 +2378,14 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
       VeriHaptics.emphasis();
       return false;
     }
+    if (_config.draftReviewHint != null &&
+        !_categoriesForType(
+          controller,
+          _type,
+        ).any((c) => c.id == _categoryId)) {
+      await _showAllCategories();
+      return false;
+    }
     final draft = _buildDraftEntry();
     // 草稿编辑模式：不落库，构造修改后的交易并回传给上层（如导入预览页）。
     if (_isDraft) {
@@ -2418,9 +2440,10 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
 
 /// AI 记账草稿的复核提示条：说明这是 AI 解析结果，并列出降级提示（分类/账户未匹配）。
 class _AiReviewBanner extends StatelessWidget {
-  const _AiReviewBanner({required this.draft});
+  const _AiReviewBanner({required this.draft, this.reviewHint});
 
   final AiEntryDraft draft;
+  final String? reviewHint;
 
   @override
   Widget build(BuildContext context) {
@@ -2443,7 +2466,7 @@ class _AiReviewBanner extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  l10n.aiEntryReviewHint,
+                  reviewHint ?? l10n.aiEntryReviewHint,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: accent,
                     fontWeight: FontWeight.w700,
@@ -2582,8 +2605,9 @@ class _EntryTypeSelector extends StatelessWidget {
   }
 }
 
-class _EntryCategoryGrid extends StatelessWidget {
-  const _EntryCategoryGrid({
+class EntryCategoryGrid extends StatelessWidget {
+  const EntryCategoryGrid({
+    super.key,
     required this.categories,
     required this.allCategories,
     required this.selectedId,

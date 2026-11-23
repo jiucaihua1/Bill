@@ -3847,6 +3847,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String get captureEntryRecognizing => 'Reading the bill…';
 
   @override
+  String get autoCaptureReviewHint =>
+      'Review the direction, amount, category, and account before saving.';
+
+  @override
+  String get autoCapturePreviewTitle => 'Automatic capture preview';
+
+  @override
+  String get autoCapturePreviewBody => 'Sample bill';
+
+  @override
+  String get autoCaptureManualConfirm => 'Review and confirm to save';
+
+  @override
+  String get autoCaptureListenerConnected =>
+      'Connected and receiving system events';
+
+  @override
+  String get autoCaptureListenerDisconnected =>
+      'Permission granted, service disconnected';
+
+  @override
+  String get autoCaptureReconnect => 'Reconnect';
+
+  @override
+  String get autoCaptureReconnectPending =>
+      'The notification listener is disconnected. Check notification access in Android settings.';
+
+  @override
+  String get autoCaptureReviewNotifications => 'Bill review notifications';
+
+  @override
+  String get autoCaptureNotificationFlow =>
+      'Use the notification if the review panel cannot appear over the current app.';
+
+  @override
+  String get autoCaptureCcbName => 'China Construction Bank';
+
+  @override
+  String get autoCaptureCcbHint =>
+      'Use bank debit notifications to help check the current payment screen';
+
+  @override
+  String get autoCaptureOverlayPermission => 'Display over other apps';
+
+  @override
+  String get autoCaptureOverlayFlow =>
+      'Allow this to review detected bills over the current app.';
+
+  @override
+  String get autoCaptureOverlayEdit => 'Open full editor';
+
+  @override
+  String get autoCaptureNotificationsDisabled =>
+      'Open system settings and allow Xiaohe Ledger to send bill review notifications.';
+
+  @override
   String get captureEntryNoTransaction =>
       'No transaction was found — make sure the content is a bill screenshot or bill text';
 

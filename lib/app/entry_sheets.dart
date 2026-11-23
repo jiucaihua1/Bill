@@ -945,14 +945,14 @@ class TagSelectorSheet extends StatefulWidget {
     super.key,
     required this.tags,
     required this.selectedIds,
-    required this.onCreateTag,
+    this.onCreateTag,
   });
 
   final List<Tag> tags;
   final List<String> selectedIds;
 
   /// 新建标签：由调用方弹出输入框、创建标签，并返回新标签（重名返回已有，取消返回 null）。
-  final Future<Tag?> Function() onCreateTag;
+  final Future<Tag?> Function()? onCreateTag;
 
   @override
   State<TagSelectorSheet> createState() => _TagSelectorSheetState();
@@ -963,7 +963,7 @@ class _TagSelectorSheetState extends State<TagSelectorSheet> {
   late List<Tag> _tags = <Tag>[...widget.tags];
 
   Future<void> _createTag() async {
-    final tag = await widget.onCreateTag();
+    final tag = await widget.onCreateTag?.call();
     if (!mounted || tag == null) {
       return;
     }
@@ -1020,11 +1020,12 @@ class _TagSelectorSheetState extends State<TagSelectorSheet> {
                         });
                       },
                     ),
-                  ActionChip(
-                    avatar: const Icon(Icons.add, size: 18),
-                    label: Text(AppLocalizations.of(context).tagCreateTitle),
-                    onPressed: _createTag,
-                  ),
+                  if (widget.onCreateTag != null)
+                    ActionChip(
+                      avatar: const Icon(Icons.add, size: 18),
+                      label: Text(AppLocalizations.of(context).tagCreateTitle),
+                      onPressed: _createTag,
+                    ),
                 ],
               ),
             ),

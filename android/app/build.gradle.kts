@@ -107,6 +107,8 @@ flutter {
 dependencies {
     implementation("androidx.glance:glance-appwidget:1.2.0")
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("dev.rikka.shizuku:api:13.1.5")
+    implementation("dev.rikka.shizuku:provider:13.1.5")
     // 备份目录 SAF 读写（DocumentFile 树操作）。
     implementation("androidx.documentfile:documentfile:1.0.1")
     // flutter_local_notifications 定时通知所需的 desugaring 运行库。
@@ -114,6 +116,7 @@ dependencies {
     // 截图识账的中文离线识别库：google_mlkit_text_recognition 插件对各脚本库只
     // compileOnly，使用方必须显式引入所需脚本，否则 release 构建 R8 报缺类。
     implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 
     // 仪器测试（只在设备上跑，不进 APK）：标准 runner + JUnit4 断言。
     // 版本必须与主配置里已解析到的 androidx.test 依赖一致：Gradle 的

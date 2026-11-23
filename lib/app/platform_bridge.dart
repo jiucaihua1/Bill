@@ -35,12 +35,33 @@ void _ensureInboundDispatcher() {
       }
       // Consume before opening the UI so a process restart while the editor is
       // open cannot replay the same quick-entry intent on next launch.
-      await AppCaptureBridge.consumeInitialQuickEntryIntent();
-      await handler();
+      if (await AppCaptureBridge.consumeInitialQuickEntryIntent()) {
+        await handler();
+      }
       return;
     }
     if (call.method == 'openSharedCapture') {
       await _sharedCaptureHandler?.call();
+      return;
+    }
+    if (call.method == 'openScreenshotCapture') {
+      final handler = _screenshotCaptureHandler;
+      if (handler == null) return;
+      if (await AppCaptureBridge.consumeInitialScreenshotCaptureIntent()) {
+        await handler();
+      }
+      return;
+    }
+    if (call.method == 'openAutoCaptureSettings') {
+      final handler = _openAutoCaptureHandler;
+      if (handler == null) return;
+      if (await AppCaptureBridge.consumeInitialOpenAutoCaptureIntent()) {
+        await handler();
+      }
+      return;
+    }
+    if (call.method == 'openAutoConfirmDraft') {
+      await _autoConfirmDraftHandler?.call();
       return;
     }
     if (call.method == 'openWidgetRoute') {
@@ -55,7 +76,7 @@ void _ensureInboundDispatcher() {
       // Use the natively stored value as the single source of truth and clear
       // it atomically before navigating, avoiding duplicate route delivery.
       final route = await AppWidgetBridge.consumeInitialRoute() ?? args;
-      await AppWidgetBridge.handleRoute(route);
+      if (route.isNotEmpty) await AppWidgetBridge.handleRoute(route);
     }
   });
 }

@@ -3742,6 +3742,54 @@ class AppLocalizationsZh extends AppLocalizations {
   String get captureEntryRecognizing => '正在识别账单内容…';
 
   @override
+  String get autoCaptureReviewHint => '请核对收支方向、金额、分类和账户，确认后保存。';
+
+  @override
+  String get autoCapturePreviewTitle => '自动记账预览';
+
+  @override
+  String get autoCapturePreviewBody => '示例账单，不会入账';
+
+  @override
+  String get autoCaptureManualConfirm => '核对后确认保存';
+
+  @override
+  String get autoCaptureListenerConnected => '已连接，正在接收系统事件';
+
+  @override
+  String get autoCaptureListenerDisconnected => '系统已授权，服务尚未连接';
+
+  @override
+  String get autoCaptureReconnect => '重连';
+
+  @override
+  String get autoCaptureReconnectPending => '通知监听尚未连接，请在系统设置中核对通知使用权。';
+
+  @override
+  String get autoCaptureReviewNotifications => '待确认账单通知';
+
+  @override
+  String get autoCaptureNotificationFlow => '无法在当前页面显示面板时，可从通知打开账单。';
+
+  @override
+  String get autoCaptureCcbName => '建设银行';
+
+  @override
+  String get autoCaptureCcbHint => '用手机银行扣款通知辅助核对当前付款页';
+
+  @override
+  String get autoCaptureOverlayPermission => '悬浮窗权限';
+
+  @override
+  String get autoCaptureOverlayFlow => '允许后可在当前应用上方确认账单。';
+
+  @override
+  String get autoCaptureOverlayEdit => '打开完整记账页';
+
+  @override
+  String get autoCaptureNotificationsDisabled => '请打开系统设置，允许小禾发送待确认账单通知。';
+
+  @override
   String get captureEntryNoTransaction => '没有识别到交易，请确认内容是账单截图或账单文本';
 
   @override

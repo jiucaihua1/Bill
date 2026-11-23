@@ -5,6 +5,7 @@ import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import '../app/ai/ai_entry_parser.dart';
 import '../app/app_lock_session.dart';
 import '../app/haptics.dart';
 import '../app/models.dart';
@@ -17,6 +18,8 @@ import '../app/widgets/widget_refresh_scope.dart';
 import '../l10n/app_localizations.dart';
 import 'ai_entry_sheet.dart';
 import 'assets_pages.dart';
+import 'auto_capture_page.dart';
+import 'auto_confirm_sheet.dart';
 import 'capture_entry.dart';
 import 'entry_detail_page.dart';
 import 'home_page.dart';
@@ -38,6 +41,8 @@ class _VeriFinShellState extends State<VeriFinShell> {
   /// 已经进入退出流程（等待最后一次桌面投影冲刷）。期间再按返回键直接忽略，
   /// 避免重复冲刷或重复调用 `SystemNavigator.pop()`。
   bool _exiting = false;
+  bool _presentingAutoDraft = false;
+  bool _autoDraftRequested = false;
   final PageController _pageController = PageController();
 
   /// 最近一次滚动更新时的位置与帧时间戳，用于在打断切页动画时估算当前速度。
@@ -86,6 +91,15 @@ class _VeriFinShellState extends State<VeriFinShell> {
     super.initState();
     _pageController.addListener(_trackScrollVelocity);
     AppCaptureBridge.setQuickEntryHandler(_openQuickEntryFromPlatform);
+    AppCaptureBridge.setScreenshotCaptureHandler(
+      _openScreenshotCaptureFromPlatform,
+    );
+    AppCaptureBridge.setOpenAutoCaptureHandler(
+      _openAutoCaptureSettingsFromPlatform,
+    );
+    AppCaptureBridge.setAutoConfirmDraftHandler(
+      _openAutoConfirmDraftFromPlatform,
+    );
     AppCaptureBridge.setSharedCaptureHandler(_openSharedCaptureFromPlatform);
     AppWidgetBridge.setRouteHandler(_openWidgetRouteFromPlatform);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -97,6 +111,24 @@ class _VeriFinShellState extends State<VeriFinShell> {
       if (await AppCaptureBridge.consumeInitialQuickEntryIntent() && mounted) {
         await _openQuickEntryFromPlatform();
       }
+      if (!mounted) {
+        return;
+      }
+      if (await AppCaptureBridge.consumeInitialScreenshotCaptureIntent() &&
+          mounted) {
+        await _openScreenshotCaptureFromPlatform();
+      }
+      if (!mounted) {
+        return;
+      }
+      if (await AppCaptureBridge.consumeInitialOpenAutoCaptureIntent() &&
+          mounted) {
+        await _openAutoCaptureSettingsFromPlatform();
+      }
+      if (!mounted) {
+        return;
+      }
+      await _openAutoConfirmDraftFromPlatform();
       if (!mounted) {
         return;
       }
@@ -143,6 +175,9 @@ class _VeriFinShellState extends State<VeriFinShell> {
   void dispose() {
     _navigationStyleListenable?.removeListener(_handleNavigationStyleChanged);
     AppCaptureBridge.clearQuickEntryHandler();
+    AppCaptureBridge.clearScreenshotCaptureHandler();
+    AppCaptureBridge.clearOpenAutoCaptureHandler();
+    AppCaptureBridge.clearAutoConfirmDraftHandler();
     AppCaptureBridge.clearSharedCaptureHandler();
     AppWidgetBridge.clearRouteHandler();
     _pageController.removeListener(_trackScrollVelocity);
@@ -566,6 +601,89 @@ class _VeriFinShellState extends State<VeriFinShell> {
 
   Future<void> _openQuickEntryFromPlatform() =>
       _requestQuickEntry(fromPlatform: true);
+
+  Future<void> _openScreenshotCaptureFromPlatform() async {
+    await AppLockSessionScope.waitUntilUnlocked(context);
+    if (!mounted) return;
+    await startScreenshotEntry(context);
+  }
+
+  Future<void> _openAutoCaptureSettingsFromPlatform() async {
+    await AppLockSessionScope.waitUntilUnlocked(context);
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const AutoBookkeepingPage()),
+    );
+  }
+
+  Future<void> _openAutoConfirmDraftFromPlatform() async {
+    _autoDraftRequested = true;
+    if (_presentingAutoDraft) return;
+    _presentingAutoDraft = true;
+    try {
+      while (_autoDraftRequested) {
+        if (!mounted) return;
+        _autoDraftRequested = false;
+        await AppLockSessionScope.waitUntilUnlocked(context);
+        if (!mounted) return;
+        final raw = await AppCaptureBridge.consumeAutoConfirmDraft();
+        if (!mounted || raw == null) continue;
+        _autoDraftRequested = true;
+        final amount = raw['amount'];
+        final timestamp = raw['occurredAt'];
+        final type = switch (raw['type']) {
+          'expense' => EntryType.expense,
+          'income' => EntryType.income,
+          _ => null,
+        };
+        if (type == null ||
+            amount is! num ||
+            !amount.isFinite ||
+            amount <= 0 ||
+            timestamp is! int) {
+          continue;
+        }
+        final categoryKey = raw['categoryKey'];
+        if (VeriFinScope.of(context).activeBook.baseCurrencyCode == 'CNY') {
+          await showAutoConfirmCaptureSheet(context, draft: raw);
+          continue;
+        }
+        final categories = VeriFinScope.of(context).categoriesForType(type);
+        final category =
+            categories
+                .where(
+                  (category) =>
+                      category.key == categoryKey && categoryKey != null,
+                )
+                .firstOrNull ??
+            categories
+                .where((category) => category.isUncategorized)
+                .firstOrNull;
+        final draft = AiEntryDraft(
+          type: type,
+          amount: amount.toDouble(),
+          currencyCode: 'CNY',
+          categoryId: category?.id ?? '',
+          accountId: '',
+          toAccountId: null,
+          note: raw['note'] as String? ?? '',
+          occurredAt: DateTime.fromMillisecondsSinceEpoch(timestamp),
+        );
+        final reviewHint = AppLocalizations.of(context).autoCaptureReviewHint;
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => EntryDetailPage(
+              initialAmount: draft.amount,
+              initialDraft: draft,
+              draftReviewHint: reviewHint,
+            ),
+          ),
+        );
+      }
+    } finally {
+      _presentingAutoDraft = false;
+    }
+  }
 
   /// 应用运行中收到分享/外部采集内容（原生 onNewIntent 通知）时拉取并识别。
   Future<void> _openSharedCaptureFromPlatform() async {

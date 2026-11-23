@@ -403,20 +403,16 @@ class CategoryIconBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveColor = color ?? Theme.of(context).colorScheme.primary;
-    final preset =
-        CategoryIconThemeScope.maybeOf(context)?.preset ??
-        CategoryIconPreset.builtin;
+    final preset = CategoryIconThemeScope.presetOf(context);
     final radius = (size * 0.30).clamp(7.0, 14.0).toDouble();
-    final isColoredSvg =
-        preset == CategoryIconPreset.colored && !isEmojiIconCode(iconCode);
+    final isColoredSvg = preset == CategoryIconPreset.colored;
     final boxColor = isColoredSvg
         ? VeriStyleTokens.of(context).surfaceAltColor
         : effectiveColor.withValues(alpha: 0.13);
     final glyphRatio = switch (preset) {
-      _ when isEmojiIconCode(iconCode) => 0.56,
       CategoryIconPreset.emoji => 0.56,
       CategoryIconPreset.line || CategoryIconPreset.colored => 0.58,
-      CategoryIconPreset.builtin => 0.54,
+      CategoryIconPreset.builtin => isEmojiIconCode(iconCode) ? 0.56 : 0.54,
     };
     return Container(
       width: size,
@@ -454,15 +450,21 @@ class CategoryGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isEmojiIconCode(iconCode)) {
+    final preset = CategoryIconThemeScope.presetOf(context);
+    if (isEmojiIconCode(iconCode) &&
+        (preset == CategoryIconPreset.builtin ||
+            preset == CategoryIconPreset.emoji)) {
       return Text(
         emojiOfIconCode(iconCode),
         style: TextStyle(fontSize: size, height: 1),
       );
     }
-    final themes = CategoryIconThemeScope.maybeOf(context);
-    final preset = themes?.preset ?? CategoryIconPreset.builtin;
-    final builtin = Icon(iconForCode(iconCode), size: size, color: color);
+    final builtin = isEmojiIconCode(iconCode)
+        ? Text(
+            emojiOfIconCode(iconCode),
+            style: TextStyle(fontSize: size, height: 1),
+          )
+        : Icon(iconForCode(iconCode), size: size, color: color);
 
     switch (preset) {
       case CategoryIconPreset.builtin:

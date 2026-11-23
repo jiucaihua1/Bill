@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'app/app_theme.dart';
+import 'app/auto_bill_overlay.dart';
 import 'app/backup/backup_coordinator.dart';
 import 'app/category_icon_theme.dart';
 import 'app/feedback.dart';
@@ -14,6 +15,7 @@ import 'app/platform_bridge.dart';
 import 'app/reminder/notification_scheduler.dart';
 import 'app/reminder/reminder_settings.dart';
 import 'app/startup/app_startup.dart';
+import 'app/startup/startup_coordinator.dart';
 import 'app/startup/startup_error_sink.dart';
 import 'app/startup/verifin_bootstrap.dart';
 import 'app/veri_fin_controller.dart';
@@ -23,6 +25,7 @@ import 'app/widgets/widget_refresh_scope.dart';
 import 'app/widgets/widget_service.dart';
 import 'l10n/app_localizations.dart';
 import 'pages/app_lock_gate.dart';
+import 'pages/auto_confirm_sheet.dart';
 import 'pages/onboarding_page.dart';
 import 'pages/privacy_consent_gate.dart';
 import 'pages/shell.dart';
@@ -31,7 +34,10 @@ import 'pages/widget_configuration_page.dart';
 @pragma('vm:entry-point')
 Future<void> configureMain() => runWidgetConfiguration();
 
-Future<void> main() async {
+@pragma('vm:entry-point')
+Future<void> autoBillOverlayMain() => runAutoBillOverlay();
+
+Future<void> main([List<String> arguments = const <String>[]]) async {
   // 启动早期（KV 打开之前）也要有地方记录错误：这些记录先攒在内存里，
   // 存储就绪后由 AppStartup 回放进真正的软件日志。
   final errors = StartupErrorSink();
@@ -43,6 +49,20 @@ Future<void> main() async {
     runZonedGuarded(
       () async {
         WidgetsFlutterBinding.ensureInitialized();
+        final autoBillOverlay = AutoBillOverlayBridge();
+        StartupCoordinator createCoordinator() {
+          final coordinator = startup.createCoordinator();
+          void onReady() {
+            if (coordinator.stage != StartupStage.ready) return;
+            coordinator.removeListener(onReady);
+            final controller = startup.controller;
+            if (controller != null) autoBillOverlay.attach(controller);
+          }
+
+          coordinator.addListener(onReady);
+          return coordinator;
+        }
+
         // 未捕获的框架错误与异步错误都记入软件日志，便于用户反馈时提供诊断线索。
         // 安装位置必须在任何存储/插件调用之前，否则启动阶段的崩溃不会留下线索。
         final previousOnError = FlutterError.onError;
@@ -51,10 +71,17 @@ Future<void> main() async {
           previousOnError?.call(details);
         };
         // 启动壳先呈现首帧。准备稍久时展开阶段进度，数据库等初始化即时开始。
+        final initialCoordinator = arguments.contains('auto-bill-overlay')
+            ? createCoordinator()
+            : null;
+        if (initialCoordinator != null) {
+          unawaited(initialCoordinator.start());
+        }
         runApp(
           VeriFinBootstrap(
             errors: errors,
-            createCoordinator: startup.createCoordinator,
+            createCoordinator: createCoordinator,
+            initialCoordinator: initialCoordinator,
             progressRevealDelay: const Duration(milliseconds: 700),
             buildApp: () => LiquidGlassWidgets.wrap(
               child: VeriFinApp(controller: startup.controller!),
@@ -181,7 +208,9 @@ class _VeriFinAppState extends State<VeriFinApp> with WidgetsBindingObserver {
   }
 
   Future<void> _postDueRecurringAndRefresh() async {
-    await _controller.applyDueRecurring(DateTime.now());
+    await AutoBillOverlayBridge.runLedgerWrite(
+      () => _controller.applyDueRecurring(DateTime.now()),
+    );
     await BackupCoordinator.maybeBackupOnOpen(_controller);
     // 回前台强制推一次：补记后的数据、以及可能在后台期间新添加的实例都要对齐。
     await _widgetRefresh.pushNow(force: true);

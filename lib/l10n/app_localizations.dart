@@ -6914,6 +6914,102 @@ abstract class AppLocalizations {
   /// **'正在识别账单内容…'**
   String get captureEntryRecognizing;
 
+  /// No description provided for @autoCaptureReviewHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'请核对收支方向、金额、分类和账户，确认后保存。'**
+  String get autoCaptureReviewHint;
+
+  /// No description provided for @autoCapturePreviewTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动记账预览'**
+  String get autoCapturePreviewTitle;
+
+  /// No description provided for @autoCapturePreviewBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'示例账单，不会入账'**
+  String get autoCapturePreviewBody;
+
+  /// No description provided for @autoCaptureManualConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'核对后确认保存'**
+  String get autoCaptureManualConfirm;
+
+  /// No description provided for @autoCaptureListenerConnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已连接，正在接收系统事件'**
+  String get autoCaptureListenerConnected;
+
+  /// No description provided for @autoCaptureListenerDisconnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'系统已授权，服务尚未连接'**
+  String get autoCaptureListenerDisconnected;
+
+  /// No description provided for @autoCaptureReconnect.
+  ///
+  /// In zh, this message translates to:
+  /// **'重连'**
+  String get autoCaptureReconnect;
+
+  /// No description provided for @autoCaptureReconnectPending.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知监听尚未连接，请在系统设置中核对通知使用权。'**
+  String get autoCaptureReconnectPending;
+
+  /// No description provided for @autoCaptureReviewNotifications.
+  ///
+  /// In zh, this message translates to:
+  /// **'待确认账单通知'**
+  String get autoCaptureReviewNotifications;
+
+  /// No description provided for @autoCaptureNotificationFlow.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法在当前页面显示面板时，可从通知打开账单。'**
+  String get autoCaptureNotificationFlow;
+
+  /// No description provided for @autoCaptureCcbName.
+  ///
+  /// In zh, this message translates to:
+  /// **'建设银行'**
+  String get autoCaptureCcbName;
+
+  /// No description provided for @autoCaptureCcbHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'用手机银行扣款通知辅助核对当前付款页'**
+  String get autoCaptureCcbHint;
+
+  /// No description provided for @autoCaptureOverlayPermission.
+  ///
+  /// In zh, this message translates to:
+  /// **'悬浮窗权限'**
+  String get autoCaptureOverlayPermission;
+
+  /// No description provided for @autoCaptureOverlayFlow.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许后可在当前应用上方确认账单。'**
+  String get autoCaptureOverlayFlow;
+
+  /// No description provided for @autoCaptureOverlayEdit.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开完整记账页'**
+  String get autoCaptureOverlayEdit;
+
+  /// No description provided for @autoCaptureNotificationsDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'请打开系统设置，允许小禾发送待确认账单通知。'**
+  String get autoCaptureNotificationsDisabled;
+
   /// No description provided for @captureEntryNoTransaction.
   ///
   /// In zh, this message translates to:

@@ -29,12 +29,52 @@ class MainActivity : FlutterFragmentActivity() {
     private var channel: MethodChannel? = null
     private var widgetPreview: WidgetPreviewBridge? = null
     private var pendingQuickEntryIntent = false
+    private var pendingScreenshotCaptureIntent = false
+    private var pendingOpenAutoCaptureIntent = false
+    private val pendingAutoDraftIds = LinkedHashSet<String>()
     private var pendingWidgetRoute: Map<String, String>? = null
     private var pendingCaptureImageUri: Uri? = null
     private var pendingCaptureText: String? = null
     private var pendingDownloadsWrite: PendingDownloadsWrite? = null
     private var pendingDirectoryPick: MethodChannel.Result? = null
     private var pendingBackupFilePick: MethodChannel.Result? = null
+    private var reattachedWithNewIntent = false
+
+    override fun getCachedEngineId(): String = LedgerFlutterRuntime.ENGINE_ID
+
+    override fun shouldDestroyEngineWithHost(): Boolean = false
+
+    override fun onResume() {
+        super.onResume()
+        AutoBillOverlay.setMainForeground(true)
+    }
+
+    override fun onPause() {
+        AutoBillOverlay.setMainForeground(false)
+        super.onPause()
+    }
+
+    override fun onPostResume() {
+        super.onPostResume()
+        if (!reattachedWithNewIntent) return
+        reattachedWithNewIntent = false
+        // A retained shell does not re-run its cold-launch intent checks.
+        val bridge = channel ?: return
+        if (pendingQuickEntryIntent) bridge.invokeMethod("openQuickEntry", null)
+        if (pendingScreenshotCaptureIntent) bridge.invokeMethod("openScreenshotCapture", null)
+        if (pendingOpenAutoCaptureIntent) bridge.invokeMethod("openAutoCaptureSettings", null)
+        if (pendingAutoDraftIds.isNotEmpty()) bridge.invokeMethod("openAutoConfirmDraft", null)
+        if (pendingWidgetRoute != null) bridge.invokeMethod("openWidgetRoute", null)
+        if (pendingCaptureImageUri != null || pendingCaptureText != null) {
+            bridge.invokeMethod("openSharedCapture", null)
+        }
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        channel?.setMethodCallHandler(null)
+        channel = null
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // 进程/Activity 恢复时 getIntent() 仍是「最后一次启动意图」，可能正是用户
@@ -43,13 +83,22 @@ class MainActivity : FlutterFragmentActivity() {
         // 启动才登记这些一次性入口。
         if (savedInstanceState == null) {
             rememberQuickEntryIntent(intent)
+            rememberAutoCaptureIntent(intent)
             rememberWidgetRouteIntent(intent)
             rememberCaptureIntent(intent)
+            reattachedWithNewIntent = LedgerFlutterRuntime.isRunning()
         }
+        LedgerFlutterRuntime.get(this)
         super.onCreate(savedInstanceState)
         if (AppLockPreferences.isEnabled(this)) {
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
         }
+        try {
+            rikka.shizuku.ShizukuProvider.enableMultiProcessSupport(false)
+        } catch (_: Throwable) {
+            // 忽略不支持多进程或未初始化异常。
+        }
+        AutoCapturePermissions.syncOnAppStart(this)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -65,6 +114,57 @@ class MainActivity : FlutterFragmentActivity() {
                     val shouldOpen = pendingQuickEntryIntent
                     pendingQuickEntryIntent = false
                     result.success(shouldOpen)
+                }
+                "consumeScreenshotCaptureIntent" -> {
+                    val shouldOpen = pendingScreenshotCaptureIntent
+                    pendingScreenshotCaptureIntent = false
+                    result.success(shouldOpen)
+                }
+                "consumeOpenAutoCaptureIntent" -> {
+                    val shouldOpen = pendingOpenAutoCaptureIntent
+                    pendingOpenAutoCaptureIntent = false
+                    result.success(shouldOpen)
+                }
+                "consumeAutoConfirmDraft" -> {
+                    val drafts = pendingAutoDraftIds.iterator()
+                    var draft: Map<String, Any>? = null
+                    while (draft == null && drafts.hasNext()) {
+                        val id = drafts.next()
+                        drafts.remove()
+                        draft = AutoBillParser.consumeDraft(this, id)
+                    }
+                    result.success(draft)
+                }
+                "reconnectAutoNotificationListener" ->
+                    result.success(AutoCapturePermissions.reconnectNotificationListener(this))
+                "previewWechatTransfer" -> result.success(AutoBillParser.previewWechatTransfer())
+                "openAutoBillOverlayPreview" -> AutoBillOverlay.preview(this) { result.success(it) }
+                "requestShizukuPermission" -> {
+                    result.success(AutoCapturePermissions.requestShizuku(this))
+                }
+                "getAutoCaptureStatus" -> {
+                    result.success(AutoCapturePermissions.statusMap(this))
+                }
+                "setAutoBookkeepingEnabled" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: false
+                    val summary = call.argument<String>("summary")
+                    AutoCapturePermissions.setAutoEnabled(this, enabled, summary)
+                    result.success(true)
+                }
+                "setPersistentAutoNotification" -> {
+                    val enabled = call.argument<Boolean>("enabled") ?: true
+                    val summary = call.argument<String>("summary")
+                    AutoCapturePermissions.setPersistentNotification(this, enabled, summary)
+                    result.success(true)
+                }
+                "updateAutoNotificationSummary" -> {
+                    val summary = call.argument<String>("summary") ?: ""
+                    AutoCapturePermissions.updateNotificationSummary(this, summary)
+                    result.success(true)
+                }
+                "openAutoCapturePermission" -> {
+                    val kind = call.argument<String>("kind") ?: ""
+                    result.success(AutoCapturePermissions.openPermissionSettings(this, kind))
                 }
                 "consumeWidgetRoute" -> {
                     val route = pendingWidgetRoute
@@ -153,6 +253,20 @@ class MainActivity : FlutterFragmentActivity() {
             // consume the one-shot entry.
             pendingQuickEntryIntent = true
             channel?.invokeMethod("openQuickEntry", null)
+        }
+        if (intent.action == ACTION_SCREENSHOT_CAPTURE) {
+            pendingScreenshotCaptureIntent = true
+            channel?.invokeMethod("openScreenshotCapture", null)
+        }
+        if (intent.action == ACTION_OPEN_AUTO_CAPTURE) {
+            pendingOpenAutoCaptureIntent = true
+            channel?.invokeMethod("openAutoCaptureSettings", null)
+        }
+        if (intent.action == ACTION_AUTO_CONFIRM_DRAFT) {
+            rememberAutoCaptureIntent(intent)
+            if (pendingAutoDraftIds.isNotEmpty()) {
+                channel?.invokeMethod("openAutoConfirmDraft", null)
+            }
         }
         if (isWidgetRouteIntent(intent)) {
             rememberWidgetRouteIntent(intent)
@@ -244,6 +358,21 @@ class MainActivity : FlutterFragmentActivity() {
     private fun rememberQuickEntryIntent(intent: Intent?) {
         if (intent?.action == ACTION_QUICK_ENTRY) {
             pendingQuickEntryIntent = true
+        }
+    }
+
+    private fun rememberAutoCaptureIntent(intent: Intent?) {
+        when (intent?.action) {
+            ACTION_SCREENSHOT_CAPTURE -> pendingScreenshotCaptureIntent = true
+            ACTION_OPEN_AUTO_CAPTURE -> pendingOpenAutoCaptureIntent = true
+            ACTION_AUTO_CONFIRM_DRAFT -> {
+                val uri = intent.data ?: return
+                if (uri.scheme != AUTO_DRAFT_SCHEME) return
+                val id = uri.schemeSpecificPart ?: return
+                if (AUTO_DRAFT_ID_PATTERN.matches(id) && AutoBillParser.hasDraft(this, id)) {
+                    pendingAutoDraftIds.add(id)
+                }
+            }
         }
     }
 
@@ -780,6 +909,11 @@ class MainActivity : FlutterFragmentActivity() {
 
     companion object {
         const val ACTION_QUICK_ENTRY = "top.talyra42.verifin.action.QUICK_ENTRY"
+        const val ACTION_SCREENSHOT_CAPTURE = "top.talyra42.verifin.action.SCREENSHOT_CAPTURE"
+        const val ACTION_OPEN_AUTO_CAPTURE = "top.talyra42.verifin.action.OPEN_AUTO_CAPTURE"
+        const val ACTION_AUTO_CONFIRM_DRAFT = "top.talyra42.verifin.action.AUTO_CONFIRM_DRAFT"
+        const val AUTO_DRAFT_SCHEME = "verifin-auto-draft"
+        private val AUTO_DRAFT_ID_PATTERN = Regex("""\d{1,17}-[a-f0-9-]{36}""")
         const val ACTION_WIDGET_ROUTE = "top.talyra42.verifin.action.WIDGET_ROUTE"
         private const val HOME_WIDGET_LAUNCH_ACTION =
             "es.antonborri.home_widget.action.LAUNCH"

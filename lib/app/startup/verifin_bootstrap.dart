@@ -20,6 +20,7 @@ class VeriFinBootstrap extends StatefulWidget {
     required this.errors,
     required this.createCoordinator,
     required this.buildApp,
+    this.initialCoordinator,
     this.progressRevealDelay = Duration.zero,
   });
 
@@ -31,6 +32,9 @@ class VeriFinBootstrap extends StatefulWidget {
 
   /// 启动完成后的真实应用。
   final Widget Function() buildApp;
+
+  /// A coordinator already running because Android opened a capture overlay.
+  final StartupCoordinator? initialCoordinator;
 
   /// 展开加载提示前的等待时长。启动标记立即可见。
   final Duration progressRevealDelay;
@@ -49,7 +53,7 @@ class _VeriFinBootstrapState extends State<VeriFinBootstrap> {
   @override
   void initState() {
     super.initState();
-    _startRun();
+    _startRun(widget.initialCoordinator);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         widget.errors.info('Startup: first frame rendered', source: 'startup');
@@ -62,17 +66,19 @@ class _VeriFinBootstrapState extends State<VeriFinBootstrap> {
     _progressRevealTimer = null;
   }
 
-  void _startRun() {
+  void _startRun([StartupCoordinator? initialCoordinator]) {
     _cancelProgressDelay();
     if (widget.progressRevealDelay > Duration.zero) {
       _progressRevealTimer = Timer(widget.progressRevealDelay, () {
         setState(_cancelProgressDelay);
       });
     }
-    final coordinator = widget.createCoordinator();
+    final coordinator = initialCoordinator ?? widget.createCoordinator();
     coordinator.addListener(_handleCoordinatorChanged);
     _coordinator = coordinator;
-    unawaited(coordinator.start());
+    if (initialCoordinator == null) {
+      unawaited(coordinator.start());
+    }
     // 每秒刷新一次已等待时长；只有启动页需要它。
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -80,6 +86,7 @@ class _VeriFinBootstrapState extends State<VeriFinBootstrap> {
         setState(() {});
       }
     });
+    _handleCoordinatorChanged();
   }
 
   void _handleCoordinatorChanged() {

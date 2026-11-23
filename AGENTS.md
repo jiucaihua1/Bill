@@ -12,7 +12,7 @@
 
 - **本地优先、数据自主**：无账号、无自有服务端、无广告、无联网遥测。权威账目数据存于用户设备；只有用户主动启用的导出、WebDAV 备份或 AI 功能才会对外传输相应数据，WebDAV 不是账号云同步。
 - **隐私优先**：AI 使用用户自己配置的 OpenAI 兼容端点。AI 记账只生成草稿，必须经用户确认后落账；AI 查询工具全部只读，绝不提供写数据能力。
-- **不做监听类自动记账**：不注册通知监听、无障碍或短信监听。截图在端上 OCR，原图不上传；分享或 Intent 入口也只能生成待确认草稿。
+- **自动记账须用户主动启用**：仅使用系统授权的通知读取和无障碍服务，识别用户选择的平台。截图在端上 OCR，原图不上传。自动记账、分享和 Intent 入口均只生成待确认草稿，不使用短信监听。
 - **Android 能力必须真实可用**：测试 stub 不能被当作生产实现。本地存储、图片、文件、通知、生物识别、安装包、桌面小组件或系统入口都要核对 Android 权限、持久化、进程重启和生命周期行为。
 
 ## Project Structure
@@ -259,7 +259,7 @@ dart run scripts/widget_previews.dart
 - Never 用 `print` / `debugPrint` 作为生产日志，Never 空 `catch (_) {}`；`await` 后使用 `BuildContext` 前必须有 mounted 守卫。
 - Never 手改生成的 `app_localizations*.dart`；文案改动只写 ARB。
 - Never 对 data URL 图片使用 `Image.network`；Never 先完整 `readBytes()` 再检查分享图片大小（>25 MB 必须立即停止）。
-- Never 注册通知监听、无障碍或短信监听；Never 让 AI 静默写账或给查询工具写数据能力。
+- Never 在用户未开启自动记账或未授予对应权限时采集数据；Never 注册短信监听、静默写账或给 AI 查询工具写数据能力。
 - Never 在业务代码直接调用 `HapticFeedback`（统一走 `VeriHaptics`），Never 让组件接收 `hapticsEnabled` 参数；Never 给自动保存、列表行点击、页面转场或滚动加触感。
 - Never 把测试 stub/内存仓储当作生产实现；真实存储、图片、文件能力必须在 Android 上落地。
 - Never 手改 `pubspec.lock`，Never 为简单需求随意引入依赖或工具链；依赖变更用 `flutter pub get/add`。

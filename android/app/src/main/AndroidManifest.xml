@@ -4,6 +4,10 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <!-- 记账提醒本地通知（flutter_local_notifications）。 -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 记账提醒改用精确闹钟：Doze / 国产 ROM 后台限制下，inexact 调度常被系统无限
          推迟、根本不显示（历史上「设了提醒却收不到」的根因）。USE_EXACT_ALARM 在
@@ -24,6 +28,7 @@
          url_launcher 判断系统里是否有能处理它的浏览器（见插件 README 的
          android-queries 要求）。不声明具体浏览器包名，避免把可见性扩大到无关应用。 -->
     <queries>
+        <package android:name="moe.shizuku.privileged.api" />
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
@@ -122,6 +127,51 @@
                 android:name="android.service.quicksettings.TOGGLEABLE_TILE"
                 android:value="false" />
         </service>
+        <service
+            android:name=".ScreenshotTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_quick_entry_tile"
+            android:label="@string/screenshot_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="false" />
+        </service>
+        <service
+            android:name=".AutoBookkeepingAccessibilityService"
+            android:exported="true"
+            android:label="@string/auto_bookkeeping_tile_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/auto_bookkeeping_accessibility" />
+        </service>
+        <service
+            android:name=".AutoBookkeepingNotificationService"
+            android:exported="true"
+            android:label="@string/auto_bookkeeping_tile_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".AutoBookkeepingForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:multiprocess="false"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
         <!-- Fixed template providers. Each desktop instance owns its configuration.
              不加 miuiWidget=true，避免未上架小米小部件中心的本地包被系统从「安卓小部件」列表屏蔽。 -->
         <receiver android:name=".QuickEntryWidgetProvider" android:exported="true" android:label="@string/widget_template_quick_entry">
