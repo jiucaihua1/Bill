@@ -1,4 +1,4 @@
-package top.talyra42.verifin
+package com.xiaohe.ledger
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent

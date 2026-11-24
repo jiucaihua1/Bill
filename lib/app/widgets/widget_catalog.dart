@@ -21,11 +21,11 @@ enum WidgetTemplate {
   /// 线上契约键（`home_widget` 与原生共用的字符串标识）。
   final String key;
 
-  /// 该模板的 Glance Provider 类名（`top.talyra42.verifin` 包内）。
+  /// 该模板的 Glance Provider 类名（`com.xiaohe.ledger` 包内）。
   final String providerClassName;
 
   /// 完整 Android 组件名，供 `HomeWidget.updateWidget` 使用。
-  String get providerComponent => 'top.talyra42.verifin.$providerClassName';
+  String get providerComponent => 'com.xiaohe.ledger.$providerClassName';
 
   static WidgetTemplate? fromKey(String? key) {
     if (key == null) return null;

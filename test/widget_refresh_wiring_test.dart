@@ -128,7 +128,7 @@ void main() {
     );
     expect(
       calls,
-      contains('update:top.talyra42.verifin.QuickEntryWidgetProvider'),
+      contains('update:com.xiaohe.ledger.QuickEntryWidgetProvider'),
       reason: '发布后必须刷新有实例的 Provider',
     );
   });

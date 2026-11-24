@@ -157,15 +157,20 @@ void main() {
     expect(values[5], 0); // 6 月无数据
   });
 
-  test('android package name is not the Flutter template package', () async {
+  test('personal Android package uses the Xiaohe namespace', () {
     final buildGradle = File('android/app/build.gradle.kts').readAsStringSync();
     final mainActivity = File(
-      'android/app/src/main/kotlin/top/talyra42/verifin/MainActivity.kt',
+      'android/app/src/main/kotlin/com/xiaohe/ledger/MainActivity.kt',
     ).readAsStringSync();
 
-    expect(buildGradle, contains('applicationId = "top.talyra42.verifin"'));
+    expect(buildGradle, contains('applicationId = "com.xiaohe.ledger"'));
+    expect(buildGradle, contains('namespace = "com.xiaohe.ledger"'));
+    expect(
+      buildGradle,
+      isNot(contains('applicationIdSuffix = ".personalledger"')),
+    );
     expect(buildGradle, isNot(contains('com.example.verifin')));
-    expect(mainActivity, contains('package top.talyra42.verifin'));
+    expect(mainActivity, contains('package com.xiaohe.ledger'));
   });
 
   test('account balance series keeps history baseline and sign', () async {

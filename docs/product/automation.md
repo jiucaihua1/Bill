@@ -16,8 +16,8 @@
 | 项 | 值 |
 | --- | --- |
 | Action | `top.talyra42.verifin.action.CAPTURE_TEXT` |
-| Package | `top.talyra42.verifin.personalledger` |
-| Class | `top.talyra42.verifin.ShareReceiverActivity` |
+| Package | `com.xiaohe.ledger` |
+| Class | `com.xiaohe.ledger.ShareReceiverActivity` |
 | Extra | `text`（String）：账单原文，超过 8000 字符会被截断 |
 | Category | `android.intent.category.DEFAULT` |
 
@@ -26,7 +26,7 @@
 等价的 adb 验证命令：
 
 ```bash
-adb shell am start -n top.talyra42.verifin.personalledger/top.talyra42.verifin.ShareReceiverActivity \
+adb shell am start -n com.xiaohe.ledger/com.xiaohe.ledger.ShareReceiverActivity \
   -a top.talyra42.verifin.action.CAPTURE_TEXT \
   --es text "招商银行：您账户0966于07月07日12:30消费人民币35.00元"
 ```
@@ -37,8 +37,8 @@ adb shell am start -n top.talyra42.verifin.personalledger/top.talyra42.verifin.S
 2. **Task → System → Send Intent**，填：
    - Action：`top.talyra42.verifin.action.CAPTURE_TEXT`
    - Extra：`text:%evtprm2 %evtprm3`（通知标题 + 内容）
-   - Package：`top.talyra42.verifin.personalledger`
-   - Class：`top.talyra42.verifin.ShareReceiverActivity`
+   - Package：`com.xiaohe.ledger`
+   - Class：`com.xiaohe.ledger.ShareReceiverActivity`
    - Target：`Activity`
 3. 支付通知到达 → 小禾记账 弹出预填好的记账页 → 确认落账。
 

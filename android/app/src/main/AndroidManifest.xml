@@ -41,7 +41,7 @@
         android:usesCleartextTraffic="true"
         android:enableOnBackInvokedCallback="true">
         <activity
-            android:name=".MainActivity"
+            android:name="com.xiaohe.ledger.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
@@ -69,7 +69,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".WidgetConfigurationActivity"
+            android:name="com.xiaohe.ledger.WidgetConfigurationActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:theme="@style/LaunchTheme"
@@ -92,7 +92,7 @@
              无界面跳板接收并转发到自家任务栈的 MainActivity，避免在分享方任务栈里
              再起一个 Flutter 实例。收到的内容只产草稿弹确认，绝不静默落账。 -->
         <activity
-            android:name=".ShareReceiverActivity"
+            android:name="com.xiaohe.ledger.ShareReceiverActivity"
             android:exported="true"
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
@@ -113,7 +113,7 @@
             </intent-filter>
         </activity>
         <service
-            android:name=".QuickEntryTileService"
+            android:name="com.xiaohe.ledger.QuickEntryTileService"
             android:exported="true"
             android:icon="@drawable/ic_quick_entry_tile"
             android:label="@string/quick_entry_tile_label"
@@ -126,7 +126,7 @@
                 android:value="false" />
         </service>
         <service
-            android:name=".ScreenshotTileService"
+            android:name="com.xiaohe.ledger.ScreenshotTileService"
             android:exported="true"
             android:icon="@drawable/ic_quick_entry_tile"
             android:label="@string/screenshot_tile_label"
@@ -139,7 +139,7 @@
                 android:value="false" />
         </service>
         <service
-            android:name=".AutoBookkeepingAccessibilityService"
+            android:name="com.xiaohe.ledger.AutoBookkeepingAccessibilityService"
             android:exported="true"
             android:label="@string/auto_bookkeeping_tile_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
@@ -151,7 +151,7 @@
                 android:resource="@xml/auto_bookkeeping_accessibility" />
         </service>
         <service
-            android:name=".AutoBookkeepingNotificationService"
+            android:name="com.xiaohe.ledger.AutoBookkeepingNotificationService"
             android:exported="true"
             android:label="@string/auto_bookkeeping_tile_label"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
@@ -168,23 +168,23 @@
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
         <!-- Fixed template providers. Each desktop instance owns its configuration.
              不加 miuiWidget=true，避免未上架小米小部件中心的本地包被系统从「安卓小部件」列表屏蔽。 -->
-        <receiver android:name=".QuickEntryWidgetProvider" android:exported="true" android:label="@string/widget_template_quick_entry">
+        <receiver android:name="com.xiaohe.ledger.QuickEntryWidgetProvider" android:exported="true" android:label="@string/widget_template_quick_entry">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/quick_entry_widget_info" />
         </receiver>
-        <receiver android:name=".BudgetWidgetProvider" android:exported="true" android:label="@string/widget_template_budget">
+        <receiver android:name="com.xiaohe.ledger.BudgetWidgetProvider" android:exported="true" android:label="@string/widget_template_budget">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/budget_widget_info" />
         </receiver>
-        <receiver android:name=".NetWorthWidgetProvider" android:exported="true" android:label="@string/widget_template_net_worth">
+        <receiver android:name="com.xiaohe.ledger.NetWorthWidgetProvider" android:exported="true" android:label="@string/widget_template_net_worth">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/net_worth_widget_info" />
         </receiver>
-        <receiver android:name=".TrendWidgetProvider" android:exported="true" android:label="@string/widget_template_trend">
+        <receiver android:name="com.xiaohe.ledger.TrendWidgetProvider" android:exported="true" android:label="@string/widget_template_trend">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/trend_widget_info" />
         </receiver>
-        <receiver android:name=".DualMetricWidgetProvider" android:exported="true" android:label="@string/widget_template_dual_metric">
+        <receiver android:name="com.xiaohe.ledger.DualMetricWidgetProvider" android:exported="true" android:label="@string/widget_template_dual_metric">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/dual_metric_widget_info" />
         </receiver>

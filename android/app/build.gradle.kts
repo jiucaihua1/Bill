@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "top.talyra42.verifin"
+    namespace = "com.xiaohe.ledger"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -23,7 +23,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // Existing distribution and widget preview builds keep their application ID.
         applicationId = "top.talyra42.verifin"
         // 标准 runner：设备侧冒烟与 `flutter test integration_test/` 都靠它发现用例。
         // 仪器测试不进 CI（见 .github/workflows/ci.yml 的说明），按
@@ -66,11 +66,10 @@ android {
         create("play") {
             dimension = "distribution"
         }
-        // 本地调试和图形故障隔离入口。它使用独立 applicationId，不能读取、
-        // 覆盖或更新正式 Veri Fin 的本地数据。
+        // 小禾个人版的 Debug 和 Release 共用安装身份。
         create("diagnostic") {
             dimension = "distribution"
-            applicationIdSuffix = ".personalledger"
+            applicationId = "com.xiaohe.ledger"
         }
     }
 

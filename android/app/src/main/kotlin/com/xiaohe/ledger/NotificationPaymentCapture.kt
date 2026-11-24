@@ -1,4 +1,4 @@
-package top.talyra42.verifin
+package com.xiaohe.ledger
 
 import android.app.KeyguardManager
 import android.content.Context
@@ -15,7 +15,7 @@ import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
-import top.talyra42.verifin.AutoBillParser.PaymentNotice
+import com.xiaohe.ledger.AutoBillParser.PaymentNotice
 
 /** A fresh payment notice can request OCR of the matching foreground window. */
 internal class NotificationPaymentCapture(private val service: AutoBookkeepingAccessibilityService) {

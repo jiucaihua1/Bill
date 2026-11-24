@@ -21,7 +21,7 @@
 
 ## 微信截图 OCR 的触发与校验
 
-实现见 [`WechatMerchantPaymentCapture.kt`](../../android/app/src/main/kotlin/top/talyra42/verifin/WechatMerchantPaymentCapture.kt)：
+实现见 [`WechatMerchantPaymentCapture.kt`](../../android/app/src/main/kotlin/com/xiaohe/ledger/WechatMerchantPaymentCapture.kt)：
 
 1. 微信 App 支付入口、商户扫码付款页、个人收款码付款页或好友转账页发生窗口状态变化后，建立一次有效期为 90 秒的付款会话。
 2. App 支付会话匹配微信轻应用付款结果页。好友转账、商户扫码和个人收款码将确认页、输密码页与结果页共用的窗口视为候选。候选窗口可以切换，同一窗口的内容变化或成功控件也可触发补读。候选切换后，旧窗口的截图或 OCR 回调失效。
@@ -37,7 +37,7 @@
 
 微信商户付款成功页校验通过后，优先读取带标签的商户名。顶部控件或 OCR 文本呈现「支付成功 → 商户名 → 实付金额」时，也可将无标签的商户名填入备注。平台标签仍由已识别的电商订单决定。
 
-Debug 版在自动记账和微信识别开启时可记录付款码窗口事件。已知入口为 `WalletOfflineEntranceUI` 和 `WalletOfflineCoinPurseUI`；若只收到后续的 `UIPageFragmentActivity`，记录为未分类窗口。日志把时间、类名、窗口 ID 和事件类型写入应用私有文件，保留最近 128 条。该诊断链路只记录事件。手机可脱离电脑，重新连接后用 `adb shell run-as top.talyra42.verifin.personalledger cat files/wechat-payment-code-windows.log` 读取。
+Debug 版在自动记账和微信识别开启时可记录付款码窗口事件。已知入口为 `WalletOfflineEntranceUI` 和 `WalletOfflineCoinPurseUI`；若只收到后续的 `UIPageFragmentActivity`，记录为未分类窗口。日志把时间、类名、窗口 ID 和事件类型写入应用私有文件，保留最近 128 条。该诊断链路只记录事件。手机可脱离电脑，重新连接后用 `adb shell run-as com.xiaohe.ledger cat files/wechat-payment-code-windows.log` 读取。
 
 ## 弹窗耗时与排查
 

@@ -1,4 +1,4 @@
-package top.talyra42.verifin
+package com.xiaohe.ledger
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager

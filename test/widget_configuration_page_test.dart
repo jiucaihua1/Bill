@@ -55,7 +55,7 @@ void main() {
           if (call.method == 'widgetConfigurationInfo') {
             return <String, Object?>{
               'template': 'net_worth',
-              'provider': 'top.talyra42.verifin.NetWorthWidgetProvider',
+              'provider': 'com.xiaohe.ledger.NetWorthWidgetProvider',
             };
           }
           return null;

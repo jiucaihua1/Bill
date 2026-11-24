@@ -1,6 +1,6 @@
 # AGENTS.md
 
-- 本项目为 **Flutter + Dart** 的 Android 应用小禾记账（GitHub 仓库 `jiucaihua1/Bill`）。Dart 包名为 `xiaohe`，Android 命名空间为 `top.talyra42.verifin`，面向用户的个人版包名为 `top.talyra42.verifin.personalledger`。
+- 本项目为 **Flutter + Dart** 的 Android 应用小禾记账（GitHub 仓库 `jiucaihua1/Bill`）。Dart 包名为 `xiaohe`，Android 命名空间和个人版安装 ID 均为 `com.xiaohe.ledger`。
 - 包管理器：**pub**（通过 `flutter pub get` / `flutter pub add` 使用）；不引入 npm/yarn/pnpm 等前端工具链。
 - 样式方案：Flutter Material 3 + 项目自有设计令牌（`veri*` 颜色、`veriRadius*` 圆角、`VeriPage` / `VeriCard` / `VeriHeader` 页面骨架）；不使用 CSS，业务代码不硬编码颜色、圆角等视觉值，统一走设计令牌与主题。
 - UI 组件库：Flutter Material 3 + `fl_chart`、`anchored_menu`、`home_widget`；本地 vendor `third_party/liquid_glass_widgets` 只用于液态玻璃底栏。

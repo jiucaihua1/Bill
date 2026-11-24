@@ -15,5 +15,5 @@
     android:resizeMode="horizontal"
     android:widgetCategory="home_screen"
     android:widgetFeatures="reconfigurable|configuration_optional"
-    android:configure="top.talyra42.verifin.WidgetConfigurationActivity"
+    android:configure="com.xiaohe.ledger.WidgetConfigurationActivity"
     android:description="@string/dual_metric_widget_description" />

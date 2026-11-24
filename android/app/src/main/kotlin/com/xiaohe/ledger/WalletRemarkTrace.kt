@@ -1,7 +1,7 @@
-package top.talyra42.verifin
+package com.xiaohe.ledger
 
 import android.util.Log
-import top.talyra42.verifin.AutoBillParser.ParsedBill
+import com.xiaohe.ledger.AutoBillParser.ParsedBill
 
 /** Records field presence only. Adjacent text is a diagnostic hint, never a merchant value. */
 internal object WalletRemarkTrace {

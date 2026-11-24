@@ -1,6 +1,6 @@
-package top.talyra42.verifin
+package com.xiaohe.ledger
 
-import top.talyra42.verifin.AutoBillParser.ParsedBill
+import com.xiaohe.ledger.AutoBillParser.ParsedBill
 import java.text.Normalizer
 import java.text.ParsePosition
 import java.text.SimpleDateFormat

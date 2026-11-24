@@ -1,4 +1,4 @@
-package top.talyra42.verifin
+package com.xiaohe.ledger
 
 import android.accessibilityservice.AccessibilityService
 import android.app.KeyguardManager
@@ -22,7 +22,7 @@ import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
-import top.talyra42.verifin.AutoBillParser.WechatTransferOcrStatus
+import com.xiaohe.ledger.AutoBillParser.WechatTransferOcrStatus
 
 /** Reads one authorized WeChat payment result window when its text is unavailable. */
 internal class WechatMerchantPaymentCapture(private val service: AccessibilityService) {

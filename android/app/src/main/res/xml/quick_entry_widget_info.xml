@@ -15,5 +15,5 @@
     android:resizeMode="none"
     android:widgetCategory="home_screen"
     android:widgetFeatures="reconfigurable|configuration_optional"
-    android:configure="top.talyra42.verifin.WidgetConfigurationActivity"
+    android:configure="com.xiaohe.ledger.WidgetConfigurationActivity"
     android:description="@string/quick_entry_widget_description" />

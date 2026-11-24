@@ -14,7 +14,7 @@ import 'package:xiaohe/app/data_file_picker.dart';
 /// 这里守住三件事：Dart 侧调用的原生方法都存在、原生侧兼容普通路径、临时文件归属明确。
 void main() {
   final mainActivity = File(
-    'android/app/src/main/kotlin/top/talyra42/verifin/MainActivity.kt',
+    'android/app/src/main/kotlin/com/xiaohe/ledger/MainActivity.kt',
   ).readAsStringSync();
 
   List<String> channelMethodsCalledFromDart() {
@@ -130,7 +130,7 @@ void main() {
     // file_selector 在 Android 上复制出来的形态：{cacheDir}/{uuid}/{原名}。
     expect(
       isPickerCacheCopyPath(
-        '/data/user/0/top.talyra42.verifin/cache/'
+        '/data/user/0/com.xiaohe.ledger/cache/'
         '02d86aff-9093-3a1c-a051-efa0c1f15a48/verifin-backup-20261011-160437.zip',
       ),
       isTrue,
@@ -138,9 +138,7 @@ void main() {
     // 桌面用户原文件、普通目录、以及非 UUID 的父目录都不能被当成缓存副本。
     expect(isPickerCacheCopyPath('/downloads/verifin-backup.zip'), isFalse);
     expect(
-      isPickerCacheCopyPath(
-        '/data/user/0/top.talyra42.verifin/cache/keep/a.zip',
-      ),
+      isPickerCacheCopyPath('/data/user/0/com.xiaohe.ledger/cache/keep/a.zip'),
       isFalse,
     );
   });

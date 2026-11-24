@@ -2,6 +2,9 @@ import 'dart:io';
 
 import 'src/widget_previews.dart';
 
+// 预览使用独立的 github flavor，仪器测试类位于新的 Kotlin 命名空间。
+const _githubApplicationId = 'top.talyra42.verifin';
+
 /// 重导出选择器预览 PNG。
 ///
 /// 预览图由**真机渲染器**产出（同一套 Glance 组合），因此改组件视觉后必须重跑：
@@ -45,12 +48,12 @@ Future<void> main(List<String> args) async {
     '-w',
     '-e',
     'class',
-    'top.talyra42.verifin.WidgetGlanceInstrumentationTest',
-    'top.talyra42.verifin.test/androidx.test.runner.AndroidJUnitRunner',
+    'com.xiaohe.ledger.WidgetGlanceInstrumentationTest',
+    '$_githubApplicationId.test/androidx.test.runner.AndroidJUnitRunner',
   ]);
 
   const remote =
-      '/sdcard/Android/data/top.talyra42.verifin/files/widget-previews';
+      '/sdcard/Android/data/$_githubApplicationId/files/widget-previews';
   final staging = Directory('build/widget-previews')
     ..createSync(recursive: true);
   _run(adb, <String>['-s', device, 'pull', remote, staging.path]);

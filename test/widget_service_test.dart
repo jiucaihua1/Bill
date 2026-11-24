@@ -115,11 +115,11 @@ void main() {
     );
     expect(
       calls,
-      contains('update:top.talyra42.verifin.QuickEntryWidgetProvider'),
+      contains('update:com.xiaohe.ledger.QuickEntryWidgetProvider'),
     );
     expect(
       calls,
-      contains('schedule:top.talyra42.verifin.QuickEntryWidgetProvider'),
+      contains('schedule:com.xiaohe.ledger.QuickEntryWidgetProvider'),
     );
     expect(
       calls.any((call) => call.contains('BudgetWidgetProvider')),

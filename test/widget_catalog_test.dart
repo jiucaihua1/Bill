@@ -16,11 +16,11 @@ void main() {
     expect(
       WidgetTemplate.values.map((t) => t.providerComponent).toList(),
       <String>[
-        'top.talyra42.verifin.QuickEntryWidgetProvider',
-        'top.talyra42.verifin.BudgetWidgetProvider',
-        'top.talyra42.verifin.TrendWidgetProvider',
-        'top.talyra42.verifin.NetWorthWidgetProvider',
-        'top.talyra42.verifin.DualMetricWidgetProvider',
+        'com.xiaohe.ledger.QuickEntryWidgetProvider',
+        'com.xiaohe.ledger.BudgetWidgetProvider',
+        'com.xiaohe.ledger.TrendWidgetProvider',
+        'com.xiaohe.ledger.NetWorthWidgetProvider',
+        'com.xiaohe.ledger.DualMetricWidgetProvider',
       ],
     );
     expect(WidgetTemplate.fromKey('net_worth'), WidgetTemplate.netWorth);
@@ -47,7 +47,7 @@ void main() {
 
   test('投影快照版本与原生渲染层一致', () {
     final kotlin = File(
-      'android/app/src/main/kotlin/top/talyra42/verifin/VeriFinWidget.kt',
+      'android/app/src/main/kotlin/com/xiaohe/ledger/VeriFinWidget.kt',
     ).readAsStringSync();
     expect(
       kotlin,
