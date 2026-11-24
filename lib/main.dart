@@ -123,13 +123,15 @@ class _VeriFinAppState extends State<VeriFinApp> with WidgetsBindingObserver {
     unawaited(_controller.categoryIconThemes.restore());
     // 记账后自动备份挂钩；应用打开时按配置尝试一次自动备份。
     _controller.onEntryAdded = _handleEntryAdded;
-    // 桌面小组件投影：只在账目类数据落库后重算（防抖），语言变化也要重推
-    // （桌面文案跟随应用语言）。
-    _widgetRefresh = WidgetRefreshCoordinator(
-      _controller.flushPendingWrites,
-      ({required bool force}) =>
-          pushWidgetProjection(_controller, force: force),
-    );
+    // 账目或语言变化时刷新小组件和常驻通知，共用防抖与生命周期刷新。
+    _widgetRefresh = WidgetRefreshCoordinator(_controller.flushPendingWrites, ({
+      required bool force,
+    }) async {
+      await Future.wait<void>([
+        pushWidgetProjection(_controller, force: force),
+        AutoBillOverlayBridge.refreshNotificationSummary(_controller),
+      ]);
+    });
     _controller.onWidgetDataChanged = _widgetRefresh.schedule;
     _controller.localePreferenceListenable.addListener(_widgetRefresh.schedule);
     // 落库失败时弹出「保存失败」提示，避免用户以为已保存。
@@ -181,7 +183,6 @@ class _VeriFinAppState extends State<VeriFinApp> with WidgetsBindingObserver {
 
   void _handleEntryAdded() {
     BackupCoordinator.maybeBackupAfterEntry(_controller);
-    unawaited(AutoBillOverlayBridge.refreshNotificationSummary(_controller));
   }
 
   void _handlePersistError(Object _) {
@@ -212,9 +213,11 @@ class _VeriFinAppState extends State<VeriFinApp> with WidgetsBindingObserver {
     await AutoBillOverlayBridge.runLedgerWrite(
       () => _controller.applyDueRecurring(DateTime.now()),
     );
-    await BackupCoordinator.maybeBackupOnOpen(_controller);
     // 回前台强制推一次：补记后的数据、以及可能在后台期间新添加的实例都要对齐。
-    await _widgetRefresh.pushNow(force: true);
+    await Future.wait<void>([
+      _widgetRefresh.pushNow(force: true),
+      BackupCoordinator.maybeBackupOnOpen(_controller),
+    ]);
   }
 
   @override

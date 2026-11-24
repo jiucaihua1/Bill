@@ -28,8 +28,11 @@ import top.talyra42.verifin.AutoBillParser.WechatTransferOcrStatus
 internal class WechatMerchantPaymentCapture(private val service: AccessibilityService) {
     private val handler = Handler(Looper.getMainLooper())
     private var session: Checkout? = null
+    private var lastDetailWindow: Pair<String, Int>? = null
 
-    private data class OcrResult(val text: String, val amountText: String? = null)
+    private data class OcrResult(
+        val text: String, val amountText: String? = null, val receiptRows: String? = null,
+    )
     private data class VisiblePaymentRegion(val displayId: Int, val bounds: Rect)
 
     private enum class CheckoutKind { MERCHANT, SCAN, PERSONAL_QR, TRANSFER, PAYMENT_CODE }
@@ -63,12 +66,17 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
 
         val stateChanged = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
         val className = event.className?.toString()
+        if (stateChanged && className == BILL_DETAIL_WEBVIEW && !recognized) {
+            scheduleDetailRead(event.windowId)
+        }
         val entry = checkoutKind(className)
         if (stateChanged && entry != null) {
             if (entry == CheckoutKind.PAYMENT_CODE && !BuildConfig.DEBUG) return
             if (session?.orderWindowId != event.windowId || session?.kind != entry) {
                 reset()
-                if (entry != CheckoutKind.PAYMENT_CODE) AutoBillParser.beginWechatPayment()
+                if (entry != CheckoutKind.PAYMENT_CODE) {
+                    AutoBillParser.beginWechatPayment(purchase = entry != CheckoutKind.TRANSFER)
+                }
                 session = Checkout(event.windowId, entry)
                 if (entry == CheckoutKind.PAYMENT_CODE) {
                     WechatPaymentCodeTrace.record(service, "entry window=${event.windowId} class=$className")
@@ -258,6 +266,51 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
         handler.removeCallbacksAndMessages(null)
     }
 
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    private fun scheduleDetailRead(windowId: Int) {
+        val draftId = AutoBillParser.recentWechatPurchaseId() ?: return
+        val target = draftId to windowId
+        if (target == lastDetailWindow) return
+        lastDetailWindow = target
+        fun isDetailWindowCurrent(): Boolean {
+            if (lastDetailWindow != target || AutoBillParser.recentWechatPurchaseId() != draftId ||
+                !AutoBillParser.isAutoEnabled(service) || !AutoBillParser.isPlatformEnabled(service, WECHAT) ||
+                service.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true
+            ) return false
+            val root = service.rootInActiveWindow ?: return false
+            return root.windowId == windowId && root.packageName?.toString() == WECHAT
+        }
+        handler.postDelayed({
+            if (!isDetailWindowCurrent()) return@postDelayed
+            capturePaymentWindow(service, windowId, ::isDetailWindowCurrent) { bitmap ->
+                if (bitmap != null) readDetailImage(bitmap, ::isDetailWindowCurrent)
+            }
+        }, RESULT_SETTLE_MS)
+    }
+
+    private fun readDetailImage(bitmap: Bitmap, isCurrent: () -> Boolean) {
+        var recognizer: TextRecognizer? = null
+        try {
+            val reader = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+            recognizer = reader
+            reader.process(InputImage.fromBitmap(bitmap, 0)).addOnCompleteListener(service.mainExecutor) { task ->
+                try {
+                    if (task.isSuccessful && isCurrent()) {
+                        val result = task.result
+                        AutoBillParser.handleWechatDetail(service, result.text, paymentReceiptRows(result))
+                    }
+                } finally {
+                    bitmap.recycle()
+                    reader.close()
+                }
+            }
+        } catch (error: RuntimeException) {
+            bitmap.recycle()
+            recognizer?.close()
+            Log.w(TAG, "WeChat detail OCR unavailable: ${error.javaClass.simpleName}")
+        }
+    }
+
     private fun isCurrent(checkout: Checkout, result: ResultWindow): Boolean {
         if (session !== checkout || checkout.recognized || checkout.result !== result) return false
         if (SystemClock.elapsedRealtime() - checkout.startedAt >= CHECKOUT_TIMEOUT_MS) return false
@@ -344,6 +397,8 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
                     val full = task.result
                     when {
                         !isCurrent(checkout, candidate) -> Tasks.forResult(OcrResult(full.text))
+                        WalletBillFields.isWechatDetail(full.text) ->
+                            Tasks.forResult(OcrResult(full.text, receiptRows = paymentReceiptRows(full)))
                         checkout.transfer -> recognizeTransferResult(bitmap, full, recognizer)
                         else -> recognizeMerchantResult(bitmap, full, recognizer, checkout, candidate.doneControlSeen)
                     }
@@ -360,6 +415,7 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
                                     merchantScan = checkout.scan,
                                     personalQrResult = checkout.kind == CheckoutKind.PERSONAL_QR,
                                     doneControlSeen = candidate.doneControlSeen,
+                                    receiptRows = result.receiptRows,
                                 )
                                 if (!checkout.recognized) {
                                     if (checkout.transfer) {
@@ -491,6 +547,7 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
         const val WECHAT_WALLET = "com.tencent.mm.plugin.mall.ui.MallIndexUIv2"
         const val WECHAT_COLLECT = "com.tencent.mm.plugin.collect.ui."
         const val PAGE_FRAGMENT_CONTAINER = "com.tencent.mm.framework.app.UIPageFragmentActivity"
+        const val BILL_DETAIL_WEBVIEW = "com.tencent.mm.plugin.webview.ui.tools.MMWebViewUI"
         const val RESULT_SETTLE_MS = 650L
         const val CANDIDATE_CAPTURE_INTERVAL_MS = 1_000L
         const val PAYMENT_CONTENT_CHANGES = AccessibilityEvent.CONTENT_CHANGE_TYPE_SUBTREE or

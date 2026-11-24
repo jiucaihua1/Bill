@@ -72,7 +72,19 @@ object AutoBillOverlay {
                     if (summary != null) AutoCapturePermissions.updateNotificationSummary(context, summary)
                     result.success(null)
                 }
+                "wechatNoteSupplement" -> {
+                    val id = call.arguments as? String
+                    result.success(id?.let(AutoBillParser::wechatNoteSupplement))
+                }
                 else -> result.notImplemented()
+            }
+        }
+    }
+
+    internal fun enrichWechatNote(supplement: Map<String, Any>) {
+        handler.post {
+            if (ready && ::ledgerChannel.isInitialized) {
+                ledgerChannel.invokeMethod("enrichWechatNote", supplement)
             }
         }
     }
@@ -195,7 +207,7 @@ object AutoBillOverlay {
             }
             when (call.method) {
                 "load" -> result.success(mapOf(
-                    "draft" to draft, "ledger" to ledger, "preview" to (review.sample != null),
+                    "draft" to (review.draft() ?: draft), "ledger" to ledger, "preview" to (review.sample != null),
                 ))
                 "save" -> save(review, call.arguments as? Map<*, *>, result)
                 "close" -> {
@@ -268,6 +280,7 @@ object AutoBillOverlay {
         ledgerChannel.invokeMethod("save", changes + mapOf(
             "id" to review.id,
             "occurredAt" to draft.getValue("occurredAt"),
+            "sourcePackage" to draft.getValue("sourcePackage"),
         ), object : MethodChannel.Result {
             override fun success(value: Any?) = finish(value == true)
             override fun error(code: String, message: String?, details: Any?) = finish(false)

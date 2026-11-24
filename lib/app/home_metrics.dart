@@ -312,7 +312,7 @@ double computeHomeMetric(HomeMetric metric, HomeMetricContext ctx) {
     case HomeMetric.dailyAvgIncome:
       return _sum(ctx, EntryType.income, (e) => _inMonth(e, now)) / now.day;
     case HomeMetric.todayExpense:
-      return _sum(ctx, EntryType.expense, (e) => _inToday(e, now));
+      return dayExpenseTotal(ctx.entries, now);
     case HomeMetric.todayIncome:
       return _sum(ctx, EntryType.income, (e) => _inToday(e, now));
     case HomeMetric.todayNet:

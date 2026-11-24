@@ -64,12 +64,25 @@ object AutoBillParser {
     private const val DRAFT_TTL_MS = 15 * 60 * 1000L
     private const val DRAFT_LIMIT = 16
     private const val RECENT_BILL_MS = 6_000L
+    private const val RECENT_WECHAT_PURCHASE_MS = 35_000L
+    private const val WECHAT_DETAIL_TIME_TOLERANCE_MS = 15_000L
     private const val DRAFT_PREFIX = "pending_bill."
     private const val DETECTION_NOTIFICATION_ID = 4209
     const val DETECTION_CHANNEL_ID = "verifin_auto_bill_detected"
-    private data class RecentBill(val pkg: String, val bill: ParsedBill, val capturedAt: Long)
+    private data class RecentBill(
+        val pkg: String,
+        val bill: ParsedBill,
+        val capturedAt: Long,
+        val wechatPurchaseSession: Long?,
+    ) {
+        val lifetime = if (wechatPurchaseSession == null) RECENT_BILL_MS else RECENT_WECHAT_PURCHASE_MS
+        var draftId: String? = null
+        var occurredAt: Long? = null
+        var noteSupplement: String? = null
+    }
     private val recentBills = mutableListOf<RecentBill>()
     private val lastScreenBills = mutableMapOf<String, Triple<String, Double, String?>>()
+    private var wechatPurchaseSession = 0L
 
     data class ParsedBill(
         val amount: Double,
@@ -179,6 +192,7 @@ object AutoBillParser {
         if (!isAutoEnabled(context) || !isPlatformEnabled(context, notice.source) ||
             !isPlatformEnabled(context, pkg)
         ) return false
+        if (pkg == PKG_WECHAT && handleWechatDetail(context, text, receiptRows)) return true
         val bill = parseNotificationPaymentScreen(notice, text, amountText, receiptRows) ?: return false
         val amount = bill.amount
         val previous = lastScreenBills[pkg]
@@ -274,6 +288,7 @@ object AutoBillParser {
         // older cards in the same chat have different amounts.
         val wechatTexts = if (pkg == PKG_WECHAT) texts + eventTexts else emptyList()
         val wechatPage = wechatTexts.joinToString("\n")
+        if (pkg == PKG_WECHAT && handleWechatDetail(context, wechatPage)) return true
         val merchantReturn = wechatTexts.any { compactOcrLine(it) == "返回商家" }
         val merchantDone = wechatTexts.any { compactOcrLine(it) == "完成" } && !merchantReturn
         val alipayResult = if (pkg == PKG_ALIPAY) {
@@ -312,16 +327,19 @@ object AutoBillParser {
     }
 
     @Synchronized
-    fun beginWechatPayment() {
+    fun beginWechatPayment(purchase: Boolean) {
         lastScreenBills.remove(PKG_WECHAT)
+        if (purchase) wechatPurchaseSession++
     }
 
     @Synchronized
     fun handleWechatResultScreenshot(
         context: Context, text: String, transfer: Boolean, amountText: String? = null,
         merchantScan: Boolean = false, personalQrResult: Boolean = false, doneControlSeen: Boolean = false,
+        receiptRows: String? = null,
     ): Boolean {
         if (!isAutoEnabled(context) || !isPlatformEnabled(context, PKG_WECHAT)) return false
+        if (handleWechatDetail(context, text, receiptRows)) return true
         val bill = if (transfer) {
             parseWechatTransferScreenshot(text, amountText)
         } else {
@@ -331,6 +349,65 @@ object AutoBillParser {
         if (bill == null) return false
         dispatchScreenBill(context, PKG_WECHAT, bill)
         return true
+    }
+
+    @Synchronized
+    internal fun recentWechatPurchaseId(): String? {
+        val now = SystemClock.elapsedRealtime()
+        return recentBills.lastOrNull {
+            it.wechatPurchaseSession == wechatPurchaseSession && now - it.capturedAt < it.lifetime &&
+                it.draftId != null && !it.bill.merchant.isNullOrBlank()
+        }?.draftId
+    }
+
+    @Synchronized
+    internal fun handleWechatDetail(context: Context, text: String, receiptRows: String? = null): Boolean {
+        if (!WalletBillFields.isWechatDetail(text) &&
+            (receiptRows == null || !WalletBillFields.isWechatDetail(receiptRows))
+        ) return false
+        if (!isAutoEnabled(context) || !isPlatformEnabled(context, PKG_WECHAT)) return true
+        val detail = receiptRows?.let(WalletBillFields::wechatDetail) ?: WalletBillFields.wechatDetail(text)
+            ?: return true
+        val now = SystemClock.elapsedRealtime()
+        val original = recentBills.singleOrNull { candidate ->
+            candidate.wechatPurchaseSession != null && candidate.draftId != null &&
+                now - candidate.capturedAt < candidate.lifetime &&
+                candidate.bill.amount == detail.amount && candidate.bill.merchant?.let {
+                    WalletBillFields.sameWechatMerchant(it, detail.merchant)
+                } == true && candidate.occurredAt?.let {
+                    kotlin.math.abs(it - detail.paidAt) <= WECHAT_DETAIL_TIME_TOLERANCE_MS
+                } == true
+        } ?: return true
+        val originalNote = AutoBillRules.note(original.bill)
+        if (original.noteSupplement != null || originalNote.split(" · ").contains(detail.product)) return true
+        val note = "$originalNote · ${detail.product}"
+        original.noteSupplement = note
+        val id = checkNotNull(original.draftId)
+        val prefs = context.getSharedPreferences(AutoCapturePermissions.PREFS_NAME, Context.MODE_PRIVATE)
+        try {
+            prefs.getString(DRAFT_PREFIX + id, null)?.let { raw ->
+                val draft = JSONObject(raw)
+                if (draft.optString("note") == originalNote) {
+                    prefs.edit().putString(DRAFT_PREFIX + id, draft.put("note", note).toString()).apply()
+                }
+            }
+        } catch (_: org.json.JSONException) {
+            Log.w("VeriAutoBill", "Stored WeChat draft could not be enriched")
+        }
+        wechatNoteSupplement(id)?.let(AutoBillOverlay::enrichWechatNote)
+        return true
+    }
+
+    @Synchronized
+    internal fun wechatNoteSupplement(id: String): Map<String, Any>? {
+        val recent = recentBills.firstOrNull { it.draftId == id } ?: return null
+        if (SystemClock.elapsedRealtime() - recent.capturedAt >= DRAFT_TTL_MS) return null
+        val note = recent.noteSupplement ?: return null
+        val timestamp = recent.occurredAt ?: return null
+        return mapOf(
+            "id" to id, "before" to AutoBillRules.note(recent.bill), "note" to note,
+            "amount" to recent.bill.amount, "occurredAt" to timestamp,
+        )
     }
 
     private fun dispatchScreenBill(context: Context, pkg: String, bill: ParsedBill, onNew: () -> Unit = {}) {
@@ -639,12 +716,20 @@ object AutoBillParser {
         if (!isAutoEnabled(context)) return null
         val ageClock = SystemClock.elapsedRealtime()
         val now = System.currentTimeMillis()
-        recentBills.removeAll { ageClock - it.capturedAt >= RECENT_BILL_MS }
-        if (recentBills.any { it.pkg == pkg && sameRecentBill(it.bill, bill, now) }) {
+        recentBills.removeAll {
+            val retention = if (it.noteSupplement == null) it.lifetime else DRAFT_TTL_MS
+            ageClock - it.capturedAt >= retention
+        }
+        val purchaseSession = wechatPurchaseSession.takeIf { pkg == PKG_WECHAT && bill.note == "微信支付" }
+        if (recentBills.any {
+                it.pkg == pkg && it.wechatPurchaseSession == purchaseSession && ageClock - it.capturedAt < it.lifetime &&
+                    sameRecentBill(it.bill, bill, now, allowMissingOrder = purchaseSession != null)
+            }
+        ) {
             WalletRemarkTrace.draft(pkg, "recent_duplicate", bill)
             return null
         }
-        val currentBill = RecentBill(pkg, bill, ageClock)
+        val currentBill = RecentBill(pkg, bill, ageClock, purchaseSession)
         if (AutoBillRules.takeDuplicate(pkg, bill, ageClock, now)) {
             recentBills.add(currentBill)
             Log.i("VeriAutoBill", "Duplicate payment suppressed across platforms")
@@ -669,6 +754,7 @@ object AutoBillParser {
             manager?.cancel(stored.removePrefix(DRAFT_PREFIX), DETECTION_NOTIFICATION_ID)
         }
         val id = "$now-${UUID.randomUUID()}"
+        val occurredAt = bill.occurredAt ?: observedAt ?: now
         val note = AutoBillRules.note(bill)
         val payload = JSONObject()
             .put("amount", bill.amount)
@@ -677,7 +763,7 @@ object AutoBillParser {
             .put("note", note)
             .put("sourceLabel", bill.sourceLabel)
             .put("categoryKey", bill.categoryKey)
-            .put("occurredAt", bill.occurredAt ?: observedAt ?: now)
+            .put("occurredAt", occurredAt)
             .put("sourcePackage", pkg)
             .put("platformTag", AutoBillRules.platformTag(bill.shoppingPlatform))
             .put("merchant", bill.merchant)
@@ -690,15 +776,22 @@ object AutoBillParser {
             return null
         }
         WalletRemarkTrace.draft(pkg, "written", bill, note)
+        if (purchaseSession != null) {
+            currentBill.draftId = id
+            currentBill.occurredAt = occurredAt
+        }
         recentBills.add(currentBill)
         AutoBillRules.remember(pkg, bill, ageClock, now)
         return id
     }
 
-    private fun sameRecentBill(a: ParsedBill, b: ParsedBill, now: Long): Boolean {
+    private fun sameRecentBill(
+        a: ParsedBill, b: ParsedBill, now: Long, allowMissingOrder: Boolean = false,
+    ): Boolean {
         if (a.type != b.type || a.amount != b.amount) return false
         if (a.bankLast4 != null && b.bankLast4 != null && a.bankLast4 != b.bankLast4) return false
-        if (a.orderNumber != null || b.orderNumber != null) return a.orderNumber == b.orderNumber
+        if (a.orderNumber != null && b.orderNumber != null) return a.orderNumber == b.orderNumber
+        if (!allowMissingOrder && (a.orderNumber != null || b.orderNumber != null)) return false
         if (a.occurredAt != null && b.occurredAt != null) return a.occurredAt == b.occurredAt
         val detailTime = a.occurredAt ?: b.occurredAt ?: return true
         return now - detailTime in 0L..AutoBillRules.BANK_WINDOW_MS

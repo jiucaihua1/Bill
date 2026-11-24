@@ -302,16 +302,12 @@ List<String> sparseLabelsForWindow(
       .toList();
 }
 
-/// 指定日期当天的支出净额合计（用于桌面小组件「今日支出」）。
-double dayExpenseTotal(Iterable<LedgerEntry> entries, DateTime day) {
-  return entries
-      .where(
-        (entry) =>
-            entry.type == EntryType.expense &&
-            DateUtils.isSameDay(entry.occurredAt, day),
-      )
-      .fold<double>(0, (sum, entry) => sum + entry.netBaseAmount);
-}
+/// 指定日期当天的净支出，含已到账退款对原支出的抵扣。
+double dayExpenseTotal(Iterable<LedgerEntry> entries, DateTime day) =>
+    sumByType(
+      entries.where((entry) => DateUtils.isSameDay(entry.occurredAt, day)),
+      EntryType.expense,
+    );
 
 /// 指定日期当天、**预算口径**的支出合计（用于按日预算的今日进度）。
 ///

@@ -13,14 +13,7 @@ import 'veri_fin_controller.dart';
 import 'widgets/widget_service.dart';
 
 String autoBookkeepingNotificationSummary(VeriFinController controller) {
-  final today = DateTime.now();
-  final expense = controller.entries
-      .where(
-        (entry) =>
-            entry.type == EntryType.expense &&
-            calendarDaysBetween(entry.occurredAt, today) == 0,
-      )
-      .fold<double>(0, (total, entry) => total + entry.netBaseAmount);
+  final expense = dayExpenseTotal(controller.entries, DateTime.now());
   return l10nForPreference(
     controller.localePreference,
   ).autoCaptureTodayExpense(formatExpenseAmount(expense));
@@ -105,6 +98,7 @@ class AutoBillOverlayBridge {
       return switch (call.method) {
         'prepare' => _prepare(controller, args),
         'save' => commit(controller, args),
+        'enrichWechatNote' => _enrichWechatNote(controller, args),
         _ => throw MissingPluginException(call.method),
       };
     });
@@ -145,6 +139,53 @@ class AutoBillOverlayBridge {
       // A Flutter-only host has no Android overlay.
     }
   }
+
+  static String? _matchingWechatNote(
+    Map<Object?, Object?>? supplement, {
+    required String note,
+    required double amount,
+    required int timestamp,
+  }) {
+    if (supplement == null ||
+        supplement['before'] != note ||
+        supplement['amount'] != amount ||
+        supplement['occurredAt'] != timestamp) {
+      return null;
+    }
+    return supplement['note'] as String?;
+  }
+
+  static Future<bool> _enrichWechatNote(
+    VeriFinController controller,
+    Map<Object?, Object?> supplement,
+  ) => runLedgerWrite(() async {
+    final id = supplement['id'];
+    if (id is! String) return false;
+    final entry = controller.entries
+        .where((entry) => entry.id == 'auto-bill-$id')
+        .firstOrNull;
+    if (entry == null || entry.type != EntryType.expense) return false;
+    final note = _matchingWechatNote(
+      supplement,
+      note: entry.note,
+      amount: entry.amount,
+      timestamp: entry.occurredAt.millisecondsSinceEpoch,
+    );
+    if (note == null) return false;
+    final result = await controller.saveEntryAggregateDraftResult(
+      entry: entry.copyWith(note: note),
+      isNew: false,
+      refunds: controller.refundsForEntry(entry.id),
+      attachments: controller.attachmentsForEntry(entry.id),
+    );
+    if (!result.isSuccess) {
+      controller.logger?.warning(
+        'Could not append a WeChat product to the existing remark',
+        source: 'auto-capture',
+      );
+    }
+    return result.isSuccess;
+  });
 
   static Future<bool> commit(
     VeriFinController controller,
@@ -207,6 +248,32 @@ class AutoBillOverlayBridge {
 
     final normalized = normalizeCurrencyAmount(amount, 'CNY');
     if (normalized <= 0) return false;
+    var finalNote = note.trim();
+    if (type == EntryType.expense &&
+        args['sourcePackage'] == 'com.tencent.mm') {
+      try {
+        final supplement = await _channel.invokeMapMethod<Object?, Object?>(
+          'wechatNoteSupplement',
+          id,
+        );
+        finalNote =
+            _matchingWechatNote(
+              supplement,
+              note: finalNote,
+              amount: normalized,
+              timestamp: timestamp,
+            ) ??
+            finalNote;
+      } on MissingPluginException {
+        // Flutter-only hosts and older native bridges can save the original note.
+      } on PlatformException catch (error) {
+        controller.logger?.warning(
+          'Could not read WeChat product supplement: ${error.code}',
+          source: 'auto-capture',
+        );
+      }
+      if (controller.activeBook.id != book.id) return false;
+    }
     final result = await controller.saveEntryAggregateDraftResult(
       isNew: true,
       suggestedTagLabel: suggestedTag as String?,
@@ -223,7 +290,7 @@ class AutoBillOverlayBridge {
         toAccountId: transfer ? destination as String : null,
         toAccountAmount: transfer ? normalized : null,
         baseAmount: transfer ? 0 : normalized,
-        note: note.trim(),
+        note: finalNote,
         occurredAt: DateTime.fromMillisecondsSinceEpoch(timestamp),
         tagIds: tags.cast<String>(),
         reimbursable: type == EntryType.expense && args['reimbursable'] == true,
@@ -234,9 +301,9 @@ class AutoBillOverlayBridge {
     if (result.isSuccess) {
       if (controller.onEntryAdded == null) {
         unawaited(BackupCoordinator.maybeBackupAfterEntry(controller));
-        unawaited(refreshNotificationSummary(controller));
       }
       if (controller.onWidgetDataChanged == null) {
+        unawaited(refreshNotificationSummary(controller));
         unawaited(pushWidgetProjection(controller, force: true));
       }
     }

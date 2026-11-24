@@ -274,6 +274,7 @@ dart run scripts/widget_previews.dart
 - 签名一致与本地便携构建环境可用已由维护者确认：**禁止每次开工重复核对签名证书、探测 Gradle/SDK 环境或执行额外前置诊断**。
 - 日常真机测功能或识别规则**一律默认使用 `diagnostic` Debug 增量构建并保留数据覆盖安装**（直接运行项目根目录 `.tools/build-personal.ps1 -Install`），仅在报错时再针对性排查。
 - **不要擅自构建 Release 包**，除非用户明确要求验证 R8 或发版。
+- **UI 定型前不要跑全量 `flutter test`**：`theme_color_test`、`transaction_tile_test`、`number_pad_*` 等旧 UI 测试存在已知的断言漂移，改动功能时只跑对应的专项测试（如采集、表单、迁移、仓储），不要在全量测试上反复重试。
 
 ## Commit 规范
 

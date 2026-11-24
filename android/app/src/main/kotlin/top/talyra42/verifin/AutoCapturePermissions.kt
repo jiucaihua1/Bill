@@ -111,13 +111,10 @@ object AutoCapturePermissions {
         return "not_running"
     }
 
-    fun syncOnAppStart(context: Context) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val enabled = prefs.getBoolean(KEY_AUTO_ENABLED, false)
-        val persistent = prefs.getBoolean(KEY_PERSISTENT_NOTIFICATION, true)
-        if (enabled && persistent) {
-            AutoBookkeepingForegroundService.sync(context, true, true, null)
-        }
+    fun syncOnAppResume(context: Context) {
+        if (!AutoBillParser.isAutoEnabled(context)) return
+        reconnectNotificationListener(context)
+        updateNotificationSummary(context)
     }
 
     fun reconnectNotificationListener(context: Context): Boolean {
@@ -160,22 +157,24 @@ object AutoCapturePermissions {
             AutoBillOverlay.clear()
             AutoBillParser.clearDrafts(context)
         }
-        val persistent = prefs.getBoolean(KEY_PERSISTENT_NOTIFICATION, true)
-        AutoBookkeepingForegroundService.sync(context, enabled, persistent, summary)
+        updateNotificationSummary(context, summary)
     }
 
     fun setPersistentNotification(context: Context, persistent: Boolean, summary: String? = null) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs.edit().putBoolean(KEY_PERSISTENT_NOTIFICATION, persistent).apply()
-        val enabled = prefs.getBoolean(KEY_AUTO_ENABLED, false)
-        AutoBookkeepingForegroundService.sync(context, enabled, persistent, summary)
+        updateNotificationSummary(context, summary)
     }
 
-    fun updateNotificationSummary(context: Context, summary: String) {
+    fun updateNotificationSummary(context: Context, summary: String? = null) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val enabled = prefs.getBoolean(KEY_AUTO_ENABLED, false)
         val persistent = prefs.getBoolean(KEY_PERSISTENT_NOTIFICATION, true)
-        if (enabled && persistent) AutoBookkeepingForegroundService.updateSummary(context, summary)
+        if (enabled && persistent) {
+            AutoBookkeepingStatusNotification.show(context, summary)
+        } else {
+            AutoBookkeepingStatusNotification.hide(context)
+        }
     }
 
     fun openPermissionSettings(context: Context, kind: String): Boolean {

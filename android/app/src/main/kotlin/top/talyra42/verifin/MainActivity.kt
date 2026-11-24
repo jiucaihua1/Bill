@@ -47,6 +47,7 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onResume() {
         super.onResume()
         AutoBillOverlay.setMainForeground(true)
+        AutoCapturePermissions.syncOnAppResume(this)
     }
 
     override fun onPause() {
@@ -98,7 +99,6 @@ class MainActivity : FlutterFragmentActivity() {
         } catch (_: Throwable) {
             // 忽略不支持多进程或未初始化异常。
         }
-        AutoCapturePermissions.syncOnAppStart(this)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

@@ -117,7 +117,7 @@ class AutoBookkeepingAccessibilityService : AccessibilityService() {
                 texts,
                 eventTexts,
                 windowChanged = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
-                alipayRows = receiptNodes?.takeIf { it.isNotEmpty() }?.let(::alipayReceiptRows),
+                alipayRows = receiptNodes?.takeIf { it.isNotEmpty() }?.let(::paymentReceiptRows),
             )
         } else false
         merchantCapture.onEvent(event, recognized, texts + eventTexts)
@@ -148,7 +148,7 @@ class AutoBookkeepingAccessibilityService : AccessibilityService() {
         }
         val nodes = mutableListOf<Pair<Rect, String>>()
         collectReceiptNodes(root, bottom, nodes, 0)
-        val matched = AutoBillParser.handleAlipayCheckoutControls(this, alipayReceiptRows(nodes), noticeAmount)
+        val matched = AutoBillParser.handleAlipayCheckoutControls(this, paymentReceiptRows(nodes), noticeAmount)
         if (matched) alipayCheckoutRecognized = true
         return matched
     }

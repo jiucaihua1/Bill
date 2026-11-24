@@ -30,6 +30,45 @@ internal object WalletBillFields {
     private val checkoutStatuses = setOf("支付成功", "付款成功", "支付完成")
     private val checkoutLabels = checkoutStatuses + setOf("付款方式", "回首页", "完成", "账单详情")
 
+    data class WechatDetail(val amount: Double, val paidAt: Long, val merchant: String, val product: String)
+
+    fun isWechatDetail(text: String): Boolean {
+        val lines = linesOf(text).map { it.filterNot(Char::isWhitespace) }
+        return lines.any { it.startsWith("当前状态") } &&
+            lines.any { it.startsWith("支付时间") } &&
+            lines.any {
+                it.startsWith("交易单号") || it.startsWith("商户单号") || it == "全部账单"
+            }
+    }
+
+    fun wechatDetail(text: String): WechatDetail? {
+        val lines = linesOf(text)
+        val statusRow = lines.indexOfFirst { it.filterNot(Char::isWhitespace).startsWith("当前状态") }
+        if (statusRow < 0) return null
+        val fields = lines.drop(statusRow)
+        if (detailField(fields, "当前状态")?.filterNot(Char::isWhitespace) != "支付成功") return null
+        val amount = lines.take(statusRow).mapNotNull {
+            val match = signedAmount.matchEntire(it.replace(decimalDot, ".")) ?: return@mapNotNull null
+            match.takeUnless { it.groupValues[1] == "+" }?.groupValues?.get(2)?.let(::money)
+        }.singleOrNull() ?: return null
+        val paidAt = detailField(fields, "支付时间")?.let {
+            parseDate(it.filterNot(Char::isWhitespace), "yyyy年M月d日HH:mm:ss")
+        } ?: return null
+        val merchant = detailField(fields, "商户全称", "商户名称")?.let(::recipient) ?: return null
+        val product = detailField(fields, *purchaseProductLabels, "商品")?.let(::recipient) ?: return null
+        return WechatDetail(amount, paidAt, merchant, product)
+    }
+
+    private fun detailField(lines: List<String>, vararg labels: String): String? =
+        field(lines, *labels) ?: field(lines.map { row ->
+            val compact = row.replace(cjkSpacing, "")
+            val label = labels.firstOrNull { compact.startsWith(it) }
+            if (label == null || compact == label) compact else "$label: ${compact.removePrefix(label).trimStart(':', ' ')}"
+        }, *labels)
+
+    fun sameWechatMerchant(first: String, second: String): Boolean =
+        normalize(first).filterNot(Char::isWhitespace) == normalize(second).filterNot(Char::isWhitespace)
+
     fun alipayNotification(title: String, body: String): ParsedBill? {
         if (normalize(title).trim() != "交易提醒") return null
         val amount = alipayAlert.find(normalize(body))?.groupValues?.get(1)?.let(::money) ?: return null
@@ -126,7 +165,7 @@ internal object WalletBillFields {
         val merchant = lines.getOrNull(amountIndex - 1)?.takeUnless { it in setOf("账单详情", "全部账单") }
             ?: field(lines, "对方账户", "收款方全称")
         val product = field(lines, "商品说明", "转账备注")
-        val time = field(lines, "支付时间", "创建时间")?.let(::parseDate)
+        val time = field(lines, "支付时间", "创建时间")?.let { parseDate(it) }
         return ParsedBill(
             amount, type, "", "支付宝自动识别",
             merchant = merchant, product = product, paymentMethod = method,
@@ -152,9 +191,9 @@ internal object WalletBillFields {
     fun last4(method: String?): String? = method?.let { cardSuffix.find(it) }
         ?.groupValues?.drop(1)?.firstOrNull(String::isNotEmpty)
 
-    private fun parseDate(text: String): Long? {
+    private fun parseDate(text: String, pattern: String = "yyyy-MM-dd HH:mm:ss"): Long? {
         val position = ParsePosition(0)
-        val format = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).apply { isLenient = false }
+        val format = SimpleDateFormat(pattern, Locale.ROOT).apply { isLenient = false }
         return format.parse(text, position)?.time?.takeIf { position.index == text.length }
     }
 

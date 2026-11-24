@@ -3184,6 +3184,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     }
     _activeBookId = bookId;
     _store.write(_activeBookKey, _activeBookId);
+    _markWidgetProjectionChanged();
     notifyListeners();
   }
 

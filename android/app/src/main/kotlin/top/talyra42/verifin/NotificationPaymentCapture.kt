@@ -160,7 +160,9 @@ internal fun recognizeNotificationPaymentImage(
 ): Task<NotificationPaymentText> = model.process(InputImage.fromBitmap(bitmap, 0))
     .continueWithTask(context.mainExecutor) { task ->
         val result = task.result
-        val receiptRows = if (notice.target == AutoBillParser.PKG_ALIPAY) alipayReceiptRows(result) else null
+        val receiptRows = if (notice.target == AutoBillParser.PKG_ALIPAY ||
+            WalletBillFields.isWechatDetail(result.text)
+        ) paymentReceiptRows(result) else null
         val region = paymentAmountRegion(bitmap, includeLowerAmount = true)
         val amountText = paymentAmountLines(result, region)
         if (isCurrent() &&

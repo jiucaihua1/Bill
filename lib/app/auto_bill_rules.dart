@@ -115,18 +115,17 @@ class AutoBillSuggestions {
     final goods = _normalized(draft['product']);
     final text = '$merchant $goods';
     final explicitMeal = _meal.firstMatch(text)?.group(0);
+    final isRestaurant = _restaurant.hasMatch(merchant);
+    final useMealTime = isRestaurant || merchant == '沈阳理工大学';
     final hour = time.hour;
     final label =
         explicitMeal ??
         switch (text) {
           _ when _drinks.hasMatch(text) && !_snacks.hasMatch(text) => '饮料酒水',
           _ when _snacks.hasMatch(text) && !_drinks.hasMatch(text) => '休闲零食',
-          _ when _restaurant.hasMatch(merchant) && hour >= 5 && hour < 10 =>
-            '早餐',
-          _ when _restaurant.hasMatch(merchant) && hour >= 11 && hour < 15 =>
-            '午餐',
-          _ when _restaurant.hasMatch(merchant) && hour >= 17 && hour < 22 =>
-            '晚餐',
+          _ when useMealTime && hour >= 5 && hour < 10 => '早餐',
+          _ when useMealTime && hour >= 11 && hour < 15 => '午餐',
+          _ when useMealTime && hour >= 17 && hour < 22 => '晚餐',
           _ => null,
         };
     if (label != null) {
@@ -139,7 +138,7 @@ class AutoBillSuggestions {
               .firstOrNull ??
           dining;
     }
-    return fallback ?? (_restaurant.hasMatch(merchant) ? dining : null);
+    return fallback ?? (isRestaurant ? dining : null);
   }
 
   static final _cardSuffix = RegExp(r'^\d{4}$');
