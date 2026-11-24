@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/category_tree.dart';
-import 'package:verifin/app/models.dart';
+import 'package:xiaohe/app/category_tree.dart';
+import 'package:xiaohe/app/models.dart';
 
 Category _cat(String id, {String? parent, EntryType type = EntryType.expense}) {
   return Category(

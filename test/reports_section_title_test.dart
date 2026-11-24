@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/common_widgets.dart';
-import 'package:verifin/local_storage/local_storage.dart';
+import 'package:xiaohe/app/common_widgets.dart';
+import 'package:xiaohe/local_storage/local_storage.dart';
 
 import 'support/test_harness.dart';
 

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:verifin/app/app_theme.dart';
-import 'package:verifin/app/root_navigation.dart';
-import 'package:verifin/app/root_navigation_styles.dart';
+import 'package:xiaohe/app/app_theme.dart';
+import 'package:xiaohe/app/root_navigation.dart';
+import 'package:xiaohe/app/root_navigation_styles.dart';
 
 /// 停靠底栏的布局与契约。
 ///

@@ -1,14 +1,14 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/app_theme.dart';
-import 'package:verifin/app/chart_painters.dart';
-import 'package:verifin/app/common_widgets.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/local_storage/local_storage.dart';
-import 'package:verifin/main.dart';
-import 'package:verifin/pages/account_detail_page.dart';
+import 'package:xiaohe/app/app_theme.dart';
+import 'package:xiaohe/app/chart_painters.dart';
+import 'package:xiaohe/app/common_widgets.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/local_storage/local_storage.dart';
+import 'package:xiaohe/main.dart';
+import 'package:xiaohe/pages/account_detail_page.dart';
 
 import 'support/test_harness.dart';
 

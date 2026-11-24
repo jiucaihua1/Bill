@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/ai/ai_agent_message.dart';
-import 'package:verifin/app/ai/ai_capabilities.dart';
-import 'package:verifin/app/ai/ai_completion_event.dart';
-import 'package:verifin/app/ai/ai_error.dart';
-import 'package:verifin/app/ai/ai_settings.dart';
+import 'package:xiaohe/app/ai/ai_agent_message.dart';
+import 'package:xiaohe/app/ai/ai_capabilities.dart';
+import 'package:xiaohe/app/ai/ai_completion_event.dart';
+import 'package:xiaohe/app/ai/ai_error.dart';
+import 'package:xiaohe/app/ai/ai_settings.dart';
 
 void main() {
   const settings = AiSettings(

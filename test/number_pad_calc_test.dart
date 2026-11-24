@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/calc_expression.dart';
-import 'package:verifin/app/entry_sheets.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/main.dart';
-import 'package:verifin/pages/sheets.dart';
+import 'package:xiaohe/app/calc_expression.dart';
+import 'package:xiaohe/app/entry_sheets.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/main.dart';
+import 'package:xiaohe/pages/sheets.dart';
 
 import 'support/test_harness.dart';
 

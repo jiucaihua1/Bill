@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/local_storage/local_storage.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/local_storage/local_storage.dart';
 
 import 'support/test_harness.dart';
 

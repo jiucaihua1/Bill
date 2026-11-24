@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/amount_format.dart' as amount_format;
-import 'package:verifin/app/currency_catalog.dart';
-import 'package:verifin/app/currency_math.dart';
-import 'package:verifin/app/ledger_math.dart';
-import 'package:verifin/app/models.dart';
+import 'package:xiaohe/app/amount_format.dart' as amount_format;
+import 'package:xiaohe/app/currency_catalog.dart';
+import 'package:xiaohe/app/currency_math.dart';
+import 'package:xiaohe/app/ledger_math.dart';
+import 'package:xiaohe/app/models.dart';
 
 void main() {
   group('CurrencyCatalog', () {

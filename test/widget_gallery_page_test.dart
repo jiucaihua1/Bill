@@ -1,9 +1,9 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/native_widget_preview.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/pages/widget_gallery_page.dart';
+import 'package:xiaohe/app/native_widget_preview.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/pages/widget_gallery_page.dart';
 
 import 'support/test_harness.dart';
 

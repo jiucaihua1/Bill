@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/app_theme.dart';
-import 'package:verifin/app/entry_save_feedback.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/app/veri_fin_controller.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/l10n/app_localizations.dart';
-import 'package:verifin/pages/transaction_detail_page.dart';
+import 'package:xiaohe/app/app_theme.dart';
+import 'package:xiaohe/app/entry_save_feedback.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/veri_fin_controller.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/l10n/app_localizations.dart';
+import 'package:xiaohe/pages/transaction_detail_page.dart';
 
 import 'support/test_harness.dart';
 

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/widgets/widget_refresh_coordinator.dart';
+import 'package:xiaohe/app/widgets/widget_refresh_coordinator.dart';
 
 void main() {
   testWidgets('防抖只推一次，切后台会取消防抖并先刷盘再推送', (tester) async {

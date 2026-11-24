@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/update/update_check.dart';
+import 'package:xiaohe/app/update/update_check.dart';
 
 /// 这些用例需要真实 `dart:io` HTTP，因此**不能**与 widget 测试放在同一文件：
 /// `TestWidgetsFlutterBinding` 会把所有 HTTP 请求拦成 400。与

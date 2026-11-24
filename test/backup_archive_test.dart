@@ -3,8 +3,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/attachments/attachment_store.dart';
-import 'package:verifin/app/backup/backup_archive.dart';
+import 'package:xiaohe/app/attachments/attachment_store.dart';
+import 'package:xiaohe/app/backup/backup_archive.dart';
 
 void main() {
   // 造一张「图片」：一段可压缩的字节，走 AttachmentStore 文件路径。

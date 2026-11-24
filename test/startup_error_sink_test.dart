@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/logging/app_logger.dart';
-import 'package:verifin/app/startup/startup_error_sink.dart';
-import 'package:verifin/local_storage/local_storage.dart';
+import 'package:xiaohe/app/logging/app_logger.dart';
+import 'package:xiaohe/app/startup/startup_error_sink.dart';
+import 'package:xiaohe/local_storage/local_storage.dart';
 
 void main() {
   test('logger 就绪前的记录先缓冲，attach 后按原时间回放', () {

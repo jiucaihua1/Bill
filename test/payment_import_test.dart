@@ -5,12 +5,12 @@ import 'dart:typed_data';
 import 'package:archive/archive.dart';
 import 'package:charset/charset.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/backup/payment_import.dart';
-import 'package:verifin/app/backup/transaction_import.dart'
+import 'package:xiaohe/app/backup/payment_import.dart';
+import 'package:xiaohe/app/backup/transaction_import.dart'
     show transactionCsvExport;
-import 'package:verifin/app/ledger_data_validation.dart';
-import 'package:verifin/app/ledger_math.dart';
-import 'package:verifin/app/models.dart';
+import 'package:xiaohe/app/ledger_data_validation.dart';
+import 'package:xiaohe/app/ledger_math.dart';
+import 'package:xiaohe/app/models.dart';
 
 /// 构造最小 xlsx（仅 sharedStrings + sheet1），供微信解析测试。
 /// 结构与真实微信导出一致：字符串走 sharedStrings、日期/金额为数字单元格。

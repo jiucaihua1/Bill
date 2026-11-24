@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/credit_card.dart';
+import 'package:xiaohe/app/credit_card.dart';
 
 void main() {
   test('nextDueDate 当月未过取当月，已过顺延下月', () {

@@ -40,20 +40,20 @@ void warn(String message) => stdout.writeln(_paint('! $message', '33'));
 /// 失败信息（写 stderr）。
 void error(String message) => stderr.writeln(_paint('✗ $message', '31'));
 
-/// 从当前目录向上寻找包含 `name: verifin` 的 pubspec.yaml 所在目录。
+/// 从当前目录向上寻找包含 `name: xiaohe` 的 pubspec.yaml 所在目录。
 Directory findRepoRoot() {
   var dir = Directory.current.absolute;
   while (true) {
     final pubspec = File(p.join(dir.path, 'pubspec.yaml'));
     if (pubspec.existsSync()) {
       final text = pubspec.readAsStringSync();
-      if (RegExp(r'^name:\s*verifin\s*$', multiLine: true).hasMatch(text)) {
+      if (RegExp(r'^name:\s*xiaohe\s*$', multiLine: true).hasMatch(text)) {
         return dir;
       }
     }
     final parent = dir.parent;
     if (parent.path == dir.path) {
-      throw ScriptException('未找到 verifin 仓库根目录；请在仓库内运行本脚本。');
+      throw ScriptException('未找到 xiaohe 仓库根目录，请在仓库内运行本脚本。');
     }
     dir = parent;
   }

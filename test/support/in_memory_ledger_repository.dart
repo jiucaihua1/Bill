@@ -1,5 +1,5 @@
-import 'package:verifin/app/models.dart';
-import 'package:verifin/data/ledger_repository.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/data/ledger_repository.dart';
 
 /// 纯内存仓储实现，供 widget / 控制器逻辑测试注入。
 ///

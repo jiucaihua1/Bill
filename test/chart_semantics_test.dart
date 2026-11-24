@@ -1,7 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/chart_painters.dart';
+import 'package:xiaohe/app/chart_painters.dart';
 
 import 'support/test_harness.dart';
 

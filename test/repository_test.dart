@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/data/app_database.dart';
-import 'package:verifin/data/ledger_repository.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/data/app_database.dart';
+import 'package:xiaohe/data/ledger_repository.dart';
 
 /// 旧版 accounts 表（无 statement_day/due_day）。迁移测试的桩库都需要它，
 /// 因为 v7→v8 会 ALTER accounts。

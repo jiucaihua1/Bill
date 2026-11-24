@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/credits.dart';
-import 'package:verifin/app/credits_avatar.dart';
+import 'package:xiaohe/app/credits.dart';
+import 'package:xiaohe/app/credits_avatar.dart';
 
 import 'support/test_harness.dart';
 

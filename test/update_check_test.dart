@@ -5,8 +5,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-import 'package:verifin/app/external_links.dart';
-import 'package:verifin/app/update/update_check.dart';
+import 'package:xiaohe/app/external_links.dart';
+import 'package:xiaohe/app/update/update_check.dart';
 
 import 'support/test_harness.dart';
 

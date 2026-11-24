@@ -5,20 +5,20 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/amount_format.dart' as amount_format;
-import 'package:verifin/app/common_widgets.dart';
-import 'package:verifin/app/currency_math.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/app/veri_fin_controller.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/l10n/app_localizations.dart';
-import 'package:verifin/pages/account_detail_page.dart';
-import 'package:verifin/pages/assets_pages.dart';
-import 'package:verifin/pages/budget_pages.dart';
-import 'package:verifin/pages/home_page.dart';
-import 'package:verifin/pages/profile_pages.dart';
-import 'package:verifin/pages/reports_page.dart';
-import 'package:verifin/pages/transactions_pages.dart';
+import 'package:xiaohe/app/amount_format.dart' as amount_format;
+import 'package:xiaohe/app/common_widgets.dart';
+import 'package:xiaohe/app/currency_math.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/veri_fin_controller.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/l10n/app_localizations.dart';
+import 'package:xiaohe/pages/account_detail_page.dart';
+import 'package:xiaohe/pages/assets_pages.dart';
+import 'package:xiaohe/pages/budget_pages.dart';
+import 'package:xiaohe/pages/home_page.dart';
+import 'package:xiaohe/pages/profile_pages.dart';
+import 'package:xiaohe/pages/reports_page.dart';
+import 'package:xiaohe/pages/transactions_pages.dart';
 
 import 'support/test_harness.dart';
 

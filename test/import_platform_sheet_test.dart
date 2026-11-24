@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/pages/data_management_page.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/pages/data_management_page.dart';
 
 import 'support/test_harness.dart';
 

@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/backup/backup_coordinator.dart';
-import 'package:verifin/app/backup/backup_settings.dart';
+import 'package:xiaohe/app/backup/backup_coordinator.dart';
+import 'package:xiaohe/app/backup/backup_settings.dart';
 
 import 'support/test_harness.dart';
 

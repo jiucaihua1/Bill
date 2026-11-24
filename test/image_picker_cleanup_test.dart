@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/image_picker_cleanup_io.dart';
+import 'package:xiaohe/app/image_picker_cleanup_io.dart';
 
 void main() {
   test('image picker copy is deleted without touching other paths', () async {

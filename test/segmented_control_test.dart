@@ -1,8 +1,8 @@
 import 'package:animated_toggle_switch/animated_toggle_switch.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/app_theme.dart';
-import 'package:verifin/app/common_widgets.dart';
+import 'package:xiaohe/app/app_theme.dart';
+import 'package:xiaohe/app/common_widgets.dart';
 
 void main() {
   /// 轨道的横向内边距与选项间隙，必须与 `VeriSegmentedControl` 内部取值一致。

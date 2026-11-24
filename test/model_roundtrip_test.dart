@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/data/app_database.dart';
-import 'package:verifin/data/ledger_repository.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/data/app_database.dart';
+import 'package:xiaohe/data/ledger_repository.dart';
 
 /// 模型字段往返测试：防「四处手写映射」漂移。
 ///

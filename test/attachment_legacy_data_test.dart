@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common/sqflite_logger.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/data/app_database.dart';
-import 'package:verifin/data/ledger_repository.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/data/app_database.dart';
+import 'package:xiaohe/data/ledger_repository.dart';
 
 /// Issue 45 的附件回归测试：旧库的 `attachments.data_url` 里可能内嵌几十~上百 MB 的
 /// base64 图片。

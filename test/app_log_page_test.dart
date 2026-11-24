@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/logging/app_logger.dart';
-import 'package:verifin/app/veri_fin_controller.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/local_storage/local_storage.dart';
-import 'package:verifin/pages/app_log_page.dart';
+import 'package:xiaohe/app/logging/app_logger.dart';
+import 'package:xiaohe/app/veri_fin_controller.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/local_storage/local_storage.dart';
+import 'package:xiaohe/pages/app_log_page.dart';
 
 import 'support/in_memory_ledger_repository.dart';
 import 'support/test_harness.dart';
@@ -37,7 +37,7 @@ void main() {
       source: 'flutter',
       error: StateError('exploded'),
       stackTrace: StackTrace.fromString(
-        '#0      main (package:verifin/main.dart:1:1)',
+        '#0      main (package:xiaohe/main.dart:1:1)',
       ),
     );
     final controller = await createTestController(

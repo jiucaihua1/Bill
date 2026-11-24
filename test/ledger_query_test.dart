@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/ai/ledger_query.dart';
-import 'package:verifin/app/ledger_math.dart';
-import 'package:verifin/app/models.dart';
+import 'package:xiaohe/app/ai/ledger_query.dart';
+import 'package:xiaohe/app/ledger_math.dart';
+import 'package:xiaohe/app/models.dart';
 
 LedgerEntry _entry({
   required String id,

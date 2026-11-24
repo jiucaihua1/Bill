@@ -2,8 +2,8 @@
 // 系统开启「减少动态效果」时保持静止，不留下常驻动画。
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/app_theme.dart';
-import 'package:verifin/app/common_widgets.dart';
+import 'package:xiaohe/app/app_theme.dart';
+import 'package:xiaohe/app/common_widgets.dart';
 
 Widget _host(
   Widget child, {

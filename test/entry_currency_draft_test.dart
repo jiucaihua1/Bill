@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/entry_currency_draft.dart';
+import 'package:xiaohe/app/entry_currency_draft.dart';
 
 void main() {
   test('原币金额变化按既有结算比例缩放并遵循目标币种精度', () {

@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/data/app_database.dart';
-import 'package:verifin/data/ledger_repository.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/data/app_database.dart';
+import 'package:xiaohe/data/ledger_repository.dart';
 
 /// 迁移矩阵测试：从每一个历史版本起步升级到最新 schema，断言
 /// ① 升级后的库结构与全新建库（onCreate）完全一致——抓「迁移段忘加列/表，

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/chart_painters.dart';
+import 'package:xiaohe/app/chart_painters.dart';
 
 void main() {
   testWidgets('环内百分比标题与可点中心', (tester) async {

@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:verifin/app/account_icon_assets.dart';
-import 'package:verifin/app/app_theme.dart';
-import 'package:verifin/app/common_widgets.dart';
-import 'package:verifin/app/icon_catalog.dart';
-import 'package:verifin/app/models.dart';
+import 'package:xiaohe/app/account_icon_assets.dart';
+import 'package:xiaohe/app/app_theme.dart';
+import 'package:xiaohe/app/common_widgets.dart';
+import 'package:xiaohe/app/icon_catalog.dart';
+import 'package:xiaohe/app/models.dart';
 
 void main() {
   test('账户 SVG 目录与注册表一一对应且资源安全', () {

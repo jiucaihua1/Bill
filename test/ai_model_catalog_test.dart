@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/ai/ai_error.dart';
-import 'package:verifin/app/ai/ai_model_catalog.dart';
-import 'package:verifin/app/ai/ai_provider_presets.dart';
-import 'package:verifin/app/ai/ai_settings.dart';
+import 'package:xiaohe/app/ai/ai_error.dart';
+import 'package:xiaohe/app/ai/ai_model_catalog.dart';
+import 'package:xiaohe/app/ai/ai_provider_presets.dart';
+import 'package:xiaohe/app/ai/ai_settings.dart';
 
 Future<AiSettings> _serve(
   Future<void> Function(HttpRequest request) handler,

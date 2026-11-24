@@ -3,8 +3,8 @@ import 'package:anchored_menu/anchored_menu.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:verifin/app/app_theme.dart';
-import 'package:verifin/app/common_widgets.dart';
+import 'package:xiaohe/app/app_theme.dart';
+import 'package:xiaohe/app/common_widgets.dart';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();

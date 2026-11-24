@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/category_icon_presets.dart';
-import 'package:verifin/app/category_icon_theme.dart';
-import 'package:verifin/app/common_widgets.dart';
-import 'package:verifin/app/icon_catalog.dart';
+import 'package:xiaohe/app/category_icon_presets.dart';
+import 'package:xiaohe/app/category_icon_theme.dart';
+import 'package:xiaohe/app/common_widgets.dart';
+import 'package:xiaohe/app/icon_catalog.dart';
 
 void main() {
   test('分类图标预设 SVG 资源与映射完整且安全', () {

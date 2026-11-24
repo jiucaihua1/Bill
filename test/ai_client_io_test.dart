@@ -3,10 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/ai/ai_agent_message.dart';
-import 'package:verifin/app/ai/ai_client.dart';
-import 'package:verifin/app/ai/ai_completion_event.dart';
-import 'package:verifin/app/ai/ai_settings.dart';
+import 'package:xiaohe/app/ai/ai_agent_message.dart';
+import 'package:xiaohe/app/ai/ai_client.dart';
+import 'package:xiaohe/app/ai/ai_completion_event.dart';
+import 'package:xiaohe/app/ai/ai_settings.dart';
 
 typedef _RequestHandler = Future<void> Function(HttpRequest request);
 

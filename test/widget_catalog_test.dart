@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/widgets/widget_catalog.dart';
-import 'package:verifin/app/widgets/widget_projection.dart';
+import 'package:xiaohe/app/widgets/widget_catalog.dart';
+import 'package:xiaohe/app/widgets/widget_projection.dart';
 
 void main() {
   test('模板线上 key 与 Provider 映射稳定', () {

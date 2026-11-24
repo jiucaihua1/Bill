@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/app_version.dart';
+import 'package:xiaohe/app/app_version.dart';
 
 /// 版本号有三个真源，`scripts/publish.*` 发版时一起改写：
 /// `pubspec.yaml` 的 `version`、`lib/app/app_version.dart` 的 `appVersionLabel`、

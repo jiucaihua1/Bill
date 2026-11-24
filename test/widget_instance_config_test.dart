@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/widgets/widget_catalog.dart';
-import 'package:verifin/app/widgets/widget_instance_config.dart';
+import 'package:xiaohe/app/widgets/widget_catalog.dart';
+import 'package:xiaohe/app/widgets/widget_instance_config.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

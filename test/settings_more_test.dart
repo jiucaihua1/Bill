@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/external_links.dart';
+import 'package:xiaohe/app/external_links.dart';
 
 import 'support/test_harness.dart';
 

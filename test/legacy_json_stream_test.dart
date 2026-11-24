@@ -3,8 +3,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/attachments/attachment_store.dart';
-import 'package:verifin/app/backup/legacy_json_stream.dart';
+import 'package:xiaohe/app/attachments/attachment_store.dart';
+import 'package:xiaohe/app/backup/legacy_json_stream.dart';
 
 void main() {
   test('流式重写：内嵌 base64 外置，其余字段与结构保持不变', () async {

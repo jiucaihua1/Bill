@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/ai/ai_streaming_text_buffer.dart';
+import 'package:xiaohe/app/ai/ai_streaming_text_buffer.dart';
 
 void main() {
   test('coalesces timer-driven deltas into one flush', () async {

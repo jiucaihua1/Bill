@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/platform_bridge.dart';
+import 'package:xiaohe/app/platform_bridge.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

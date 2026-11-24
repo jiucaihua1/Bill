@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/external_links.dart';
+import 'package:xiaohe/app/external_links.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

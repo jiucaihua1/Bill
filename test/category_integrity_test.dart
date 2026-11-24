@@ -1,12 +1,12 @@
 // 「幽灵同名分类」相关的回归测试：覆盖显示层止血（悬空/孤儿分类不再冒名成同名分类）、
 // 聚合下钻取数、以及控制器载入 / 导入时的一次性分类参照完整性自愈。
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/category_tree.dart';
-import 'package:verifin/app/model_lookup.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/app/report_analysis.dart';
-import 'package:verifin/app/veri_fin_controller.dart';
-import 'package:verifin/local_storage/local_storage.dart';
+import 'package:xiaohe/app/category_tree.dart';
+import 'package:xiaohe/app/model_lookup.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/report_analysis.dart';
+import 'package:xiaohe/app/veri_fin_controller.dart';
+import 'package:xiaohe/local_storage/local_storage.dart';
 
 import 'support/in_memory_ledger_repository.dart';
 import 'support/test_harness.dart';

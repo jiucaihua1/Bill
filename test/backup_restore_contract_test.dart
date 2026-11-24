@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/backup/backup_storage.dart';
-import 'package:verifin/app/data_file_picker.dart';
+import 'package:xiaohe/app/backup/backup_storage.dart';
+import 'package:xiaohe/app/data_file_picker.dart';
 
 /// 恢复入口的契约测试（Issue 45 回归）。
 ///

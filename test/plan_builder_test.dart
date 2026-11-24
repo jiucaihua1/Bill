@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/backup/import/plan_builder.dart';
-import 'package:verifin/app/backup/import/raw_import.dart';
-import 'package:verifin/app/ledger_math.dart';
-import 'package:verifin/app/models.dart';
+import 'package:xiaohe/app/backup/import/plan_builder.dart';
+import 'package:xiaohe/app/backup/import/raw_import.dart';
+import 'package:xiaohe/app/ledger_math.dart';
+import 'package:xiaohe/app/models.dart';
 
 /// 固定时钟：plan_builder 的 id 由 now 派生，固定它保证断言可复现。
 final DateTime _now = DateTime(2026, 7, 12, 12);

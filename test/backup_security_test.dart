@@ -3,8 +3,8 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/attachments/attachment_store.dart';
-import 'package:verifin/app/backup/backup_archive.dart';
+import 'package:xiaohe/app/attachments/attachment_store.dart';
+import 'package:xiaohe/app/backup/backup_archive.dart';
 
 void main() {
   test('attachment ids reject path separators and traversal', () {

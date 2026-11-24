@@ -1,8 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/backup/transaction_import.dart';
-import 'package:verifin/app/models.dart';
+import 'package:xiaohe/app/backup/transaction_import.dart';
+import 'package:xiaohe/app/models.dart';
 
 void main() {
   test('演示 CSV 使用正式模板解析，可追加 18 笔跨月交易', () {

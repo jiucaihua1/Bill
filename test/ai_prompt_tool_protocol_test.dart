@@ -1,11 +1,11 @@
 import 'dart:ui' show Locale;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/ai/ai_error.dart';
-import 'package:verifin/app/ai/ai_ledger_snapshot.dart';
-import 'package:verifin/app/ai/ai_prompt_tool_protocol.dart';
-import 'package:verifin/app/ai/ai_query_tool.dart';
-import 'package:verifin/l10n/app_localizations.dart';
+import 'package:xiaohe/app/ai/ai_error.dart';
+import 'package:xiaohe/app/ai/ai_ledger_snapshot.dart';
+import 'package:xiaohe/app/ai/ai_prompt_tool_protocol.dart';
+import 'package:xiaohe/app/ai/ai_query_tool.dart';
+import 'package:xiaohe/l10n/app_localizations.dart';
 
 void main() {
   const tools = <String>{'summary', 'queryTransactions'};

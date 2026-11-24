@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
-import 'package:verifin/app/app_theme.dart';
-import 'package:verifin/app/root_navigation.dart';
-import 'package:verifin/app/root_navigation_liquid_glass.dart';
-import 'package:verifin/app/root_navigation_styles.dart';
+import 'package:xiaohe/app/app_theme.dart';
+import 'package:xiaohe/app/root_navigation.dart';
+import 'package:xiaohe/app/root_navigation_liquid_glass.dart';
+import 'package:xiaohe/app/root_navigation_styles.dart';
 
 /// 液态玻璃底栏样式：几何声明、条目契约与交互行为。
 void main() {

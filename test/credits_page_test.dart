@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/credits.dart';
-import 'package:verifin/app/credits_avatar.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/pages/credits_page.dart';
+import 'package:xiaohe/app/credits.dart';
+import 'package:xiaohe/app/credits_avatar.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/pages/credits_page.dart';
 
 import 'support/test_harness.dart';
 

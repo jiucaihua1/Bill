@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/entry_sheets.dart';
-import 'package:verifin/app/platform_bridge.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/pages/shell.dart';
+import 'package:xiaohe/app/entry_sheets.dart';
+import 'package:xiaohe/app/platform_bridge.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/pages/shell.dart';
 import 'support/test_harness.dart';
 
 void main() {

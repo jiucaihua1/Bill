@@ -2,13 +2,13 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/l10n/app_localizations_zh.dart';
-import 'package:verifin/app/amount_format.dart' as amount_format;
-import 'package:verifin/app/credit_card.dart';
-import 'package:verifin/app/image_cropper.dart';
-import 'package:verifin/app/ledger_math.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/app/series_math.dart';
+import 'package:xiaohe/l10n/app_localizations_zh.dart';
+import 'package:xiaohe/app/amount_format.dart' as amount_format;
+import 'package:xiaohe/app/credit_card.dart';
+import 'package:xiaohe/app/image_cropper.dart';
+import 'package:xiaohe/app/ledger_math.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/series_math.dart';
 
 import 'support/test_harness.dart';
 

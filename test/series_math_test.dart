@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/amount_format.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/app/series_math.dart';
-import 'package:verifin/l10n/app_localizations.dart';
+import 'package:xiaohe/app/amount_format.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/series_math.dart';
+import 'package:xiaohe/l10n/app_localizations.dart';
 
 Account _account(String id, {double initial = 0}) => Account(
   id: id,

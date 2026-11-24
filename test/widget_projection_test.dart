@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/currency_math.dart';
-import 'package:verifin/app/ledger_math.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/app/widgets/widget_catalog.dart';
-import 'package:verifin/app/widgets/widget_projection.dart';
+import 'package:xiaohe/app/currency_math.dart';
+import 'package:xiaohe/app/ledger_math.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/widgets/widget_catalog.dart';
+import 'package:xiaohe/app/widgets/widget_projection.dart';
 
 final LedgerBook _book = LedgerBook(
   id: 'book',

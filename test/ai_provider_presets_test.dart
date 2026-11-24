@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/ai/ai_provider_presets.dart';
+import 'package:xiaohe/app/ai/ai_provider_presets.dart';
 
 void main() {
   test('核心渠道固定为八个，自定义不计入其中', () {

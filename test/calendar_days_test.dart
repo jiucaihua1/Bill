@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/credit_card.dart';
-import 'package:verifin/app/ledger_math.dart';
-import 'package:verifin/app/reminder/reminder_settings.dart';
-import 'package:verifin/app/report_analysis.dart';
+import 'package:xiaohe/app/credit_card.dart';
+import 'package:xiaohe/app/ledger_math.dart';
+import 'package:xiaohe/app/reminder/reminder_settings.dart';
+import 'package:xiaohe/app/report_analysis.dart';
 
 /// 跨夏令时（DST）的日期算术回归。
 ///

@@ -1,9 +1,9 @@
 // 命令类触感：只有显式命令与它的结果才给反馈，静默自动保存不给。
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/app_lock.dart';
-import 'package:verifin/app/haptics.dart';
-import 'package:verifin/pages/app_lock_page.dart';
+import 'package:xiaohe/app/app_lock.dart';
+import 'package:xiaohe/app/haptics.dart';
+import 'package:xiaohe/pages/app_lock_page.dart';
 
 import 'support/test_harness.dart';
 

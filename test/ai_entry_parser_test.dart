@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/ai/ai_client.dart';
-import 'package:verifin/app/ai/ai_entry_parser.dart';
-import 'package:verifin/app/models.dart';
+import 'package:xiaohe/app/ai/ai_client.dart';
+import 'package:xiaohe/app/ai/ai_entry_parser.dart';
+import 'package:xiaohe/app/models.dart';
 
 AiEntryContext _context() => AiEntryContext(
   expenseCategories: const <AiOption>[

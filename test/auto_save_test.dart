@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/auto_save.dart';
-import 'package:verifin/app/common_widgets.dart';
+import 'package:xiaohe/app/auto_save.dart';
+import 'package:xiaohe/app/common_widgets.dart';
 
 import 'support/test_harness.dart';
 

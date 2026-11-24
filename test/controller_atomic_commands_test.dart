@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/attachments/attachment_store.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/data/ledger_repository.dart';
-import 'package:verifin/local_storage/local_storage.dart';
+import 'package:xiaohe/app/attachments/attachment_store.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/data/ledger_repository.dart';
+import 'package:xiaohe/local_storage/local_storage.dart';
 
 import 'support/in_memory_ledger_repository.dart';
 import 'support/test_harness.dart';

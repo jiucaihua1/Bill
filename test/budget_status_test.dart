@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/budget_status.dart';
-import 'package:verifin/app/models.dart';
+import 'package:xiaohe/app/budget_status.dart';
+import 'package:xiaohe/app/models.dart';
 
 Category _cat(String id, String label, {String? parentId}) => Category(
   bookId: defaultLedgerBookId,

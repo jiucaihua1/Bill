@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/app_theme.dart';
+import 'package:xiaohe/app/app_theme.dart';
 
 /// WCAG 相对亮度（sRGB）。
 double _luminance(Color color) {

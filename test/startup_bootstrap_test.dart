@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/startup/startup_coordinator.dart';
-import 'package:verifin/app/startup/startup_error_sink.dart';
-import 'package:verifin/app/startup/verifin_bootstrap.dart';
+import 'package:xiaohe/app/startup/startup_coordinator.dart';
+import 'package:xiaohe/app/startup/startup_error_sink.dart';
+import 'package:xiaohe/app/startup/verifin_bootstrap.dart';
 
 void main() {
   setUp(() {

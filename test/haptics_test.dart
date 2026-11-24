@@ -4,8 +4,8 @@
 // 记录语义档位，避免每个用例都去 mock `SystemChannels.platform`。
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/haptics.dart';
-import 'package:verifin/local_storage/local_storage.dart';
+import 'package:xiaohe/app/haptics.dart';
+import 'package:xiaohe/local_storage/local_storage.dart';
 
 import 'support/test_harness.dart';
 

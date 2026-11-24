@@ -4,10 +4,10 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/app_theme.dart';
-import 'package:verifin/app/feedback.dart';
-import 'package:verifin/l10n/app_localizations.dart';
-import 'package:verifin/pages/shell.dart';
+import 'package:xiaohe/app/app_theme.dart';
+import 'package:xiaohe/app/feedback.dart';
+import 'package:xiaohe/l10n/app_localizations.dart';
+import 'package:xiaohe/pages/shell.dart';
 
 import 'support/test_harness.dart';
 

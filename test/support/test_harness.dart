@@ -9,16 +9,16 @@
 // [useTestDatabases] 注册清理。
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/attachments/attachment_store.dart';
-import 'package:verifin/app/feedback.dart';
-import 'package:verifin/app/haptics.dart';
-import 'package:verifin/app/logging/app_logger.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/app/veri_fin_controller.dart';
-import 'package:verifin/data/ledger_repository.dart';
-import 'package:verifin/l10n/app_localizations.dart';
-import 'package:verifin/local_storage/local_storage.dart';
-import 'package:verifin/main.dart';
+import 'package:xiaohe/app/attachments/attachment_store.dart';
+import 'package:xiaohe/app/feedback.dart';
+import 'package:xiaohe/app/haptics.dart';
+import 'package:xiaohe/app/logging/app_logger.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/veri_fin_controller.dart';
+import 'package:xiaohe/data/ledger_repository.dart';
+import 'package:xiaohe/l10n/app_localizations.dart';
+import 'package:xiaohe/local_storage/local_storage.dart';
+import 'package:xiaohe/main.dart';
 
 import 'in_memory_ledger_repository.dart';
 

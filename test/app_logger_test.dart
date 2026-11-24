@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/logging/app_logger.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/app/veri_fin_controller.dart';
-import 'package:verifin/local_storage/local_storage.dart';
+import 'package:xiaohe/app/logging/app_logger.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/veri_fin_controller.dart';
+import 'package:xiaohe/local_storage/local_storage.dart';
 
 import 'support/in_memory_ledger_repository.dart';
 import 'support/test_harness.dart';
@@ -30,7 +30,7 @@ void main() {
       source: 'persist',
       error: StateError('disk full'),
       stackTrace: StackTrace.fromString(
-        '#0      persist (package:verifin/controller.dart:42:9)',
+        '#0      persist (package:xiaohe/controller.dart:42:9)',
       ),
     );
 
@@ -40,7 +40,7 @@ void main() {
     expect(logger.records.first.stack, contains('controller.dart:42:9'));
     expect(
       logger.exportText(),
-      contains('#0      persist (package:verifin/controller.dart:42:9)'),
+      contains('#0      persist (package:xiaohe/controller.dart:42:9)'),
     );
     expect(logger.records.last.message, 'first');
 

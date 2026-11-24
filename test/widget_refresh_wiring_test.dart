@@ -1,10 +1,10 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/app/veri_fin_controller.dart';
-import 'package:verifin/app/widgets/widget_instance_config.dart';
-import 'package:verifin/app/widgets/widget_refresh_coordinator.dart';
-import 'package:verifin/app/widgets/widget_service.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/veri_fin_controller.dart';
+import 'package:xiaohe/app/widgets/widget_instance_config.dart';
+import 'package:xiaohe/app/widgets/widget_refresh_coordinator.dart';
+import 'package:xiaohe/app/widgets/widget_service.dart';
 
 import 'support/test_harness.dart';
 

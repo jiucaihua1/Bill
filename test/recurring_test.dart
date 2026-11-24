@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/recurring.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/pages/home_page.dart';
-import 'package:verifin/pages/recurring_page.dart';
+import 'package:xiaohe/app/recurring.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/pages/home_page.dart';
+import 'package:xiaohe/pages/recurring_page.dart';
 
 import 'support/test_harness.dart';
 

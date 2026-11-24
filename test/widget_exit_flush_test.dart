@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/veri_fin_controller.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/app/widgets/widget_refresh_coordinator.dart';
-import 'package:verifin/app/widgets/widget_refresh_scope.dart';
-import 'package:verifin/pages/shell.dart';
+import 'package:xiaohe/app/veri_fin_controller.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/app/widgets/widget_refresh_coordinator.dart';
+import 'package:xiaohe/app/widgets/widget_refresh_scope.dart';
+import 'package:xiaohe/pages/shell.dart';
 
 import 'support/test_harness.dart';
 

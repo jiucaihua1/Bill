@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/app_theme.dart';
-import 'package:verifin/app/common_widgets.dart';
-import 'package:verifin/pages/home_page.dart';
+import 'package:xiaohe/app/app_theme.dart';
+import 'package:xiaohe/app/common_widgets.dart';
+import 'package:xiaohe/pages/home_page.dart';
 
 void main() {
   test('路由过渡使用的 Material 基色必须不透明', () {

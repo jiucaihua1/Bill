@@ -1,9 +1,9 @@
 // 截图识账 / 外部采集记账：提示词、预过滤等纯函数，与 AI 弹层入口的 UI 行为。
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/ai/ai_entry_parser.dart';
-import 'package:verifin/app/ai/ai_settings.dart';
-import 'package:verifin/app/models.dart';
+import 'package:xiaohe/app/ai/ai_entry_parser.dart';
+import 'package:xiaohe/app/ai/ai_settings.dart';
+import 'package:xiaohe/app/models.dart';
 
 import 'support/test_harness.dart';
 

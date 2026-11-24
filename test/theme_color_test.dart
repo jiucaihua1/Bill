@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/app_theme.dart';
-import 'package:verifin/app/models.dart';
+import 'package:xiaohe/app/app_theme.dart';
+import 'package:xiaohe/app/models.dart';
 
 void main() {
   test('主题色偏好可编码、解码并强制使用不透明颜色', () {

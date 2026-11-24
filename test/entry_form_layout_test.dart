@@ -2,14 +2,14 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/app_theme.dart';
-import 'package:verifin/app/attachments/attachment_store.dart';
-import 'package:verifin/app/common_widgets.dart';
-import 'package:verifin/app/entry_sheets.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/pages/attachments_editor.dart';
-import 'package:verifin/pages/entry_detail_page.dart';
+import 'package:xiaohe/app/app_theme.dart';
+import 'package:xiaohe/app/attachments/attachment_store.dart';
+import 'package:xiaohe/app/common_widgets.dart';
+import 'package:xiaohe/app/entry_sheets.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/pages/attachments_editor.dart';
+import 'package:xiaohe/pages/entry_detail_page.dart';
 
 import 'support/test_harness.dart';
 

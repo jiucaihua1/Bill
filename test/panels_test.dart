@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/common_widgets.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/local_storage/local_storage.dart';
-import 'package:verifin/pages/home_page.dart';
+import 'package:xiaohe/app/common_widgets.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/local_storage/local_storage.dart';
+import 'package:xiaohe/pages/home_page.dart';
 
 import 'support/test_harness.dart';
 

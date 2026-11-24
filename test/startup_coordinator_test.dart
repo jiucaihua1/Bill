@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/startup/startup_coordinator.dart';
+import 'package:xiaohe/app/startup/startup_coordinator.dart';
 
 void main() {
   test('按任务顺序推进，完成后进入 ready 并记录各阶段耗时', () async {

@@ -3,15 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
-import 'package:verifin/app/ai/ai_agent_engine.dart';
-import 'package:verifin/app/ai/ai_completion_event.dart';
-import 'package:verifin/app/ai/ai_error.dart';
-import 'package:verifin/app/ai/ai_settings.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/pages/ai_chat_page.dart';
-import 'package:verifin/pages/ai_settings_page.dart';
-import 'package:verifin/pages/transaction_detail_page.dart';
+import 'package:xiaohe/app/ai/ai_agent_engine.dart';
+import 'package:xiaohe/app/ai/ai_completion_event.dart';
+import 'package:xiaohe/app/ai/ai_error.dart';
+import 'package:xiaohe/app/ai/ai_settings.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/pages/ai_chat_page.dart';
+import 'package:xiaohe/pages/ai_settings_page.dart';
+import 'package:xiaohe/pages/transaction_detail_page.dart';
 
 import 'support/test_harness.dart';
 

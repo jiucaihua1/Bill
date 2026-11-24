@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/chart_painters.dart';
+import 'package:xiaohe/app/chart_painters.dart';
 
 void main() {
   testWidgets('预算环由外部图表适配层渲染并保留中心内容', (tester) async {

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/ai/ai_agent_message.dart';
+import 'package:xiaohe/app/ai/ai_agent_message.dart';
 
 void main() {
   test('text messages serialize with their explicit role', () {

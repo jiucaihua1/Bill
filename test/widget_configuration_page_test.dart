@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/app_lock.dart';
-import 'package:verifin/app/native_widget_preview.dart';
-import 'package:verifin/app/widgets/widget_catalog.dart';
-import 'package:verifin/app/widgets/widget_instance_config.dart';
-import 'package:verifin/pages/widget_configuration_page.dart';
-import 'package:verifin/pages/app_lock_page.dart';
+import 'package:xiaohe/app/app_lock.dart';
+import 'package:xiaohe/app/native_widget_preview.dart';
+import 'package:xiaohe/app/widgets/widget_catalog.dart';
+import 'package:xiaohe/app/widgets/widget_instance_config.dart';
+import 'package:xiaohe/pages/widget_configuration_page.dart';
+import 'package:xiaohe/pages/app_lock_page.dart';
 
 import 'support/test_harness.dart';
 

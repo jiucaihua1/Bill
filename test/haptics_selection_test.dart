@@ -4,11 +4,11 @@
 // 断言只记录语义档位，平台映射由 `test/haptics_test.dart` 负责。
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/common_widgets.dart';
-import 'package:verifin/app/haptics.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/pages/settings_page.dart';
-import 'package:verifin/pages/sheets.dart';
+import 'package:xiaohe/app/common_widgets.dart';
+import 'package:xiaohe/app/haptics.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/pages/settings_page.dart';
+import 'package:xiaohe/pages/sheets.dart';
 
 import 'support/test_harness.dart';
 

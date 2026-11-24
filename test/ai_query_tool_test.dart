@@ -1,11 +1,11 @@
 import 'dart:ui' show Locale;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/ai/ai_ledger_snapshot.dart';
-import 'package:verifin/app/ai/ai_query_tool.dart';
-import 'package:verifin/app/ai/ai_tool_schema.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/l10n/app_localizations.dart';
+import 'package:xiaohe/app/ai/ai_ledger_snapshot.dart';
+import 'package:xiaohe/app/ai/ai_query_tool.dart';
+import 'package:xiaohe/app/ai/ai_tool_schema.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/l10n/app_localizations.dart';
 
 LedgerEntry _e({
   required String id,

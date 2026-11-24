@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/reminder/reminder_settings.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/local_storage/local_storage.dart';
-import 'package:verifin/pages/reminder_settings_page.dart';
+import 'package:xiaohe/app/reminder/reminder_settings.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/local_storage/local_storage.dart';
+import 'package:xiaohe/pages/reminder_settings_page.dart';
 
 import 'support/test_harness.dart';
 

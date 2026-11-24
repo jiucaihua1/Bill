@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/ai/ai_capabilities.dart';
-import 'package:verifin/app/ai/ai_model_catalog.dart';
-import 'package:verifin/app/ai/ai_provider_presets.dart';
-import 'package:verifin/app/ai/ai_settings.dart';
-import 'package:verifin/app/models.dart';
-import 'package:verifin/app/veri_fin_scope.dart';
-import 'package:verifin/local_storage/local_storage.dart';
-import 'package:verifin/pages/ai_settings_page.dart';
+import 'package:xiaohe/app/ai/ai_capabilities.dart';
+import 'package:xiaohe/app/ai/ai_model_catalog.dart';
+import 'package:xiaohe/app/ai/ai_provider_presets.dart';
+import 'package:xiaohe/app/ai/ai_settings.dart';
+import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/local_storage/local_storage.dart';
+import 'package:xiaohe/pages/ai_settings_page.dart';
 
 import 'support/test_harness.dart';
 

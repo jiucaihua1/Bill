@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:verifin/app/models.dart';
+import 'package:xiaohe/app/models.dart';
 
 import 'support/test_harness.dart';
 
