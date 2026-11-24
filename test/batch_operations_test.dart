@@ -171,7 +171,7 @@ void main() {
       ..dispose();
 
     await pumpApp(tester, store);
-    await tester.tap(find.text('最近交易'));
+    await openTransactionsFromHome(tester);
     await tester.pumpAndSettle();
 
     // 进入多选模式，点选两笔，删除。
@@ -199,7 +199,7 @@ void main() {
       ..dispose();
 
     await pumpApp(tester, store);
-    await tester.tap(find.text('最近交易'));
+    await openTransactionsFromHome(tester);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('多选'));
     await tester.pumpAndSettle();
@@ -237,7 +237,7 @@ void main() {
       ..dispose();
 
     await pumpApp(tester, store);
-    await tester.tap(find.text('最近交易'));
+    await openTransactionsFromHome(tester);
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('多选'));
     await tester.pumpAndSettle();

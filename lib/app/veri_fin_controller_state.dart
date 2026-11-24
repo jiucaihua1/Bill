@@ -87,6 +87,48 @@ mixin _ControllerState on ChangeNotifier {
   UserProfile get _seedProfile => defaultUserProfileFor(english: _seedEnglish);
 
   final List<LedgerEntry> _entries = <LedgerEntry>[];
+  AutoBillMerchantIndex? _autoBillMerchantIndex;
+  int _ledgerEntryRevision = 0;
+
+  void _ledgerEntryChanged(LedgerEntry entry) {
+    _entriesView = null;
+    _ledgerEntryRevision++;
+    _autoBillMerchantIndex?.upsert(entry);
+  }
+
+  void _writeLedgerEntryAt(int index, LedgerEntry entry) {
+    _entries[index] = entry;
+    _ledgerEntryChanged(entry);
+  }
+
+  void _replaceLedgerEntries(
+    Iterable<LedgerEntry> entries, {
+    int? previousRevision,
+    Iterable<String>? removedIds,
+    Iterable<LedgerEntry> changedEntries = const [],
+  }) {
+    _entries
+      ..clear()
+      ..addAll(entries);
+    _entriesView = null;
+    final canUpdate = previousRevision == _ledgerEntryRevision;
+    _ledgerEntryRevision++;
+    final index = _autoBillMerchantIndex;
+    if (index == null) return;
+    if (!canUpdate) {
+      _autoBillMerchantIndex = null;
+      return;
+    }
+    if (removedIds != null) {
+      for (final id in removedIds) {
+        index.remove(id);
+      }
+    }
+    for (final entry in changedEntries) {
+      index.upsert(entry);
+    }
+  }
+
   final List<LedgerBook> _ledgerBooks = <LedgerBook>[];
   final List<Account> _accounts = <Account>[];
   final List<AccountGroup> _accountGroups = <AccountGroup>[];
@@ -250,7 +292,12 @@ mixin _ControllerState on ChangeNotifier {
 
   /// 删除账户时，清掉任何指向它的默认付款账户设置。
 
+  bool _externalNetworkEnabled = false;
+  Future<void> _externalNetworkWrite = Future<void>.value();
+  int _externalNetworkChange = 0;
+
   void _loadPreferences() {
+    _externalNetworkEnabled = _store.read(_externalNetworkKey) == 'true';
     _themePreference = ThemePreference.fromStorage(_store.read(_themeKey));
     _themeColorPreference = ThemeColorPreference.fromStorage(
       _store.read(_themeColorKey),
@@ -415,9 +462,7 @@ mixin _ControllerState on ChangeNotifier {
     }
     final entries = await _repository.loadEntries();
     entries.sort(_compareEntriesLatestFirst);
-    _entries
-      ..clear()
-      ..addAll(entries);
+    _replaceLedgerEntries(entries);
     _tags
       ..clear()
       ..addAll(await _repository.loadTags());
@@ -510,7 +555,7 @@ mixin _ControllerState on ChangeNotifier {
       if (listEquals(next, entry.tagIds)) {
         continue;
       }
-      _entries[i] = entry.copyWith(tagIds: next);
+      _writeLedgerEntryAt(i, entry.copyWith(tagIds: next));
       changed = true;
     }
     return changed;
@@ -606,8 +651,9 @@ mixin _ControllerState on ChangeNotifier {
       final dupIds = remap.keys.toSet();
       for (var i = 0; i < _entries.length; i++) {
         if (dupIds.contains(_entries[i].categoryId)) {
-          _entries[i] = _entries[i].copyWith(
-            categoryId: resolve(_entries[i].categoryId),
+          _writeLedgerEntryAt(
+            i,
+            _entries[i].copyWith(categoryId: resolve(_entries[i].categoryId)),
           );
         }
       }
@@ -672,8 +718,14 @@ mixin _ControllerState on ChangeNotifier {
 
     for (var i = 0; i < _entries.length; i++) {
       if (needsUncategorized(_entries[i])) {
-        _entries[i] = _entries[i].copyWith(
-          categoryId: uncategorizedIdFor(_entries[i].bookId, _entries[i].type),
+        _writeLedgerEntryAt(
+          i,
+          _entries[i].copyWith(
+            categoryId: uncategorizedIdFor(
+              _entries[i].bookId,
+              _entries[i].type,
+            ),
+          ),
         );
         changed = true;
       }
@@ -713,7 +765,7 @@ mixin _ControllerState on ChangeNotifier {
       if (transferCategory.id.isEmpty) {
         continue;
       }
-      _entries[i] = entry.copyWith(categoryId: transferCategory.id);
+      _writeLedgerEntryAt(i, entry.copyWith(categoryId: transferCategory.id));
       changed = true;
     }
 
@@ -782,6 +834,9 @@ mixin _ControllerState on ChangeNotifier {
     }
     if (synthesized.isEmpty) return false;
     _entries.addAll(synthesized);
+    _entriesView = null;
+    _autoBillMerchantIndex = null;
+    _ledgerEntryRevision++;
     return true;
   }
 
@@ -834,9 +889,12 @@ mixin _ControllerState on ChangeNotifier {
       }
     }
     if (changed) {
+      // Only the derived refunded amount changes; the index reads notes,
+      // dates, accounts and categories.
       _entries
         ..clear()
         ..addAll(next);
+      _entriesView = null;
     }
     return changed;
   }

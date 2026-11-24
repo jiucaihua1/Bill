@@ -85,6 +85,7 @@ void main() {
 
       // 说明卡与净资产预览同排，右侧不再空一格。
       expect(find.textContaining('长按桌面空白处'), findsOneWidget);
+      expect(find.textContaining('背景透明度'), findsOneWidget);
     });
   }
 

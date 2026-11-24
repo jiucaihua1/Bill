@@ -62,13 +62,13 @@ void main() {
 
   // 评审外观现在是唯一外观：几何常量与骨架默认值都不再有第二套分支。
   test('设计令牌只保留评审外观的几何常量', () {
-    expect(veriCardRadius, 16);
+    expect(veriCardRadius, 18);
     expect(veriHeaderHeight, 56);
-    expect(veriRadiusMd, 12);
-    expect(veriRadiusLg, 16);
+    expect(veriRadiusMd, 14);
+    expect(veriRadiusLg, 18);
     expect(
       const VeriCard(child: SizedBox.shrink()).padding,
-      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   });
 

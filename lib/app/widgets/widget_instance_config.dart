@@ -22,6 +22,8 @@ class WidgetInstanceConfig {
     this.tapAction,
     this.leftMetric = WidgetDualMetricChoice.defaultLeft,
     this.rightMetric = WidgetDualMetricChoice.defaultRight,
+    this.backgroundOpacity = 1,
+    this.typography = defaultWidgetTypography,
   });
 
   final String bookId;
@@ -29,6 +31,8 @@ class WidgetInstanceConfig {
   final WidgetTapAction? tapAction;
   final WidgetDualMetricChoice leftMetric;
   final WidgetDualMetricChoice rightMetric;
+  final double backgroundOpacity;
+  final WidgetTypography typography;
 
   static WidgetInstanceConfig? decode(String? raw) {
     if (raw == null || raw.isEmpty) return null;
@@ -50,6 +54,8 @@ class WidgetInstanceConfig {
           decoded['rightMetric'] as String?,
           fallback: WidgetDualMetricChoice.defaultRight,
         ),
+        backgroundOpacity: _decodeOpacity(decoded['backgroundOpacity']),
+        typography: decodeWidgetTypography(decoded),
       );
     } on FormatException {
       return null;
@@ -62,7 +68,12 @@ class WidgetInstanceConfig {
     if (tapAction != null) 'tapAction': tapAction!.key,
     'leftMetric': leftMetric.key,
     'rightMetric': rightMetric.key,
+    'backgroundOpacity': _decodeOpacity(backgroundOpacity),
+    ...encodeWidgetTypography(typography),
   });
+
+  static double _decodeOpacity(Object? value) =>
+      value is num && value.isFinite ? value.toDouble().clamp(0, 1) : 1;
 }
 
 /// 读取可用账本（`id` → 名称），供配置页选择；应用尚未推送过数据时为空。

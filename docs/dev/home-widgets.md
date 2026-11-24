@@ -45,7 +45,7 @@ PIN/图案验证页，验证前不加载账本列表或真实预览；原生窗�
 | `verifin.widget.snapshots` | `{"version":2,"<bookId>":{"date":"yyyy-MM-dd","quick_entry":{"amount":"…"},"budget":{"amount":"…","usage":0.37},"trend":{"amount":"…","points":[…30 点]},"net_worth":{"amount":"…","points":[…30 点]},"dual_metric":{"amount":"…","metrics":{"week_expense":"…","today_expense":"…",…}}}}` |
 | `verifin.widget.books` | `[{"id","name"}]`，配置页选择账本用 |
 | `verifin.widget.locale` | 应用语言，原生按它解析桌面文案（不与系统语言混用） |
-| `verifin.widget.config.<appWidgetId>` | 实例配置 `{"bookId":"…","appearance":"system/light/dark","tapAction":"entry/app/stats","leftMetric":"week_expense","rightMetric":"today_expense"}` |
+| `verifin.widget.config.<appWidgetId>` | 实例配置 `{"bookId":"…","appearance":"system/light/dark","tapAction":"entry/app/stats","leftMetric":"week_expense","rightMetric":"today_expense","backgroundOpacity":1.0}` |
 
 - `amount` 是 Dart 按**该实例所属账本**的单位口径格式化好的字符串（单币种 + 「隐藏单位」时不含单位）；
   无法计算（缺汇率、未设预算）时为缺失占位符 `—`。
@@ -71,10 +71,14 @@ PIN/图案验证页，验证前不加载账本列表或真实预览；原生窗�
 Navigator。主应用在隐私同意、新手引导或应用锁期间尚未挂载壳层时，磁贴与组件入口保持
 pending，等 Shell 的处理器就绪后再由 Dart 消费；不能“发出即清空”。
 
+桌面图标、小组件和快捷磁贴共用 `MainActivity` 的任务栈。组件配置使用同一任务亲和性。独立配置任务从最近任务列表排除，主界面随后进入时接管该任务的身份。
+
 ## 外观与金额口径
 
 - 外观是**实例级**设置：`system`（默认，跟随设备深色模式）/`light`/`dark`。
-- 表面色与设计令牌镜像：浅色 `#FFFFFF` + 描边 `#E5E7EB`，深色 `#1A1F27` + 描边 `#30353D`。
+- 背景透明度按实例保存，范围为 0%（全透明）至 100%（实底）。旧配置默认 100%，配置页拖动时实时预览，保存后应用至桌面。15% 及以下隐藏外框，文字保持所选颜色。
+- 文字设置按实例保存，配置页使用实际渲染预览。字号字段 `textSize` 支持小、标准、大，对齐字段 `textAlignment` 支持靠左和居中，颜色字段 `textColor` 支持随外观、白、黑、蓝、绿。旧配置默认标准字号、靠左和随外观。
+- 小组件沿用暖纸主题。浅色表面为 `#FBF8F3`，描边为 `#E7DFD3`。深色表面为 `#1C1917`，描边为 `#2E2925`。
 - 金额单位按**实例所属账本**判定：单币种账本 + 「单币种隐藏单位」时省略单位，多币种账本照常显示；
   不再读活动账本的全局闸门。
 

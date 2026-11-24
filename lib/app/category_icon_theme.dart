@@ -13,7 +13,7 @@ class CategoryIconThemes extends ChangeNotifier {
 
   final AppLogger? logger;
   Future<void>? _restoreFuture;
-  CategoryIconPreset _preset = CategoryIconPreset.builtin;
+  CategoryIconPreset _preset = CategoryIconPreset.defaultPreset;
   bool _ready = false;
   bool _writing = false;
   bool _disposed = false;
@@ -33,12 +33,9 @@ class CategoryIconThemes extends ChangeNotifier {
       final file = await _presetFile();
       if (!await file.exists()) return;
       final raw = (await file.readAsString()).trim();
-      for (final candidate in CategoryIconPreset.values) {
-        if (candidate.name == raw && !_disposed) {
-          _preset = candidate;
-          break;
-        }
-      }
+      if (_disposed) return;
+      _preset = CategoryIconPreset.fromStorage(raw);
+      if (raw == 'builtin') await _writePreset(file, _preset);
     } catch (error, stack) {
       logger?.error(
         'Could not restore category icon theme (${error.runtimeType})',
@@ -53,24 +50,23 @@ class CategoryIconThemes extends ChangeNotifier {
     }
   }
 
-  Future<void> reset() => selectPreset(CategoryIconPreset.builtin);
+  Future<void> reset() => selectPreset(CategoryIconPreset.defaultPreset);
+
+  Future<void> _writePreset(File file, CategoryIconPreset preset) async {
+    final staged = File('${file.path}.tmp');
+    await staged.writeAsString(preset.name, flush: true);
+    await staged.rename(file.path);
+  }
 
   Future<void> selectPreset(CategoryIconPreset preset) async {
-    await restore();
+    if (!_ready) await restore();
     if (_preset == preset) return;
     if (_writing || _disposed) {
       throw StateError('Category icon theme is unavailable for writing');
     }
     _writing = true;
     try {
-      final file = await _presetFile();
-      if (preset == CategoryIconPreset.builtin) {
-        if (await file.exists()) await file.delete();
-      } else {
-        final staged = File('${file.path}.tmp');
-        await staged.writeAsString(preset.name, flush: true);
-        await staged.rename(file.path);
-      }
+      await _writePreset(await _presetFile(), preset);
       if (_disposed) return;
       _preset = preset;
       notifyListeners();
@@ -107,7 +103,7 @@ class CategoryIconThemeScope extends InheritedNotifier<CategoryIconThemes> {
         .dependOnInheritedWidgetOfExactType<CategoryIconThemeScope>();
     return scope?.notifier?.preset ??
         scope?._preset ??
-        CategoryIconPreset.builtin;
+        CategoryIconPreset.defaultPreset;
   }
 
   @override

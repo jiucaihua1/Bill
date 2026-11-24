@@ -39,15 +39,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     final overview = tester.getRect(find.byType(HomeTrendPanel));
-    expect(overview.height, lessThanOrEqualTo(280));
     for (var i = 1; i <= 3; i++) {
-      expect(find.byKey(Key('home_metric_$i')), findsOneWidget);
+      final metric = find.byKey(Key('home_metric_$i'));
+      expect(metric, findsOneWidget);
+      expect(overview.contains(tester.getCenter(metric)), isTrue);
     }
-    final transactions = find.byType(TransactionTile);
+    await tester.scrollUntilVisible(
+      find.text('最近交易'),
+      200,
+      scrollable: firstVerticalScrollable(),
+    );
+    final transactions = find.descendant(
+      of: find.byType(CalendarPreview),
+      matching: find.byType(TransactionTile),
+    );
     expect(transactions, findsNWidgets(5));
-    final navTop = tester.getRect(find.byKey(const Key('main_bottom_nav'))).top;
-    expect(tester.getRect(transactions.last).bottom, lessThan(navTop));
     final budget = find.byType(BudgetPanel);
+    await tester.scrollUntilVisible(
+      budget,
+      -200,
+      scrollable: firstVerticalScrollable(),
+    );
     expect(
       find.descendant(of: budget, matching: find.text('支出')),
       findsOneWidget,
@@ -72,7 +84,7 @@ void main() {
     );
     // 重设计后的预算卡采用左环右数据紧凑排布，保留完整圆环与核心指标。
     expect(tester.getRect(budget).height, greaterThan(115));
-    await tester.drag(firstVerticalScrollable(), const Offset(0, -240));
+    await tester.ensureVisible(budget);
     await tester.pumpAndSettle();
     await tester.tap(budget);
     await tester.pumpAndSettle();

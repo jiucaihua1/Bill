@@ -14,6 +14,7 @@ import '../app/veri_fin_scope.dart';
 import '../l10n/app_localizations.dart';
 import 'ai_settings_page.dart';
 import 'entry_detail_page.dart';
+import 'sheets.dart';
 
 /// 截图识账 / 外部采集记账：把「用户主动送进来的内容」（分享的截图、分享的账单
 /// 文本、自动化工具经意图接口送入的文本）识别成交易草稿，交记账页确认后落账。
@@ -26,10 +27,12 @@ Future<bool> ensureAiConfigured(BuildContext context) async {
     return true;
   }
   final l10n = AppLocalizations.of(context);
-  final goToSettings = await showDialog<bool>(
+  final goToSettings = await showVeriModalSheet<bool>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(l10n.aiEntryNotConfiguredTitle),
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (dialogContext) => VeriFormSheet(
+      title: l10n.aiEntryNotConfiguredTitle,
       content: Text(l10n.aiEntryNotConfiguredBody),
       actions: <Widget>[
         TextButton(

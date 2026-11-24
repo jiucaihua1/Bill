@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xiaohe/app/auto_bill_rules.dart';
 import 'package:xiaohe/app/models.dart';
 import 'package:xiaohe/app/veri_fin_controller.dart';
+import 'package:xiaohe/data/ledger_repository.dart';
 import 'package:xiaohe/local_storage/local_storage.dart';
 
 import 'support/test_harness.dart';
@@ -84,7 +86,7 @@ void main() {
 
     // 新账本拿到同名的默认分类，但**是另一条记录**（不同 id）。
     final diningInTravel = controller.categoryByKey(travelBookId, 'dining')!;
-    expect(diningInTravel.label, '餐饮');
+    expect(diningInTravel.label, '食品餐饮');
     expect(diningInTravel.id, isNot(diningInDefault.id));
     expect(
       controller.categories.length,
@@ -95,12 +97,12 @@ void main() {
     await controller.renameCategory(diningInTravel.id, '美食');
     controller.updateCategoryIcon(diningInTravel.id, 'coffee');
     expect(_categoryIn(controller, travelBookId, 'dining').label, '美食');
-    expect(_categoryIn(controller, defaultBookId, 'dining').label, '餐饮');
+    expect(_categoryIn(controller, defaultBookId, 'dining').label, '食品餐饮');
     expect(_categoryIn(controller, defaultBookId, 'dining').iconCode, 'dining');
 
     // 切回日常账本，看到的仍是原名。
     controller.switchLedgerBook(defaultBookId);
-    expect(controller.categoryById(diningInDefault.id).label, '餐饮');
+    expect(controller.categoryById(diningInDefault.id).label, '食品餐饮');
     expect(
       controller.categories.any((category) => category.label == '美食'),
       isFalse,
@@ -111,16 +113,20 @@ void main() {
   test('另一个账本用过某分类，不再阻塞本账本的删除', () async {
     final controller = await makeController();
     final defaultBookId = controller.activeBook.id;
-    final diningInDefault = controller.categoryByKey(defaultBookId, 'dining')!;
+    final diningInDefault = controller.categories.singleWhere(
+      (c) => c.label == '午餐',
+    );
 
     controller.addLedgerBook('旅行');
     final travelBookId = controller.activeBook.id;
-    final diningInTravel = controller.categoryByKey(travelBookId, 'dining')!;
-    // 旅行账本里有交易引用它自己的「餐饮」。
+    final diningInTravel = controller.categories.singleWhere(
+      (c) => c.label == '午餐',
+    );
+    // 使用可以单独删除的叶子分类。
     controller.addEntry(_expense('e_travel', travelBookId, diningInTravel.id));
     expect(controller.categoryUsageCount(diningInTravel.id), 1);
 
-    // 日常账本的「餐饮」没有任何引用：可以删除（旧实现会被另一个账本锁死）。
+    // 日常账本的「午餐」没有任何引用，可以删除。
     controller.switchLedgerBook(defaultBookId);
     expect(controller.categoryUsageCount(diningInDefault.id), 0);
     expect(await controller.deleteCategory(diningInDefault.id), isTrue);
@@ -131,7 +137,12 @@ void main() {
       isFalse,
     );
     // 旅行账本的那条完全不受影响（跨账本只能用各自账本的列表查找）。
-    expect(_categoryIn(controller, travelBookId, 'dining').label, '餐饮');
+    expect(
+      controller
+          .categoriesForBook(travelBookId)
+          .any((c) => c.id == diningInTravel.id),
+      isTrue,
+    );
     // 笔数是账本内口径：切回旅行账本才看得到它自己的那 1 笔。
     controller.switchLedgerBook(travelBookId);
     expect(controller.categoryUsageCount(diningInTravel.id), 1);
@@ -299,12 +310,46 @@ void main() {
     final controller = await makeController();
     final defaultBookId = controller.activeBook.id;
     final dining = controller.categoryByKey(defaultBookId, 'dining')!;
-    controller.addEntry(_expense('e1', defaultBookId, dining.id));
+    final noon = DateTime(2026, 11, 24, 11, 30);
+    final draft = <String, Object?>{
+      'merchant': '板面王',
+      'amount': 16,
+      'occurredAt': noon.millisecondsSinceEpoch,
+    };
+    controller.addEntry(
+      _expense(
+        'e1',
+        defaultBookId,
+        dining.id,
+      ).copyWith(note: '板面王 · 牛肉面', occurredAt: noon),
+    );
+    expect(
+      AutoBillSuggestions.forDraft(controller, draft).categoryId,
+      dining.id,
+    );
 
     controller.addLedgerBook('旅行');
     final travelBookId = controller.activeBook.id;
     final travelDining = controller.categoryByKey(travelBookId, 'dining')!;
-    controller.addEntry(_expense('e2', travelBookId, travelDining.id));
+    final travelEntry = _expense(
+      'e2',
+      travelBookId,
+      travelDining.id,
+      accountId: '',
+    ).copyWith(note: '板面王（西门店） · 牛肉面', occurredAt: noon);
+    final index = controller.autoBillMerchantIndex;
+    expect(
+      (await controller.saveEntryAggregateDraftResult(
+        entry: travelEntry,
+        isNew: true,
+      )).isSuccess,
+      isTrue,
+    );
+    expect(controller.autoBillMerchantIndex, same(index));
+    expect(
+      AutoBillSuggestions.forDraft(controller, draft).categoryId,
+      travelDining.id,
+    );
 
     // 旅行账本里把 e2 改成「日常账本的餐饮」：类型相同也不允许（跨账本）。
     final changed = controller.setEntriesCategory(<String>{'e2'}, dining.id);
@@ -312,6 +357,18 @@ void main() {
     expect(
       controller.entriesForBook(travelBookId).single.categoryId,
       travelDining.id,
+    );
+    final transit = controller.categoryByKey(travelBookId, 'transport')!;
+    controller.updateEntry(travelEntry.copyWith(categoryId: transit.id));
+    expect(
+      AutoBillSuggestions.forDraft(controller, draft).categoryId,
+      transit.id,
+    );
+    expect(await controller.deleteEntry(travelEntry.id), isTrue);
+    expect(controller.autoBillMerchantIndex, same(index));
+    expect(
+      AutoBillSuggestions.forDraft(controller, draft).categoryId,
+      isNot(transit.id),
     );
     controller.dispose();
   });
@@ -321,14 +378,14 @@ void main() {
     final before = controller.categories.length;
     controller.addCategory(
       type: EntryType.expense,
-      label: '餐饮', // 已存在（同名同类型顶级）
+      label: '食品餐饮', // 已存在（同名同类型顶级）
       iconCode: 'category',
     );
     expect(controller.categories.length, before);
 
     controller.addLedgerBook('旅行');
     final travelBookId = controller.activeBook.id;
-    expect(controller.categoryByKey(travelBookId, 'dining')!.label, '餐饮');
+    expect(controller.categoryByKey(travelBookId, 'dining')!.label, '食品餐饮');
     controller.dispose();
   });
 
@@ -339,7 +396,11 @@ void main() {
         .map((category) => category.key)
         .whereType<String>()
         .toSet();
-    expect(keys, defaultCategoryKeys.toSet());
+    // 这两个语义键由英文与历史种子沿用。
+    expect(
+      keys,
+      defaultCategoryKeys.toSet()..removeAll(['interest', 'investment']),
+    );
     controller.dispose();
   });
 
@@ -372,19 +433,56 @@ void main() {
     final travelBookId = source.activeBook.id;
     final travelDining = source.categoryByKey(travelBookId, 'dining')!;
     await source.renameCategory(travelDining.id, '美食');
+    source.switchLedgerBook(defaultBookId);
+    final noon = DateTime(2026, 11, 24, 11, 30);
+    final travelCategory = source.categoryByKey(defaultBookId, 'transport')!;
+    source.addEntry(
+      _expense(
+        'restored',
+        defaultBookId,
+        travelCategory.id,
+      ).copyWith(note: '回放商户', occurredAt: noon),
+    );
     final backup = source.exportDataJson();
 
+    final repository = _ObservingReplaceRepository();
     final target = await createTestController(
       LocalKeyValueStore(),
-      repository: InMemoryLedgerRepository(),
+      repository: repository,
     );
+    final oldDining = target.categoryByKey(defaultBookId, 'dining')!;
+    target.addEntry(
+      _expense(
+        'old',
+        defaultBookId,
+        oldDining.id,
+      ).copyWith(note: '回放商户', occurredAt: noon),
+    );
+    final draft = <String, Object?>{
+      'merchant': '回放商户',
+      'amount': 10,
+      'occurredAt': noon.millisecondsSinceEpoch,
+    };
+    expect(
+      AutoBillSuggestions.forDraft(target, draft).categoryId,
+      oldDining.id,
+    );
+    String? duringRestore;
+    repository.beforeReplace = () {
+      duringRestore = AutoBillSuggestions.forDraft(target, draft).categoryId;
+    };
     await target.importDataJson(backup);
+    expect(duringRestore, travelCategory.id);
+    expect(
+      AutoBillSuggestions.forDraft(target, draft).categoryId,
+      travelCategory.id,
+    );
     // v4 备份按账本存分类，导入后两个账本各自的集合与 id 都不变。
     expect(
       target.categoriesForBook(defaultBookId).map((c) => c.id),
       contains(dining.id),
     );
-    expect(_categoryIn(target, defaultBookId, 'dining').label, '餐饮');
+    expect(_categoryIn(target, defaultBookId, 'dining').label, '食品餐饮');
     expect(_categoryIn(target, travelBookId, 'dining').label, '美食');
     target.dispose();
     source.dispose();
@@ -554,4 +652,14 @@ void main() {
     controller.dispose();
     reloaded.dispose();
   });
+}
+
+class _ObservingReplaceRepository extends InMemoryLedgerRepository {
+  void Function()? beforeReplace;
+
+  @override
+  Future<void> replaceAllLedgerData(LedgerDataSnapshot snapshot) {
+    beforeReplace?.call();
+    return super.replaceAllLedgerData(snapshot);
+  }
 }

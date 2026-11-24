@@ -53,6 +53,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   /// 「检查更新」正在进行：设置行显示「检查中…」并禁用点击，避免重复发请求。
   bool _checkingUpdate = false;
+  bool _changingExternalNetwork = false;
 
   @override
   void dispose() {
@@ -528,6 +529,30 @@ class _SettingsPageState extends State<SettingsPage> {
                             _change(() => _autoSuggest = value),
                       ),
                       const Divider(height: 1),
+                      CompactSwitchRow(
+                        icon: Icons.language_outlined,
+                        title: Text(
+                          AppLocalizations.of(context).externalNetworkTitle,
+                        ),
+                        subtitle: Text(
+                          AppLocalizations.of(context).externalNetworkHint,
+                        ),
+                        value: controller.externalNetworkEnabled,
+                        onChanged: _changingExternalNetwork
+                            ? null
+                            : (value) async {
+                                setState(() => _changingExternalNetwork = true);
+                                await controller.setExternalNetworkEnabled(
+                                  value,
+                                );
+                                if (mounted) {
+                                  setState(
+                                    () => _changingExternalNetwork = false,
+                                  );
+                                }
+                              },
+                      ),
+                      const Divider(height: 1),
                       SettingsRow(
                         icon: Icons.auto_awesome_outlined,
                         title: AppLocalizations.of(context).aiSettingsTitle,
@@ -721,7 +746,6 @@ class _SettingsPageState extends State<SettingsPage> {
     final l10n = AppLocalizations.of(context);
     final preset = VeriFinScope.of(context).categoryIconThemes.preset;
     return switch (preset) {
-      CategoryIconPreset.builtin => l10n.categoryIconThemeBuiltin,
       CategoryIconPreset.line => l10n.categoryIconThemeLine,
       CategoryIconPreset.colored => l10n.categoryIconThemeColored,
       CategoryIconPreset.emoji => l10n.categoryIconThemeEmoji,
@@ -802,6 +826,13 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _checkingUpdate = false);
     final l10n = AppLocalizations.of(context);
     switch (result) {
+      case UpdateCheckNetworkDisabled():
+        unawaited(
+          VeriFeedbackHost.of(context).showMessage(
+            message: l10n.externalNetworkDisabled,
+            tone: VeriFeedbackTone.info,
+          ),
+        );
       case UpdateCheckFailed(:final reason):
         VeriFinScope.of(
           context,

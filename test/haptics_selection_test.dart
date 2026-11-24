@@ -185,6 +185,8 @@ void main() {
         200,
         scrollable: find.byType(Scrollable).first,
       );
+      await tester.ensureVisible(row);
+      await tester.pumpAndSettle();
       expect(find.text('按键、选择与拖动排序时给出轻微震动'), findsOneWidget);
 
       // 先关掉（此时闸门仍开着，开关行自己发 tap），再打开：闸门刚变回关，

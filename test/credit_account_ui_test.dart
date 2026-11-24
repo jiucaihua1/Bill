@@ -124,13 +124,16 @@ void main() {
 
   testWidgets('转账交易在列表中显示转账分类而非「已删除分类」', (WidgetTester tester) async {
     final controller = await makeController();
+    final transferOut = controller
+        .categoriesForType(EntryType.transfer)
+        .singleWhere((category) => category.key == 'transfer_out');
     // 模拟还款：转账、分类为 transfer_out（「转出」）。
     final repayment = LedgerEntry(
       id: 'r1',
       bookId: controller.activeBook.id,
       type: EntryType.transfer,
       amount: 500,
-      categoryId: 'transfer_out',
+      categoryId: transferOut.id,
       accountId: '',
       toAccountId: '',
       note: '还款',

@@ -1,4 +1,5 @@
 import '../../l10n/app_localizations.dart';
+import '../external_network_guard.dart';
 
 /// AI 请求失败的分类码。UI 按码本地化；无法预先翻译的补充信息放 [AiException.detail]
 /// （上游错误原文、状态码、异常文本等，保持原样不翻译）。
@@ -7,6 +8,7 @@ enum AiErrorCode {
   notSupported,
   timeout,
   network,
+  externalNetworkDisabled,
   tls,
   badUrl,
   authFailed,
@@ -41,6 +43,7 @@ String aiErrorMessage(AppLocalizations l10n, AiException error) {
     AiErrorCode.notSupported => l10n.aiErrNotSupported,
     AiErrorCode.timeout => l10n.aiErrTimeout,
     AiErrorCode.network => l10n.aiErrNetwork,
+    AiErrorCode.externalNetworkDisabled => l10n.externalNetworkDisabled,
     AiErrorCode.tls => l10n.aiErrTls,
     AiErrorCode.badUrl => l10n.aiErrBadUrl,
     AiErrorCode.authFailed => l10n.aiErrAuthFailed,
@@ -57,4 +60,12 @@ String aiErrorMessage(AppLocalizations l10n, AiException error) {
     AiErrorCode.unknown => l10n.aiErrUnknown,
   };
   return base;
+}
+
+void checkAiNetwork(Uri target) {
+  try {
+    ExternalNetworkGuard.check(target);
+  } on ExternalNetworkDisabled {
+    throw AiException(AiErrorCode.externalNetworkDisabled);
+  }
 }

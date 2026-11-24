@@ -95,8 +95,7 @@ void main() {
 
   testWidgets('标题展示分类层级：父级与末级都在', (tester) async {
     await pumpTile(tester, entry());
-    expect(find.text('食品餐饮'), findsOneWidget);
-    expect(find.text('午餐'), findsOneWidget);
+    expect(find.text('食品餐饮 · 午餐'), findsOneWidget);
   });
 
   testWidgets('无备注时副行不回退账户名（账户名只在右侧标签出现一次）', (tester) async {
@@ -107,7 +106,7 @@ void main() {
 
   testWidgets('有备注时副行显示备注', (tester) async {
     await pumpTile(tester, entry(note: '打车回家'));
-    expect(find.text('打车回家'), findsOneWidget);
+    expect(find.text('09:00 · 打车回家'), findsOneWidget);
     // 有备注就不显示账户名兜底，账户名仍只在右侧标签出现一次。
     expect(find.text('招商银行'), findsOneWidget);
   });

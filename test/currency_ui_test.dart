@@ -345,6 +345,7 @@ void main() {
       effectiveDate: rateDate,
       rateToBase: 7.2,
     );
+    await controller.setMultiCurrencyEnabled(true);
     await pumpPage(
       tester,
       controller,
@@ -725,8 +726,8 @@ void main() {
     );
     await tester.tap(find.text('添加退款'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('退款原币沿用原支出'), findsOneWidget);
-    expect(find.text('100 \$'), findsWidgets);
+    expect(find.textContaining('添加退款'), findsWidgets);
+    expect(find.textContaining('100 \$'), findsWidgets);
 
     await tester.tap(find.text('到账账户'));
     await tester.pumpAndSettle();

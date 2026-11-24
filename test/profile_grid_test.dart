@@ -107,7 +107,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('付款周期'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextFormField), '3');
+    final periodSheet = find.byType(BottomSheet);
+    await tester.tap(
+      find.descendant(of: periodSheet, matching: find.text('季付')),
+    );
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, '保存'));
     await tester.pumpAndSettle();
@@ -120,6 +123,8 @@ void main() {
     );
     await tester.ensureVisible(find.text('云存储服务'));
     await tester.tap(find.text('云存储服务'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('付款周期'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('移出订阅分析'));
     await tester.pumpAndSettle();

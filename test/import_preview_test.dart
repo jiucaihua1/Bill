@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaohe/app/backup/payment_import.dart';
+import 'package:xiaohe/app/common_widgets.dart';
 import 'package:xiaohe/app/models.dart';
 import 'package:xiaohe/app/veri_fin_scope.dart';
 import 'package:xiaohe/pages/entry_detail_page.dart';
@@ -157,7 +158,15 @@ void main() {
       expect(controller.entries.length, beforeEntries + 2);
       expect(controller.accounts.any((a) => a.name == '测试钱包A'), isTrue);
       expect(controller.accounts.any((a) => a.name == '测试钱包B'), isTrue);
-      expect(controller.categories.any((c) => c.label == '测试交通'), isTrue);
+      final savedCategoryIds = controller.categories.map((c) => c.id);
+      expect(
+        savedCategoryIds,
+        containsAll(plan.newCategories.map((c) => c.id)),
+      );
+      expect(
+        controller.entries.map((e) => e.categoryId),
+        unorderedEquals(plan.entries.map((e) => e.categoryId)),
+      );
     });
 
     test('排除某笔后：只创建被保留交易引用到的账户/分类', () async {
@@ -178,7 +187,7 @@ void main() {
         candidateCategories: plan.newCategories,
       );
       expect(controller.accounts.any((a) => a.name == '测试钱包A'), isTrue);
-      expect(controller.categories.any((c) => c.label == '测试餐饮'), isTrue);
+      expect(controller.entries.single.categoryId, kept.single.categoryId);
       // 第二笔被排除：测试钱包B 与 测试交通 不应被创建。
       expect(controller.accounts.any((a) => a.name == '测试钱包B'), isFalse);
       expect(controller.categories.any((c) => c.label == '测试交通'), isFalse);
@@ -302,13 +311,21 @@ void main() {
       final holder = await _openPreview(tester, controller, plan);
 
       // 两笔交易都渲染。
-      expect(find.text('测试餐饮'), findsOneWidget);
-      expect(find.text('测试交通'), findsOneWidget);
+      final firstEntry = find.byWidgetPredicate(
+        (widget) => widget is TransactionTile && widget.entry.note == '午饭',
+      );
+      final secondEntry = find.byWidgetPredicate(
+        (widget) => widget is TransactionTile && widget.entry.note == '打车',
+      );
+      expect(firstEntry, findsOneWidget);
+      expect(secondEntry, findsOneWidget);
       // 初始确认按钮：全部 2 笔。
       expect(find.text('确认导入（2）'), findsOneWidget);
 
-      // 点第一笔（测试餐饮）排除 → 变 1 笔。
-      await tester.tap(find.text('测试餐饮'));
+      // 排除午饭，保留打车。
+      await tester.ensureVisible(firstEntry);
+      await tester.pumpAndSettle();
+      await tester.tap(firstEntry);
       await tester.pumpAndSettle();
       expect(find.text('确认导入（1）'), findsOneWidget);
 
@@ -436,13 +453,13 @@ void main() {
       // 点开「未分类」映射行，整体映射到现有「餐饮」分类。
       await tester.tap(find.byIcon(Icons.unfold_more));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('餐饮'));
+      await tester.tap(find.text('食品餐饮'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('确认导入（2）'));
       await tester.pumpAndSettle();
 
-      final food = controller.categories.firstWhere((c) => c.label == '餐饮');
+      final food = controller.categories.firstWhere((c) => c.key == 'dining');
       expect(holder.result, isNotNull);
       expect(
         holder.result!.entries.every((e) => e.categoryId == food.id),

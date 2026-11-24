@@ -97,7 +97,7 @@ object AutoBillOverlay {
     }
 
     fun clear() {
-        current?.let { close(it) }
+        current?.takeUnless { it.saving }?.let { close(it) }
     }
 
     fun deliver(context: Context, id: String, fallback: () -> Unit) {
@@ -301,7 +301,11 @@ object AutoBillOverlay {
         if (current !== review) return
         current = null
         review.reportPreview(false)
-        review.screenOffReceiver?.let(review.context::unregisterReceiver)
+        review.screenOffReceiver?.let { receiver ->
+            runCatching { review.context.unregisterReceiver(receiver) }.onFailure {
+                Log.w("VeriAutoBill", "Could not unregister overlay receiver", it)
+            }
+        }
         review.view?.detachFromFlutterEngine()
         review.dialog?.dismiss()
         review.renderer?.destroy()

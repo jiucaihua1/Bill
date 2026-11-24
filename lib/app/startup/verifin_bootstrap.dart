@@ -10,6 +10,9 @@ import '../common_widgets.dart';
 import 'startup_coordinator.dart';
 import 'startup_error_sink.dart';
 
+const _startupIntroDuration = Duration(milliseconds: 260);
+const _startupCrossfadeDuration = Duration(milliseconds: 180);
+
 /// 应用启动壳。
 ///
 /// 先绘制主题背景和启动标记，同时由 [StartupCoordinator] 逐阶段初始化。
@@ -48,6 +51,8 @@ class _VeriFinBootstrapState extends State<VeriFinBootstrap> {
   Timer? _progressRevealTimer;
   Timer? _ticker;
   bool _ready = false;
+  bool _introFinished = false;
+  bool _appShown = false;
   bool _restarting = false;
 
   @override
@@ -122,6 +127,8 @@ class _VeriFinBootstrapState extends State<VeriFinBootstrap> {
     );
     setState(() {
       _ready = false;
+      _introFinished = false;
+      _appShown = false;
       _restarting = false;
       _startRun();
     });
@@ -139,9 +146,29 @@ class _VeriFinBootstrapState extends State<VeriFinBootstrap> {
 
   @override
   Widget build(BuildContext context) {
-    if (_ready) {
-      return widget.buildApp();
-    }
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ??
+        WidgetsBinding
+            .instance
+            .platformDispatcher
+            .accessibilityFeatures
+            .disableAnimations;
+    _appShown = _ready && (_appShown || _introFinished || reduceMotion);
+    return AnimatedSwitcher(
+      duration: reduceMotion ? Duration.zero : _startupCrossfadeDuration,
+      child: _appShown
+          ? KeyedSubtree(
+              key: const ValueKey('ledger-app'),
+              child: widget.buildApp(),
+            )
+          : KeyedSubtree(
+              key: const ValueKey('startup-splash'),
+              child: _buildSplash(),
+            ),
+    );
+  }
+
+  Widget _buildSplash() {
     final brightness =
         WidgetsBinding.instance.platformDispatcher.platformBrightness;
     return MaterialApp(
@@ -157,6 +184,9 @@ class _VeriFinBootstrapState extends State<VeriFinBootstrap> {
       home: _StartupPage(
         coordinator: _coordinator,
         showProgress: _progressRevealTimer == null,
+        onIntroFinished: () {
+          if (mounted && !_introFinished) setState(() => _introFinished = true);
+        },
         onRetry: _retry,
         onCopy: _copyDiagnostics,
       ),
@@ -206,12 +236,14 @@ class _StartupPage extends StatefulWidget {
   const _StartupPage({
     required this.coordinator,
     required this.showProgress,
+    required this.onIntroFinished,
     required this.onRetry,
     required this.onCopy,
   });
 
   final StartupCoordinator coordinator;
   final bool showProgress;
+  final VoidCallback onIntroFinished;
   final VoidCallback onRetry;
   final Future<bool> Function(String appTitle) onCopy;
 
@@ -270,6 +302,7 @@ class _StartupPageState extends State<_StartupPage> {
       180.0,
     );
     final mark = _StartupMark(failed: failed, stalled: stalled);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Scaffold(
       body: SafeArea(
@@ -279,17 +312,35 @@ class _StartupPageState extends State<_StartupPage> {
             children: <Widget>[
               SizedBox(height: markTop),
               Center(
-                child: MediaQuery.disableAnimationsOf(context)
+                child: reduceMotion
                     ? mark
                     : TweenAnimationBuilder<double>(
-                        duration: const Duration(milliseconds: 260),
+                        key: ValueKey(coordinator),
+                        duration: _startupIntroDuration,
                         curve: Curves.easeOutCubic,
                         tween: Tween(begin: 0.92, end: 1),
+                        onEnd: widget.onIntroFinished,
                         child: mark,
                         builder: (_, scale, child) =>
                             Transform.scale(scale: scale, child: child),
                       ),
               ),
+              if (!failed) ...<Widget>[
+                const SizedBox(height: 20),
+                Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      value: reduceMotion
+                          ? (coordinator.stage.index + 1) /
+                                StartupStage.values.length
+                          : null,
+                    ),
+                  ),
+                ),
+              ],
               if (widget.showProgress) ...<Widget>[
                 const SizedBox(height: 24),
                 Text(
@@ -334,16 +385,6 @@ class _StartupPageState extends State<_StartupPage> {
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
-                if (!failed) ...<Widget>[
-                  const SizedBox(height: 24),
-                  const Center(
-                    child: SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
-                    ),
-                  ),
-                ],
                 if (failed || stalled) ...<Widget>[
                   const SizedBox(height: 20),
                   // 动作放在技术细节之前：恢复入口要第一眼可见，细节可以往下滚。

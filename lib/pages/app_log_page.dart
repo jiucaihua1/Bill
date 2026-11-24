@@ -233,10 +233,14 @@ class _LogTileState extends State<_LogTile> {
             ),
           ),
         ],
-        const Spacer(),
-        Text(
-          stamp,
-          style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor),
+        Expanded(
+          child: Text(
+            stamp,
+            textAlign: TextAlign.end,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor),
+          ),
         ),
         _TileAction(
           tooltip: l10n.appLogCopyRecord,

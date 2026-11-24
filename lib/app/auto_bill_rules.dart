@@ -1,7 +1,16 @@
+import 'dart:collection';
+import 'dart:convert';
+
+import 'package:flutter/services.dart';
+
 import 'category_suggest.dart';
 import 'category_tree.dart';
+import 'logging/app_logger.dart';
 import 'models.dart';
 import 'veri_fin_controller.dart';
+
+part 'auto_bill_rule_config.dart';
+part 'auto_bill_merchant_index.dart';
 
 enum _MealPeriod {
   breakfast('早餐'),
@@ -15,12 +24,12 @@ enum _MealPeriod {
   static _MealPeriod at(DateTime time) {
     final local = time.toLocal();
     final minutes = local.hour * 60 + local.minute;
-    return switch (minutes) {
-      >= 300 && < 630 => breakfast,
-      >= 630 && < 930 => lunch,
-      >= 990 && < 1320 => dinner,
-      _ => other,
-    };
+    for (final window in _AutoBillRuleConfig.current.mealWindows) {
+      if (minutes >= window.start && minutes < window.end) {
+        return window.period;
+      }
+    }
+    return other;
   }
 }
 
@@ -47,17 +56,19 @@ class AutoBillSuggestions {
         if (!category.isUncategorized && !category.isBalanceAdjust)
           category.id: category,
     };
-    final history = controller.entries.where(
-      (entry) => entry.type == type && !entry.occurredAt.isAfter(occurredAt),
-    );
+    Iterable<LedgerEntry> history() sync* {
+      yield* controller.entries.where(
+        (entry) => entry.type == type && !entry.occurredAt.isAfter(occurredAt),
+      );
+    }
+
     final merchant = _merchantName(draft['merchant']);
-    final merchantHistory = history.where(
-      (entry) =>
-          merchant.isNotEmpty && _merchantFromNote(entry.note) == merchant,
-    );
+    final index = controller.autoBillMerchantIndex;
+    final merchantHistory = index._history(type, merchant, occurredAt);
     final period = _MealPeriod.at(occurredAt);
     final exact = _historicalCategory(
       merchantHistory,
+      index._history(type, merchant, occurredAt, period),
       categoryById,
       merchant,
       period,
@@ -67,7 +78,7 @@ class AutoBillSuggestions {
         (exact.matched
             ? null
             : _similarCategory(
-                history,
+                history(),
                 categoryById,
                 type,
                 draft,
@@ -83,7 +94,9 @@ class AutoBillSuggestions {
       accountId: _suggestAccount(
         controller,
         draft,
-        history,
+        index,
+        type,
+        occurredAt,
         merchant,
         merchantHistory,
       )?.id,
@@ -92,6 +105,11 @@ class AutoBillSuggestions {
   }
 
   static const draftTagId = 'auto-bill-platform-suggestion';
+
+  /// Load once in the ledger engine before it starts accepting drafts.
+  static Future<void> preloadRules({AppLogger? logger}) =>
+      _AutoBillRuleConfig.preload(logger);
+
   final String? categoryId;
   final String? accountId;
   final String? platformTag;
@@ -114,23 +132,12 @@ class AutoBillSuggestions {
   static String _normalized(Object? value) =>
       value is String ? normalizedCategoryLabel(value) : '';
 
-  static final _merchantSuffix = RegExp(
-    r'\s*(?:\([^()]*\)|有限责任公司|股份有限公司|有限公司|分公司|个体工商户|(?:\s+|[-‐–—·])[^\s-‐–—·]+店|分店|门店|旗舰店)\s*$',
-  );
-  static const _genericRemarks = {
-    '微信支付',
-    '支付宝支付',
-    '建设银行自动识别',
-    '微信自动识别',
-    '支付宝自动识别',
-  };
-
   static String _merchantName(Object? value) {
-    final name = _normalized(value);
-    if (_genericRemarks.contains(name)) return '';
-    var merchant = name;
+    final rules = _AutoBillRuleConfig.current;
+    var merchant = _normalized(value);
     while (true) {
-      final shorter = merchant.replaceFirst(_merchantSuffix, '');
+      if (rules.genericRemarks.contains(merchant)) return '';
+      final shorter = merchant.replaceFirst(rules.merchantSuffix, '');
       if (shorter == merchant || shorter.runes.length < 2) return merchant;
       merchant = shorter;
     }
@@ -143,28 +150,31 @@ class AutoBillSuggestions {
 
   static ({Category? category, bool matched}) _historicalCategory(
     Iterable<LedgerEntry> merchantHistory,
+    Iterable<LedgerEntry> periodHistory,
     Map<String, Category> categories,
     String merchant,
     _MealPeriod period,
   ) {
-    Category? inPeriod;
+    final inPeriod = periodHistory
+        .map((entry) => categories[entry.categoryId])
+        .whereType<Category>()
+        .firstOrNull;
+    if (inPeriod != null &&
+        (!_isDiningParent(inPeriod) || period == _MealPeriod.other)) {
+      return (category: inPeriod, matched: true);
+    }
     Category? lastMeal;
     Category? lastNonMeal;
     // The active ledger exposes its entries newest first.
     for (final entry in merchantHistory) {
       final category = categories[entry.categoryId];
       if (category == null) continue;
-      if (_MealPeriod.at(entry.occurredAt) == period) {
-        inPeriod ??= category;
-        if (!_isDiningParent(inPeriod) || period == _MealPeriod.other) {
-          return (category: inPeriod, matched: true);
-        }
-      }
       if (_isMealCategory(category)) {
         lastMeal ??= category;
       } else {
         lastNonMeal ??= category;
       }
+      if (lastMeal != null && lastNonMeal != null) break;
     }
     final label = period.categoryLabel;
     if (inPeriod != null) {
@@ -215,14 +225,15 @@ class AutoBillSuggestions {
       product,
     ].where((value) => value.isNotEmpty).join(' · ');
     final query = note.isEmpty ? _normalized(draft['note']) : note;
-    if (query.isEmpty || _genericRemarks.contains(query)) return null;
+    final genericRemarks = _AutoBillRuleConfig.current.genericRemarks;
+    if (query.isEmpty || genericRemarks.contains(query)) return null;
     final amount = draft['amount'];
     final ids = categories.keys.toSet();
     final suggestion = suggestEntry(
       history: history.where((entry) {
         final category = categories[entry.categoryId];
         return category != null &&
-            !_genericRemarks.contains(_normalized(entry.note)) &&
+            !genericRemarks.contains(_normalized(entry.note)) &&
             (!_isMealCategory(category) ||
                 _MealPeriod.at(entry.occurredAt) == period);
       }),
@@ -238,23 +249,22 @@ class AutoBillSuggestions {
     return categories[suggestion.categoryId];
   }
 
-  static final _snacks = RegExp(r'零食|薯片|坚果|辣条|糕点|饼干');
-  static final _drinks = RegExp(r'奶茶|咖啡|果茶|饮品|饮料|酒水|啤酒|星巴克|瑞幸|库迪');
-  static final _restaurant = RegExp(r'餐厅|餐饮|餐馆|食堂|小吃|快餐|面馆|饭店|外卖|麦当劳|肯德基|海底捞');
-  static final _retail = RegExp(r'超市|便利店|便利商店|杂货店');
-  static final _meal = RegExp(r'早餐|午餐|晚餐');
   static const _mealLabels = {'早餐', '午餐', '晚餐'};
-  static const _diningLabels = {'食品', '食品餐饮', '餐饮', '三餐'};
 
-  static bool _isMealMerchant(String merchant) =>
-      _restaurant.hasMatch(merchant) || merchant == '沈阳理工大学';
+  static bool _isMealMerchant(String merchant) {
+    final rules = _AutoBillRuleConfig.current;
+    return rules.restaurant.hasMatch(merchant) ||
+        rules.mealMerchants.contains(merchant);
+  }
 
   static bool _isMealCategory(Category category) =>
       !category.isRoot && _mealLabels.contains(_normalized(category.label));
 
   static bool _isDiningParent(Category category) =>
       category.key == 'dining' ||
-      _diningLabels.contains(_normalized(category.label));
+      _AutoBillRuleConfig.current.diningLabels.contains(
+        _normalized(category.label),
+      );
 
   static Category? _diningCategory(Iterable<Category> categories) =>
       categories.where((category) => category.key == 'dining').firstOrNull ??
@@ -292,13 +302,16 @@ class AutoBillSuggestions {
     final rawMerchant = _normalized(draft['merchant']);
     final goods = _normalized(draft['product']);
     final text = '$rawMerchant $goods';
-    final explicitMeal = _meal.firstMatch(text)?.group(0);
-    final isRestaurant = _restaurant.hasMatch(rawMerchant);
+    final rules = _AutoBillRuleConfig.current;
+    final explicitMeal = rules.explicitMealLabel(text);
+    final isRestaurant = rules.restaurant.hasMatch(rawMerchant);
+    final hasDrinks = rules.drinks.hasMatch(text);
+    final hasSnacks = rules.snacks.hasMatch(text);
     final label =
         explicitMeal ??
-        switch (text) {
-          _ when _drinks.hasMatch(text) && !_snacks.hasMatch(text) => '饮料酒水',
-          _ when _snacks.hasMatch(text) && !_drinks.hasMatch(text) => '休闲零食',
+        switch ((hasDrinks, hasSnacks)) {
+          (true, false) => '饮料酒水',
+          (false, true) => '休闲零食',
           _ when isRestaurant || _isMealMerchant(merchant) =>
             period.categoryLabel,
           _ => null,
@@ -313,7 +326,7 @@ class AutoBillSuggestions {
               .singleOrNull;
       return child ?? dining;
     }
-    final retail = _retail.hasMatch(rawMerchant)
+    final retail = rules.retail.hasMatch(rawMerchant)
         ? categories.where((category) => category.key == 'shopping').firstOrNull
         : null;
     return fallback ?? retail ?? (isRestaurant ? dining : null);
@@ -325,7 +338,9 @@ class AutoBillSuggestions {
   static Account? _suggestAccount(
     VeriFinController controller,
     Map<Object?, Object?> draft,
-    Iterable<LedgerEntry> history,
+    AutoBillMerchantIndex index,
+    EntryType type,
+    DateTime occurredAt,
     String merchant,
     Iterable<LedgerEntry> merchantHistory,
   ) {
@@ -397,18 +412,16 @@ class AutoBillSuggestions {
     final sourceIds = source is String
         ? controller.autoBillAccountHistory(source)
         : const <String>[];
-    final sourceIdSet = sourceIds.toSet();
-    final historyById = sourceIds.isEmpty
-        ? const <String, LedgerEntry>{}
-        : {
-            for (final entry in history)
-              if (sourceIdSet.contains(entry.id)) entry.id: entry,
-          };
     Account? sourceAccount;
     for (final id in sourceIds) {
-      final entry = historyById[id];
-      final account = accountsById[entry?.accountId];
-      if (entry == null || account == null) continue;
+      final entry = index._byId[id];
+      if (entry == null ||
+          entry.type != type ||
+          entry.occurredAt.isAfter(occurredAt)) {
+        continue;
+      }
+      final account = accountsById[entry.accountId];
+      if (account == null) continue;
       if (merchant.isNotEmpty && _merchantFromNote(entry.note) == merchant) {
         return account;
       }

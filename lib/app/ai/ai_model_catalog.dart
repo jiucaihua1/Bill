@@ -54,7 +54,9 @@ Future<List<AiModelInfo>> fetchAiModels({
     var current = uri;
     HttpClientResponse? response;
     for (var redirect = 0; redirect <= _maxRedirects; redirect += 1) {
+      checkAiNetwork(current);
       final request = await client.getUrl(current).timeout(timeout);
+      checkAiNetwork(current);
       request.followRedirects = false;
       request.headers.set(HttpHeaders.acceptHeader, ContentType.json.mimeType);
       final apiKey = settings.apiKey.trim();

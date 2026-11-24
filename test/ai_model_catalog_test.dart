@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xiaohe/app/external_network_guard.dart';
 import 'package:xiaohe/app/ai/ai_error.dart';
 import 'package:xiaohe/app/ai/ai_model_catalog.dart';
 import 'package:xiaohe/app/ai/ai_provider_presets.dart';
@@ -37,6 +38,8 @@ AiSettings _settings(AiSettings settings, {String apiKey = ''}) =>
     settings.copyWith(apiKey: apiKey);
 
 void main() {
+  setUp(() => ExternalNetworkGuard.bind(() => true));
+  tearDown(() => ExternalNetworkGuard.bind(null));
   test('解析 data[].id 并排序去重', () {
     final models = parseAiModelList(<String, Object?>{
       'data': <Object?>[
@@ -110,6 +113,21 @@ void main() {
       await request.response.close();
     });
 
+    ExternalNetworkGuard.bind(null);
+    await expectLater(
+      fetchAiModels(
+        settings: _settings(settings),
+        provider: customAiProviderPreset,
+      ),
+      throwsA(
+        isA<AiException>().having(
+          (error) => error.code,
+          'code',
+          AiErrorCode.externalNetworkDisabled,
+        ),
+      ),
+    );
+    ExternalNetworkGuard.bind(() => true);
     final models = await fetchAiModels(
       settings: _settings(settings),
       provider: customAiProviderPreset,

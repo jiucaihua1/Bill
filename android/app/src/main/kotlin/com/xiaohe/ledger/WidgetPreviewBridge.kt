@@ -59,8 +59,12 @@ class WidgetPreviewBridge(private val context: Context) {
                         VeriFinWidgetTemplate.fromKey(requireNotNull(call.argument<String>("template"))),
                         call.argument<Int>("widthDp") ?: 168, call.argument<Int>("heightDp") ?: 168,
                         WidgetInstanceSelection(
-                            call.argument<String>("bookId").orEmpty(),
-                            WidgetAppearance.fromKey(call.argument<String>("appearance")),
+                            bookId = call.argument<String>("bookId").orEmpty(),
+                            appearance = WidgetAppearance.fromKey(call.argument<String>("appearance")),
+                            leftMetric = call.argument<String>("leftMetric") ?: "week_expense",
+                            rightMetric = call.argument<String>("rightMetric") ?: "today_expense",
+                            backgroundOpacity = widgetBackgroundOpacity(call.argument<Number>("backgroundOpacity")),
+                            typography = WidgetTypography.from { call.argument<Any>(it) },
                         ),
                         call.argument<Boolean>("sample") ?: false))
                     else -> result.notImplemented()

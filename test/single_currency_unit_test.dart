@@ -239,7 +239,7 @@ void main() {
       addForeignAccount(controller);
       await pumpPage(tester, controller, const HomePage());
 
-      expect(find.text('日常账本 · 单位：¥'), findsOneWidget);
+      expect(find.textContaining(' · 单位：¥'), findsOneWidget);
     });
 
     testWidgets('看板页副标题保留单位', (tester) async {

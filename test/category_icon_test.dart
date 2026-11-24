@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaohe/app/common_widgets.dart';
 import 'package:xiaohe/app/icon_catalog.dart';
@@ -28,7 +29,7 @@ void main() {
     });
   });
 
-  testWidgets('CategoryIconBox 渲染 emoji 为文字、内置为图标', (tester) async {
+  testWidgets('CategoryIconBox 渲染自定义 emoji，普通分类默认用彩色 SVG', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -42,7 +43,7 @@ void main() {
       ),
     );
     expect(find.text('🍜'), findsOneWidget);
-    expect(find.byIcon(Icons.restaurant), findsOneWidget);
+    expect(find.byType(SvgPicture), findsOneWidget);
   });
 
   testWidgets('图标选择器点 emoji 返回 emoji code', (tester) async {

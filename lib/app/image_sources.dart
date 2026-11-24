@@ -1,7 +1,11 @@
 import 'dart:convert';
-import 'dart:typed_data';
+import 'dart:io';
+import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
+import 'external_network_guard.dart';
 
 Uint8List? bytesFromDataUrl(String source) {
   if (!source.startsWith('data:')) {
@@ -24,7 +28,7 @@ Uint8List? bytesFromDataUrl(String source) {
 const int _maxCachedDataUrlProviders = 4;
 final Map<String, MemoryImage> _dataUrlProviderCache = <String, MemoryImage>{};
 
-ImageProvider imageProviderForSource(String source) {
+ImageProvider? imageProviderForSource(String source) {
   final cached = _dataUrlProviderCache.remove(source);
   if (cached != null) {
     _dataUrlProviderCache[source] = cached;
@@ -32,8 +36,15 @@ ImageProvider imageProviderForSource(String source) {
   }
   final bytes = bytesFromDataUrl(source);
   if (bytes == null) {
-    // NetworkImage 按 url 判等,本身不会闪烁,无需缓存。
-    return NetworkImage(source);
+    // Legacy backups may contain a remote avatar or cover instead of bytes.
+    final uri = Uri.tryParse(source);
+    if (!ExternalNetworkGuard.enabled ||
+        uri == null ||
+        uri.host.isEmpty ||
+        (uri.scheme != 'https' && uri.scheme != 'http')) {
+      return null;
+    }
+    return _RemoteAppearanceImage(uri);
   }
   final provider = MemoryImage(bytes);
   _dataUrlProviderCache[source] = provider;
@@ -48,10 +59,59 @@ Widget imageForSource(
   BoxFit fit = BoxFit.cover,
   AlignmentGeometry alignment = Alignment.center,
 }) {
+  final provider = imageProviderForSource(source);
+  if (provider == null) return const SizedBox.expand();
   return Image(
-    image: imageProviderForSource(source),
+    image: provider,
     fit: fit,
     alignment: alignment,
     gaplessPlayback: true,
   );
+}
+
+class _RemoteAppearanceImage extends ImageProvider<_RemoteAppearanceImage> {
+  const _RemoteAppearanceImage(this.uri);
+
+  final Uri uri;
+
+  @override
+  Future<_RemoteAppearanceImage> obtainKey(ImageConfiguration configuration) =>
+      SynchronousFuture(this);
+
+  @override
+  ImageStreamCompleter loadImage(
+    _RemoteAppearanceImage key,
+    ImageDecoderCallback decode,
+  ) => MultiFrameImageStreamCompleter(codec: key._load(decode), scale: 1);
+
+  Future<ui.Codec> _load(ImageDecoderCallback decode) async {
+    const timeout = Duration(seconds: 15);
+    ExternalNetworkGuard.check(uri);
+    final client = HttpClient()..connectionTimeout = timeout;
+    try {
+      final request = await client.getUrl(uri).timeout(timeout);
+      ExternalNetworkGuard.check(uri);
+      request.followRedirects = false;
+      final response = await request.close().timeout(timeout);
+      if (response.statusCode != HttpStatus.ok) {
+        throw NetworkImageLoadException(
+          statusCode: response.statusCode,
+          uri: uri,
+        );
+      }
+      final bytes = await consolidateHttpClientResponseBytes(
+        response,
+      ).timeout(timeout);
+      return await decode(await ui.ImmutableBuffer.fromUint8List(bytes));
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is _RemoteAppearanceImage && other.uri == uri;
+
+  @override
+  int get hashCode => uri.hashCode;
 }

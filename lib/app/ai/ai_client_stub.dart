@@ -24,9 +24,9 @@ Stream<AiCompletionEvent> aiAgentStream({
   List<Map<String, Object?>> tools = const <Map<String, Object?>>[],
   double temperature = 0,
   Duration connectionTimeout = const Duration(seconds: 20),
-  Duration responseTimeout = const Duration(seconds: 60),
-  Duration idleTimeout = const Duration(seconds: 45),
-  Duration totalTimeout = const Duration(seconds: 120),
+  Duration responseTimeout = const Duration(seconds: 120),
+  Duration idleTimeout = const Duration(seconds: 75),
+  Duration totalTimeout = const Duration(seconds: 300),
   int maxResponseBytes = 2 * 1024 * 1024,
   int maxStreamEvents = 10000,
 }) async* {

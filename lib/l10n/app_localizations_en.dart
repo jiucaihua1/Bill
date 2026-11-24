@@ -2799,6 +2799,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cropAvatarTitle => 'Crop avatar';
 
   @override
+  String get changeAvatarLabel => 'Change avatar';
+
+  @override
   String get avatarGenerating => 'Generating avatar…';
 
   @override
@@ -2948,14 +2951,44 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get autoSuggestLabel => 'Auto-fill from history';
+  String get autoSuggestLabel => 'Auto-fill manual entries';
 
   @override
   String get autoSuggestDesc =>
-      'Fill in type, category, tags and note for a new entry based on your past entries';
+      'Use past entries to fill in the type, category, tags and note when you add an entry manually.';
 
   @override
   String get appLockLabel => 'App lock';
+
+  @override
+  String get externalNetworkTitle => 'Allow network access';
+
+  @override
+  String get externalNetworkHint =>
+      'Enable AI, update checks, and automatic WebDAV uploads. You can allow manual WebDAV operations one at a time.';
+
+  @override
+  String get externalNetworkDisabled =>
+      'Network access is off. You can enable it in Settings.';
+
+  @override
+  String get externalNetworkInvalidWebdavUrl =>
+      'Enter a valid WebDAV server URL.';
+
+  @override
+  String get webdavOriginMismatch =>
+      'The backup address does not match the configured WebDAV server.';
+
+  @override
+  String get webdavNetworkPermissionTitle => 'Allow this WebDAV connection?';
+
+  @override
+  String webdavNetworkPermissionBody(String host) {
+    return 'Connect to $host for this WebDAV operation only.';
+  }
+
+  @override
+  String get webdavNetworkAllowOnce => 'Allow once';
 
   @override
   String get enabledLabel => 'On';
@@ -4213,10 +4246,158 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get resetConfirmMessage =>
-      'Confirming immediately clears all local data and restores defaults. This cannot be undone.';
+      'This clears all local data and restores defaults. Enter the code below to continue. This cannot be undone.';
 
   @override
-  String get resetConfirmAction => 'Confirm reset';
+  String get resetConfirmAction => 'Confirm deletion';
+
+  @override
+  String get autoSettingsTitle => 'Automatic bookkeeping';
+
+  @override
+  String get autoSettingsPermissionSubtitle => 'Permissions and supported apps';
+
+  @override
+  String get autoSettingsRefresh => 'Refresh permissions';
+
+  @override
+  String get autoSettingsEnabled => 'Enable automatic bookkeeping';
+
+  @override
+  String get autoSettingsEnabledHint =>
+      'Detect payments and transfers from selected apps and suggest a category using past entries and classification rules. Review before saving.';
+
+  @override
+  String get autoSettingsPersistent => 'Status notification';
+
+  @override
+  String get autoSettingsPersistentHint =>
+      'Show a status notification while automatic bookkeeping is enabled.';
+
+  @override
+  String get autoSettingsCore => 'Core permissions';
+
+  @override
+  String get autoSettingsEnhancements => 'Optional enhancements';
+
+  @override
+  String get autoSettingsAdvanced => 'Advanced options';
+
+  @override
+  String get autoSettingsPlatforms => 'Supported apps';
+
+  @override
+  String get autoSettingsAccessibility => 'Accessibility service';
+
+  @override
+  String get autoSettingsAccessibilityHint =>
+      'Detect payment and transfer screens in selected apps.';
+
+  @override
+  String get autoSettingsNotificationAccess => 'Notification access';
+
+  @override
+  String get autoSettingsNotificationHint =>
+      'Receive payment notifications from selected apps.';
+
+  @override
+  String get autoSettingsBattery => 'Disable battery optimization';
+
+  @override
+  String get autoSettingsBatteryHint =>
+      'Reduce interruptions to background listeners.';
+
+  @override
+  String get autoSettingsReady => 'Ready';
+
+  @override
+  String get autoSettingsOpen => 'Set up';
+
+  @override
+  String get autoSettingsShizuku => 'Shizuku status';
+
+  @override
+  String get autoSettingsShizukuGranted =>
+      'Authorized. Automatic bookkeeping uses Android’s capture services.';
+
+  @override
+  String get autoSettingsShizukuInstalled =>
+      'Installed. Start the Shizuku service to request access.';
+
+  @override
+  String get autoSettingsShizukuUnavailable =>
+      'Unavailable. Automatic bookkeeping works without it.';
+
+  @override
+  String get autoSettingsShizukuSuccess => 'Shizuku authorized';
+
+  @override
+  String get autoSettingsShizukuRequest =>
+      'Allow access in the Shizuku prompt.';
+
+  @override
+  String get autoSettingsShizukuStart => 'Start the service in Shizuku first.';
+
+  @override
+  String get autoSettingsWeChat => 'WeChat Pay and transfers';
+
+  @override
+  String get autoSettingsWeChatHint =>
+      'Payment confirmation, bills, and transfer details';
+
+  @override
+  String get autoSettingsAlipay => 'Alipay';
+
+  @override
+  String get autoSettingsAlipayHint => 'Payment confirmation and bill details';
+
+  @override
+  String get autoSettingsJd => 'JD.com';
+
+  @override
+  String get autoSettingsJdHint =>
+      'Order payment confirmation and credit or wallet bills';
+
+  @override
+  String get autoSettingsPdd => 'Pinduoduo';
+
+  @override
+  String get autoSettingsPddHint =>
+      'Order payments and Duoduo Pay bill details';
+
+  @override
+  String get screenshotSettingsTitle => 'Screenshot bookkeeping';
+
+  @override
+  String get screenshotSettingsShortcutSubtitle =>
+      'Quick Settings tile and text recognition';
+
+  @override
+  String get screenshotSettingsRecognition => 'Recognition';
+
+  @override
+  String get screenshotSettingsRecognitionHint =>
+      'Text is recognized on your device. Only the extracted text is sent to your AI provider.';
+
+  @override
+  String get screenshotSettingsConfigureAi =>
+      'Configure a model in AI settings to scan bills.';
+
+  @override
+  String get screenshotSettingsShortcut => 'Quick Settings shortcut';
+
+  @override
+  String get screenshotSettingsShortcutHint =>
+      'Add the Scan a screenshot tile in Android Quick Settings, or share a bill screenshot to Xiaohe Ledger.';
+
+  @override
+  String get screenshotSettingsSupported => 'Common bill screenshots';
+
+  @override
+  String get resetCodeRefresh => 'Refresh verification code';
+
+  @override
+  String get resetCodeInput => 'Enter the 4-digit code shown';
 
   @override
   String get checkingLabel => 'Checking…';
@@ -4375,7 +4556,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get widgetConfigureHint =>
-      'After adding it, tap \"Tap to set up\" on the widget to choose a book and an appearance.';
+      'After adding the widget, tap \"Tap to set up\" to choose a book, appearance, and background opacity.';
 
   @override
   String get widgetTemplateQuickEntry => 'Quick entry';
@@ -4421,6 +4602,53 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get widgetAppearance => 'Appearance';
+
+  @override
+  String get widgetTextSize => 'Text size';
+
+  @override
+  String get widgetTextSmall => 'Small';
+
+  @override
+  String get widgetTextStandard => 'Standard';
+
+  @override
+  String get widgetTextLarge => 'Large';
+
+  @override
+  String get widgetTextAlignment => 'Text alignment';
+
+  @override
+  String get widgetTextStart => 'Left';
+
+  @override
+  String get widgetTextCenter => 'Center';
+
+  @override
+  String get widgetTextColor => 'Text color';
+
+  @override
+  String get widgetTextAutomatic => 'Match appearance';
+
+  @override
+  String get widgetTextWhite => 'White';
+
+  @override
+  String get widgetTextBlack => 'Black';
+
+  @override
+  String get widgetTextBlue => 'Blue';
+
+  @override
+  String get widgetTextGreen => 'Green';
+
+  @override
+  String get widgetBackgroundOpacity => 'Background opacity';
+
+  @override
+  String widgetBackgroundOpacityPercent(int percent) {
+    return '$percent%';
+  }
 
   @override
   String get widgetBookPlaceholder => 'Choose a book';
@@ -5441,9 +5669,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get categoryIconThemeTitle => 'Category icon theme';
-
-  @override
-  String get categoryIconThemeBuiltin => 'Built-in icons';
 
   @override
   String get categoryIconThemeLine => 'Thin line preset';

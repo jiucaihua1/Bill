@@ -143,5 +143,79 @@ enum WidgetAppearance {
   };
 }
 
+enum WidgetTextSize {
+  small,
+  standard,
+  large;
+
+  String label(AppLocalizations l10n) => switch (this) {
+    small => l10n.widgetTextSmall,
+    standard => l10n.widgetTextStandard,
+    large => l10n.widgetTextLarge,
+  };
+}
+
+enum WidgetTextAlignment {
+  start,
+  center;
+
+  String label(AppLocalizations l10n) => switch (this) {
+    start => l10n.widgetTextStart,
+    center => l10n.widgetTextCenter,
+  };
+}
+
+enum WidgetTextColor {
+  automatic,
+  white,
+  black,
+  blue,
+  green;
+
+  String label(AppLocalizations l10n) => switch (this) {
+    automatic => l10n.widgetTextAutomatic,
+    white => l10n.widgetTextWhite,
+    black => l10n.widgetTextBlack,
+    blue => l10n.widgetTextBlue,
+    green => l10n.widgetTextGreen,
+  };
+}
+
+typedef WidgetTypography = ({
+  WidgetTextSize size,
+  WidgetTextAlignment alignment,
+  WidgetTextColor color,
+});
+
+const defaultWidgetTypography = (
+  size: WidgetTextSize.standard,
+  alignment: WidgetTextAlignment.start,
+  color: WidgetTextColor.automatic,
+);
+
+WidgetTypography decodeWidgetTypography(Map<Object?, Object?> fields) => (
+  size:
+      WidgetTextSize.values
+          .where((size) => size.name == fields['textSize'])
+          .firstOrNull ??
+      defaultWidgetTypography.size,
+  alignment:
+      WidgetTextAlignment.values
+          .where((alignment) => alignment.name == fields['textAlignment'])
+          .firstOrNull ??
+      defaultWidgetTypography.alignment,
+  color:
+      WidgetTextColor.values
+          .where((color) => color.name == fields['textColor'])
+          .firstOrNull ??
+      defaultWidgetTypography.color,
+);
+
+Map<String, String> encodeWidgetTypography(WidgetTypography typography) => {
+  'textSize': typography.size.name,
+  'textAlignment': typography.alignment.name,
+  'textColor': typography.color.name,
+};
+
 /// 趋势模板与净资产曲线固定的日历日窗口（以今天收尾）。
 const int widgetChartDays = 30;

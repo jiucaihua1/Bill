@@ -13,13 +13,39 @@ import '../l10n/app_localizations.dart';
 import 'auto_confirm_sheet.dart';
 import 'capture_entry.dart';
 
-const List<({String id, String name, String hint})> _supportedPlatforms =
-    <({String id, String name, String hint})>[
-      (id: 'wechat', name: '微信支付 / 转账', hint: '支付成功页、微信账单与转账详情'),
-      (id: 'alipay', name: '支付宝', hint: '付款成功页与账单详情'),
-      (id: 'jd', name: '京东', hint: '订单支付成功与白条/钱包账单'),
-      (id: 'pdd', name: '拼多多', hint: '订单支付与多多支付账单详情'),
-    ];
+typedef _CapturePlatform = ({
+  String id,
+  String name,
+  String hint,
+  IconData icon,
+});
+
+List<_CapturePlatform> _platforms(AppLocalizations l10n) => [
+  (
+    id: 'wechat',
+    name: l10n.autoSettingsWeChat,
+    hint: l10n.autoSettingsWeChatHint,
+    icon: Icons.chat_outlined,
+  ),
+  (
+    id: 'alipay',
+    name: l10n.autoSettingsAlipay,
+    hint: l10n.autoSettingsAlipayHint,
+    icon: Icons.payment_outlined,
+  ),
+  (
+    id: 'jd',
+    name: l10n.autoSettingsJd,
+    hint: l10n.autoSettingsJdHint,
+    icon: Icons.shopping_bag_outlined,
+  ),
+  (
+    id: 'pdd',
+    name: l10n.autoSettingsPdd,
+    hint: l10n.autoSettingsPddHint,
+    icon: Icons.shopping_cart_outlined,
+  ),
+];
 
 /// 自动记账配置页：
 /// 后台总开关、采集通道状态、适配平台开关以及只读识别预览。
@@ -42,16 +68,6 @@ class _AutoBookkeepingPageState extends State<AutoBookkeepingPage>
     'jd': true,
     'pdd': true,
   };
-
-  List<({String id, String name, String hint})> _platforms(
-    BuildContext context,
-  ) {
-    final l10n = AppLocalizations.of(context);
-    return [
-      ..._supportedPlatforms,
-      (id: 'ccb', name: l10n.autoCaptureCcbName, hint: l10n.autoCaptureCcbHint),
-    ];
-  }
 
   @override
   void initState() {
@@ -79,10 +95,9 @@ class _AutoBookkeepingPageState extends State<AutoBookkeepingPage>
     if (!mounted) return;
     setState(() {
       _status = status;
-      for (final p in _platforms(context)) {
-        _enabledPlatforms[p.id] =
-            prefs.getBool('verifin.auto_capture.app.${p.id}') ??
-            (p.id != 'ccb');
+      for (final id in _enabledPlatforms.keys) {
+        _enabledPlatforms[id] =
+            prefs.getBool('verifin.auto_capture.app.$id') ?? (id != 'ccb');
       }
       _loading = false;
     });
@@ -132,417 +147,317 @@ class _AutoBookkeepingPageState extends State<AutoBookkeepingPage>
     await prefs.setBool(key, value);
   }
 
+  Future<void> _requestShizuku() async {
+    final result = await AppCaptureBridge.requestShizukuPermission();
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+    final message = switch (result) {
+      'granted' => l10n.autoSettingsShizukuSuccess,
+      'requested' => l10n.autoSettingsShizukuRequest,
+      'not_running' => l10n.autoSettingsShizukuStart,
+      _ => l10n.autoSettingsShizukuUnavailable,
+    };
+    unawaited(
+      VeriFeedbackHost.of(context).showMessage(
+        message: message,
+        tone: result == 'granted'
+            ? VeriFeedbackTone.success
+            : VeriFeedbackTone.warning,
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (mounted) await _refreshStatus();
+  }
+
+  Widget _permission({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool ready,
+    required String target,
+  }) {
+    final l10n = AppLocalizations.of(context);
+    return SettingsRow(
+      leading: VeriIconBox(
+        icon: icon,
+        color: veriSemantic(context, ready ? veriIncome : veriWarning),
+        size: 28,
+      ),
+      title: title,
+      subtitle: subtitle,
+      trailing: ready ? l10n.autoSettingsReady : l10n.autoSettingsOpen,
+      trailingIcon: Icons.chevron_right,
+      onTap: () => AppCaptureBridge.openAutoCapturePermission(target),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('自动记账'),
-        actions: <Widget>[
-          IconButton(
-            tooltip: '刷新权限检测',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _refreshStatus,
-          ),
-        ],
+    final platforms = [
+      ..._platforms(l10n),
+      (
+        id: 'ccb',
+        name: l10n.autoCaptureCcbName,
+        hint: l10n.autoCaptureCcbHint,
+        icon: Icons.account_balance_outlined,
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: veriPageMaxWidth),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-            children: <Widget>[
-              VeriCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                '自动记账总开关',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                l10n.autoCaptureOverlayFlow,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withValues(
-                                    alpha: 0.6,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Switch(
-                          value: _status.autoEnabled,
-                          onChanged: _loading ? null : _toggleAutoEnabled,
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 20),
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('通知栏运行状态'),
-                      subtitle: const Text('开启自动记账时在通知栏显示运行状态'),
-                      value: _status.persistentNotification,
-                      onChanged: _loading
-                          ? null
-                          : _togglePersistentNotification,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              const SectionLabel('采集通道与权限'),
-              VeriCard(
-                child: Column(
-                  children: <Widget>[
-                    _PermissionRow(
-                      icon: Icons.layers_outlined,
-                      title: l10n.autoCaptureOverlayPermission,
-                      subtitle: l10n.autoCaptureOverlayFlow,
-                      granted: _status.overlayGranted,
-                      onTap: () =>
-                          AppCaptureBridge.openAutoCapturePermission('overlay'),
-                    ),
-                    const Divider(height: 1),
-                    _PermissionRow(
-                      icon: Icons.accessibility_new_rounded,
-                      title: '无障碍服务',
-                      subtitle: _status.accessibilityConnected
-                          ? l10n.autoCaptureListenerConnected
-                          : _status.accessibilityGranted
-                          ? l10n.autoCaptureListenerDisconnected
-                          : '识别已选平台的付款和转账页面',
-                      granted: _status.accessibilityConnected,
-                      badgeText:
-                          _status.accessibilityGranted &&
-                              !_status.accessibilityConnected
-                          ? '去设置'
-                          : null,
-                      onTap: () => AppCaptureBridge.openAutoCapturePermission(
-                        'accessibility',
-                      ),
-                    ),
-                    const Divider(height: 1),
-                    _PermissionRow(
-                      icon: Icons.notifications_active_outlined,
-                      title: '通知栏读取权限',
-                      subtitle: _status.notificationConnected
-                          ? l10n.autoCaptureListenerConnected
-                          : _status.notificationGranted
-                          ? l10n.autoCaptureListenerDisconnected
-                          : '接收已选平台的支付通知',
-                      granted: _status.notificationConnected,
-                      onTap: () => AppCaptureBridge.openAutoCapturePermission(
-                        'notification',
-                      ),
-                    ),
-                    if (_status.notificationGranted &&
-                        !_status.notificationConnected)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: _reconnectNotificationListener,
-                          child: Text(l10n.autoCaptureReconnect),
-                        ),
-                      ),
-                    const Divider(height: 1),
-                    _PermissionRow(
-                      icon: Icons.receipt_long_outlined,
-                      title: l10n.autoCaptureReviewNotifications,
-                      subtitle: _status.canPostNotifications
-                          ? l10n.autoCaptureNotificationFlow
-                          : l10n.autoCaptureNotificationsDisabled,
-                      granted: _status.canPostNotifications,
-                      onTap: () => AppCaptureBridge.openAutoCapturePermission(
-                        'post_notifications',
-                      ),
-                    ),
-                    const Divider(height: 1),
-                    _PermissionRow(
-                      icon: Icons.battery_saver_outlined,
-                      title: '后台保活（忽略电池优化）',
-                      subtitle: '防止 HyperOS 后台清理导致监听断开',
-                      granted: _status.batteryIgnored,
-                      onTap: () =>
-                          AppCaptureBridge.openAutoCapturePermission('battery'),
-                    ),
-                    const Divider(height: 1),
-                    _PermissionRow(
-                      icon: Icons.terminal_rounded,
-                      title: 'Shizuku 授权状态',
-                      subtitle: _status.shizukuGranted
-                          ? 'Shizuku 已授权，当前识别仍使用系统采集通道'
-                          : _status.shizukuInstalled
-                          ? '已安装 Shizuku，点击请求授权（需先在 Shizuku 内启动服务）'
-                          : '未检测到 Shizuku（当前识别不依赖此授权）',
-                      granted: _status.shizukuGranted,
-                      optional: !_status.shizukuInstalled,
-                      onTap: () async {
-                        final res =
-                            await AppCaptureBridge.requestShizukuPermission();
-                        if (!context.mounted) return;
-                        final msg = switch (res) {
-                          'granted' => 'Shizuku 已授权',
-                          'requested' => '已发起 Shizuku 授权请求，请在弹窗中允许',
-                          'not_running' =>
-                            '未连接到 Shizuku 服务，请先在 Shizuku 中启动服务后再试',
-                          _ => '未检测到 Shizuku 应用',
-                        };
-                        unawaited(
-                          VeriFeedbackHost.of(context).showMessage(
-                            message: msg,
-                            tone: res == 'granted'
-                                ? VeriFeedbackTone.success
-                                : VeriFeedbackTone.warning,
-                          ),
-                        );
-                        await Future<void>.delayed(
-                          const Duration(milliseconds: 500),
-                        );
-                        await _refreshStatus();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              const SectionLabel('已适配与计划适配平台'),
-              VeriCard(
-                child: Column(
-                  children: <Widget>[
-                    for (final platform in _platforms(context)) ...<Widget>[
-                      SwitchListTile.adaptive(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(platform.name),
-                        subtitle: Text(platform.hint),
-                        value: _enabledPlatforms[platform.id] ?? true,
-                        onChanged: (value) {
-                          setState(
-                            () => _enabledPlatforms[platform.id] = value,
-                          );
-                          unawaited(
-                            _setBoolPref(
-                              'verifin.auto_capture.app.${platform.id}',
-                              value,
-                            ),
-                          );
-                        },
-                      ),
-                      if (platform.id != 'ccb') const Divider(height: 1),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              VeriCard(
-                child: FilledButton.icon(
-                  icon: const Icon(Icons.bolt_rounded, size: 18),
-                  label: Text(l10n.autoCapturePreviewTitle),
-                  onPressed: () => showAutoCapturePreview(context),
-                ),
-              ),
-            ],
-          ),
+    ];
+    String listenerHint(bool connected, bool granted, String capability) =>
+        connected
+        ? l10n.autoCaptureListenerConnected
+        : granted
+        ? l10n.autoCaptureListenerDisconnected
+        : capability;
+    return _CaptureSettingsPage(
+      title: l10n.autoSettingsTitle,
+      actions: [
+        IconButton(
+          tooltip: l10n.autoSettingsRefresh,
+          icon: const Icon(Icons.refresh_rounded),
+          onPressed: _refreshStatus,
         ),
-      ),
+      ],
+      children: [
+        _CaptureSettingsGroup(
+          rows: [
+            CompactSwitchRow(
+              icon: Icons.receipt_long_outlined,
+              title: Text(l10n.autoSettingsEnabled),
+              subtitle: Text(l10n.autoSettingsEnabledHint),
+              value: _status.autoEnabled,
+              onChanged: _loading ? null : _toggleAutoEnabled,
+            ),
+            CompactSwitchRow(
+              icon: Icons.notifications_outlined,
+              title: Text(l10n.autoSettingsPersistent),
+              subtitle: Text(l10n.autoSettingsPersistentHint),
+              value: _status.persistentNotification,
+              onChanged: _loading ? null : _togglePersistentNotification,
+            ),
+          ],
+        ),
+        _CaptureSettingsGroup(
+          title: l10n.autoSettingsCore,
+          rows: [
+            _permission(
+              icon: Icons.accessibility_new_rounded,
+              title: l10n.autoSettingsAccessibility,
+              subtitle: listenerHint(
+                _status.accessibilityConnected,
+                _status.accessibilityGranted,
+                l10n.autoSettingsAccessibilityHint,
+              ),
+              ready: _status.accessibilityConnected,
+              target: 'accessibility',
+            ),
+            _permission(
+              icon: Icons.notifications_active_outlined,
+              title: l10n.autoSettingsNotificationAccess,
+              subtitle: listenerHint(
+                _status.notificationConnected,
+                _status.notificationGranted,
+                l10n.autoSettingsNotificationHint,
+              ),
+              ready: _status.notificationConnected,
+              target: 'notification',
+            ),
+            if (_status.notificationGranted && !_status.notificationConnected)
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: TextButton(
+                  onPressed: _reconnectNotificationListener,
+                  child: Text(l10n.autoCaptureReconnect),
+                ),
+              ),
+          ],
+        ),
+        _CaptureSettingsGroup(
+          title: l10n.autoSettingsEnhancements,
+          rows: [
+            _permission(
+              icon: Icons.layers_outlined,
+              title: l10n.autoCaptureOverlayPermission,
+              subtitle: l10n.autoCaptureOverlayFlow,
+              ready: _status.overlayGranted,
+              target: 'overlay',
+            ),
+            _permission(
+              icon: Icons.receipt_long_outlined,
+              title: l10n.autoCaptureReviewNotifications,
+              subtitle: _status.canPostNotifications
+                  ? l10n.autoCaptureNotificationFlow
+                  : l10n.autoCaptureNotificationsDisabled,
+              ready: _status.canPostNotifications,
+              target: 'post_notifications',
+            ),
+            _permission(
+              icon: Icons.battery_saver_outlined,
+              title: l10n.autoSettingsBattery,
+              subtitle: l10n.autoSettingsBatteryHint,
+              ready: _status.batteryIgnored,
+              target: 'battery',
+            ),
+          ],
+        ),
+        _CaptureSettingsGroup(
+          title: l10n.autoSettingsPlatforms,
+          rows: [
+            for (final platform in platforms)
+              CompactSwitchRow(
+                icon: platform.icon,
+                title: Text(platform.name),
+                subtitle: Text(platform.hint),
+                value: _enabledPlatforms[platform.id] ?? true,
+                onChanged: _loading
+                    ? null
+                    : (value) {
+                        setState(() => _enabledPlatforms[platform.id] = value);
+                        unawaited(
+                          _setBoolPref(
+                            'verifin.auto_capture.app.${platform.id}',
+                            value,
+                          ),
+                        );
+                      },
+              ),
+          ],
+        ),
+        FilledButton.icon(
+          icon: const Icon(Icons.bolt_rounded, size: 18),
+          label: Text(l10n.autoCapturePreviewTitle),
+          onPressed: _loading ? null : () => showAutoCapturePreview(context),
+        ),
+        _CaptureSettingsGroup(
+          title: l10n.autoSettingsAdvanced,
+          rows: [
+            SettingsRow(
+              icon: Icons.terminal_rounded,
+              contentColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              title: l10n.autoSettingsShizuku,
+              subtitle: _status.shizukuGranted
+                  ? l10n.autoSettingsShizukuGranted
+                  : _status.shizukuInstalled
+                  ? l10n.autoSettingsShizukuInstalled
+                  : l10n.autoSettingsShizukuUnavailable,
+              trailing: '',
+              trailingIcon: _status.shizukuInstalled && !_status.shizukuGranted
+                  ? Icons.chevron_right
+                  : null,
+              onTap: _status.shizukuInstalled && !_status.shizukuGranted
+                  ? _requestShizuku
+                  : null,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
 
-/// 截图记账配置页：
-/// 控制中心【截图记账】磁贴指引、本地 OCR + 文本传 AI 省流开关与立即选图测试。
-class ScreenshotCapturePage extends StatefulWidget {
+/// 截图记账配置页。
+class ScreenshotCapturePage extends StatelessWidget {
   const ScreenshotCapturePage({super.key});
 
   @override
-  State<ScreenshotCapturePage> createState() => _ScreenshotCapturePageState();
-}
-
-class _ScreenshotCapturePageState extends State<ScreenshotCapturePage> {
-  static const _keyAiTextOnly = 'verifin.auto_capture.ai_text_only';
-  bool _aiTextOnly = true;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_load());
-  }
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _aiTextOnly = prefs.getBool(_keyAiTextOnly) ?? true;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tokens = VeriStyleTokens.of(context);
-    final controller = VeriFinScope.of(context);
+    final l10n = AppLocalizations.of(context);
+    final configured = VeriFinScope.of(context).aiSettings.isConfigured;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('截图记账')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: veriPageMaxWidth),
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-            children: <Widget>[
-              VeriCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      '识别与成本控制',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('本地 OCR 优先 + 仅传文本给 AI'),
-                      subtitle: Text(
-                        controller.aiSettings.isConfigured
-                            ? '截图不出手机，本地 ML Kit 离线提取文字后仅发送文本给 AI 解析，大幅降低 Token 成本'
-                            : '请先在「AI 财务助理」配置模型接口，即可直接解析截图文字',
-                      ),
-                      value: _aiTextOnly,
-                      onChanged: (value) async {
-                        setState(() => _aiTextOnly = value);
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setBool(_keyAiTextOnly, value);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              const SectionLabel('控制中心快捷开关'),
-              VeriCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: tokens.surfaceAltColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '使用方式：\n1. 下拉小米控制中心 → 点击「编辑」将【截图记账】磁贴拖到快捷面板；\n2. 支付完或看到账单时，也可直接系统「分享截图 → 小禾记账」。',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      icon: const Icon(Icons.screenshot_rounded, size: 18),
-                      label: const Text('选择账单截图立即识别'),
-                      onPressed: () => startScreenshotEntry(context),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              const SectionLabel('支持识别的常见账单截图'),
-              VeriCard(
-                child: Column(
-                  children: <Widget>[
-                    for (final item in _supportedPlatforms.indexed) ...<Widget>[
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: VeriIconBox(
-                          icon: Icons.receipt_long_outlined,
-                          color: theme.colorScheme.primary,
-                          size: 34,
-                        ),
-                        title: Text(
-                          item.$2.name,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        subtitle: Text(item.$2.hint),
-                      ),
-                      if (item.$1 != _supportedPlatforms.length - 1)
-                        const Divider(height: 1),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
+    return _CaptureSettingsPage(
+      title: l10n.screenshotSettingsTitle,
+      children: [
+        _CaptureSettingsGroup(
+          rows: [
+            SettingsRow(
+              icon: Icons.document_scanner_outlined,
+              title: l10n.screenshotSettingsRecognition,
+              subtitle: configured
+                  ? l10n.screenshotSettingsRecognitionHint
+                  : l10n.screenshotSettingsConfigureAi,
+              trailing: '',
+            ),
+            SettingsRow(
+              icon: Icons.screenshot_rounded,
+              title: l10n.screenshotSettingsShortcut,
+              subtitle: l10n.screenshotSettingsShortcutHint,
+              trailing: '',
+            ),
+          ],
         ),
-      ),
+        FilledButton.icon(
+          icon: const Icon(Icons.photo_library_outlined, size: 18),
+          label: Text(l10n.screenshotEntryButton),
+          onPressed: () => startScreenshotEntry(context),
+        ),
+        _CaptureSettingsGroup(
+          title: l10n.screenshotSettingsSupported,
+          rows: [
+            for (final platform in _platforms(l10n))
+              SettingsRow(
+                icon: platform.icon,
+                title: platform.name,
+                subtitle: platform.hint,
+                trailing: '',
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
 
-class _PermissionRow extends StatelessWidget {
-  const _PermissionRow({
-    required this.icon,
+class _CaptureSettingsPage extends StatelessWidget {
+  const _CaptureSettingsPage({
     required this.title,
-    required this.subtitle,
-    required this.granted,
-    required this.onTap,
-    this.optional = false,
-    this.badgeText,
+    required this.children,
+    this.actions,
   });
 
-  final IconData icon;
   final String title;
-  final String subtitle;
-  final bool granted;
-  final VoidCallback onTap;
-  final bool optional;
-  final String? badgeText;
+  final List<Widget> children;
+  final List<Widget>? actions;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final statusColor = granted
-        ? veriSemantic(context, veriIncome)
-        : optional
-        ? theme.colorScheme.onSurface.withValues(alpha: 0.52)
-        : veriSemantic(context, veriWarning);
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: VeriIconBox(icon: icon, color: statusColor, size: 34),
-      title: Text(
-        title,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: VeriPage(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
+          children: [
+            VeriHeader(title: title, showBack: true, actions: actions),
+            for (final child in children) ...[
+              const SizedBox(height: 12),
+              child,
+            ],
+          ],
         ),
       ),
-      subtitle: Text(subtitle, style: theme.textTheme.bodySmall),
-      trailing: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: statusColor.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(
-          badgeText ?? (granted ? '已就绪' : (optional ? '去查看' : '去开启')),
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: statusColor,
-            fontWeight: FontWeight.w700,
-          ),
+    ),
+  );
+}
+
+class _CaptureSettingsGroup extends StatelessWidget {
+  const _CaptureSettingsGroup({required this.rows, this.title});
+
+  final String? title;
+  final List<Widget> rows;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (title case final heading?) SectionLabel(heading),
+      VeriCard(
+        child: Column(
+          children: [
+            for (final (index, row) in rows.indexed) ...[
+              if (index != 0) const Divider(),
+              row,
+            ],
+          ],
         ),
       ),
-      onTap: onTap,
-    );
-  }
+    ],
+  );
 }

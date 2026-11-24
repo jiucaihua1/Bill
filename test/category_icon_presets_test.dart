@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xiaohe/app/auto_bill_overlay.dart';
 import 'package:xiaohe/app/category_icon_presets.dart';
 import 'package:xiaohe/app/category_icon_theme.dart';
 import 'package:xiaohe/app/common_widgets.dart';
@@ -75,7 +76,7 @@ void main() {
     );
   });
 
-  testWidgets('CategoryIconBox 随预设切换渲染内置/细线/彩色/Emoji', (tester) async {
+  testWidgets('旧内置预设迁移为彩色，分类图标可切换为线性和 Emoji', (tester) async {
     final tempDir = Directory.systemTemp.createTempSync('verifin_preset_test_');
     const channel = MethodChannel('plugins.flutter.io/path_provider');
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -91,6 +92,8 @@ void main() {
     });
 
     final themes = CategoryIconThemes(logger: null);
+    final presetFile = File('${tempDir.path}/category-icon-preset-v1')
+      ..writeAsStringSync('builtin');
 
     Future<void> pumpBox({
       String iconCode = 'dining',
@@ -116,9 +119,15 @@ void main() {
       );
     }
 
+    await tester.runAsync(themes.restore);
     await pumpBox();
-    expect(find.byType(Icon), findsOneWidget);
-    expect(find.byType(SvgPicture), findsNothing);
+    expect(presetFile.readAsStringSync(), 'colored');
+    expect(themes.preset, CategoryIconPreset.colored);
+    expect(
+      AutoBillReviewData({'categoryIconPreset': 'builtin'}).categoryIconPreset,
+      CategoryIconPreset.colored,
+    );
+    expect(find.byType(SvgPicture), findsOneWidget);
 
     await tester.runAsync(() => themes.selectPreset(CategoryIconPreset.line));
     await pumpBox();
@@ -132,6 +141,12 @@ void main() {
     expect(find.byType(SvgPicture), findsOneWidget);
 
     await tester.runAsync(() => themes.selectPreset(CategoryIconPreset.emoji));
+    expect(
+      AutoBillReviewData({
+        'categoryIconPreset': themes.preset.name,
+      }).categoryIconPreset,
+      CategoryIconPreset.emoji,
+    );
     await pumpBox();
     expect(find.text('🍳'), findsOneWidget);
     expect(find.byType(SvgPicture), findsNothing);

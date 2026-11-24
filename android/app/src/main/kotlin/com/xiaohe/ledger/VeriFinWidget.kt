@@ -15,6 +15,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.*
@@ -30,6 +31,7 @@ import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * 投影快照的结构版本。**必须与 Dart 侧的 `widgetSnapshotVersion` 成对修改**，
@@ -109,7 +111,38 @@ data class WidgetInstanceSelection(
     val tapAction: String? = null,
     val leftMetric: String = "week_expense",
     val rightMetric: String = "today_expense",
+    val backgroundOpacity: Float = 1f,
+    val typography: WidgetTypography = WidgetTypography(),
 )
+
+data class WidgetTypography(
+    val scale: Float = 1f,
+    val centered: Boolean = false,
+    val color: String? = null,
+) {
+    fun textColor(context: Context): Color? = when (color) {
+        "white" -> Color.White
+        "black" -> Color.Black
+        "blue" -> Color(context.getColor(R.color.widget_text_blue_color))
+        "green" -> Color(context.getColor(R.color.widget_text_green_color))
+        else -> null
+    }
+
+    companion object {
+        fun from(read: (String) -> Any?) = WidgetTypography(
+            scale = when (read("textSize")) {
+                "small" -> 0.85f
+                "large" -> 1.15f
+                else -> 1f
+            },
+            centered = read("textAlignment") == "center",
+            color = read("textColor") as? String,
+        )
+    }
+}
+
+internal fun widgetBackgroundOpacity(value: Any?): Float =
+    (value as? Number)?.toDouble()?.takeIf { it.isFinite() }?.coerceIn(0.0, 1.0)?.toFloat() ?: 1f
 
 /** 组件当前该渲染什么。 */
 enum class WidgetContentState {
@@ -134,6 +167,8 @@ data class WidgetDisplay(
     val dark: Boolean = false,
     val bookId: String = "",
     val tapRoute: String = "app",
+    val backgroundOpacity: Float = 1f,
+    val typography: WidgetTypography = WidgetTypography(),
 )
 
 object VeriFinWidgetStore {
@@ -156,6 +191,8 @@ object VeriFinWidgetStore {
                     tapAction = json.optString("tapAction").takeIf { it.isNotBlank() },
                     leftMetric = json.optString("leftMetric").ifBlank { "week_expense" },
                     rightMetric = json.optString("rightMetric").ifBlank { "today_expense" },
+                    backgroundOpacity = widgetBackgroundOpacity(json.opt("backgroundOpacity")),
+                    typography = WidgetTypography.from(json::opt),
                 )
             }
         } catch (error: Exception) {
@@ -247,6 +284,8 @@ object VeriFinWidgetStore {
                 usage = if (template == VeriFinWidgetTemplate.BUDGET) 0f else null,
                 dark = dark,
                 tapRoute = tapRoute,
+                backgroundOpacity = selection.backgroundOpacity,
+                typography = selection.typography,
             )
         }
         if (selection.bookId.isBlank()) {
@@ -254,6 +293,8 @@ object VeriFinWidgetStore {
                 state = WidgetContentState.NEEDS_SETUP,
                 label = localized.getString(R.string.widget_setup_required),
                 dark = dark,
+                backgroundOpacity = selection.backgroundOpacity,
+                typography = selection.typography,
             )
         }
         val root = readSnapshots(prefs)
@@ -269,6 +310,8 @@ object VeriFinWidgetStore {
                 dark = dark,
                 bookId = selection.bookId,
                 tapRoute = tapRoute,
+                backgroundOpacity = selection.backgroundOpacity,
+                typography = selection.typography,
             )
         }
         val item = snapshot.optJSONObject(template.key)
@@ -318,6 +361,8 @@ object VeriFinWidgetStore {
             dark = dark,
             bookId = selection.bookId,
             tapRoute = tapRoute,
+            backgroundOpacity = selection.backgroundOpacity,
+            typography = selection.typography,
         )
     }
 
@@ -331,12 +376,49 @@ object VeriFinWidgetStore {
 
 // Native counterparts of Warm Paper & HyperOS tokens; shared by all Glance surfaces.
 private val widgetAccent = Color(0xFF2B6B56)
-private val widgetTextLight = Color(0xFF1F1C18)
-private val widgetTextDark = Color(0xFFF2ECE3)
-private val widgetMutedLight = Color(0xFF756D63)
-private val widgetMutedDark = Color(0xFF9F9588)
+internal val widgetTextLight = Color(0xFF1F1C18)
+internal val widgetTextDark = Color(0xFFF2ECE3)
+internal val widgetMutedLight = Color(0xFF756D63)
+internal val widgetMutedDark = Color(0xFF9F9588)
 private val widgetDividerLight = Color(0xFFE7DFD3)
 private val widgetDividerDark = Color(0xFF2E2925)
+private val widgetCardRadius = 22.dp
+private const val widgetBorderOpacityThreshold = 0.15f
+
+/** Rasterize the rounded background at a bounded size, including on launchers before API 31. */
+private fun widgetSurface(
+    context: Context,
+    data: WidgetDisplay,
+    widthDp: Float,
+    heightDp: Float,
+): ImageProvider? {
+    val opacity = data.backgroundOpacity
+    if (opacity <= 0f) return null
+    if (opacity >= 1f) {
+        return ImageProvider(if (data.dark) R.drawable.widget_surface_dark else R.drawable.widget_surface_light)
+    }
+    val scale = (384f / maxOf(widthDp, heightDp)).coerceAtMost(2f)
+    val width = (widthDp * scale).roundToInt().coerceAtLeast(1)
+    val height = (heightDp * scale).roundToInt().coerceAtLeast(1)
+    val radius = widgetCardRadius.value * scale
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val surfaceColor = context.getColor(
+        if (data.dark) R.color.widget_surface_dark_color else R.color.widget_surface_light_color,
+    )
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color(surfaceColor).copy(alpha = opacity).toArgb()
+    }
+    canvas.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), radius, radius, paint)
+    if (opacity > widgetBorderOpacityThreshold) {
+        val inset = scale / 2
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = scale
+        paint.color = (if (data.dark) widgetDividerDark else widgetDividerLight).copy(alpha = opacity).toArgb()
+        canvas.drawRoundRect(inset, inset, width - inset, height - inset, radius, radius, paint)
+    }
+    return ImageProvider(bitmap)
+}
 
 /** Same composition for the launcher, generated preview and in-app draft preview. */
 @Composable
@@ -348,8 +430,10 @@ fun VeriFinWidgetContent(
     setup: Action? = null,
     widgetId: Int? = null,
 ) {
-    val foreground = if (data.dark) widgetTextDark else widgetTextLight
-    val muted = if (data.dark) widgetMutedDark else widgetMutedLight
+    val typography = data.typography
+    val selectedTextColor = typography.textColor(LocalContext.current)
+    val foreground = selectedTextColor ?: if (data.dark) widgetTextDark else widgetTextLight
+    val muted = selectedTextColor ?: if (data.dark) widgetMutedDark else widgetMutedLight
     val dividerColor = if (data.dark) widgetDividerDark else widgetDividerLight
     val size = LocalSize.current
     val small = size.width < 150.dp || size.height < 130.dp
@@ -358,10 +442,12 @@ fun VeriFinWidgetContent(
         else if (template == VeriFinWidgetTemplate.DUAL_METRIC) 19
         else if (small || data.amount.length > 12) 20
         else 26
-    val surface = if (data.dark) R.drawable.widget_surface_dark else R.drawable.widget_surface_light
-    var card = GlanceModifier.fillMaxWidth().background(ImageProvider(surface))
-        .cornerRadius(22.dp).appWidgetBackground()
-    card = if (template == VeriFinWidgetTemplate.QUICK_ENTRY || template == VeriFinWidgetTemplate.DUAL_METRIC) {
+    val compact = template == VeriFinWidgetTemplate.QUICK_ENTRY || template == VeriFinWidgetTemplate.DUAL_METRIC
+    val surface = widgetSurface(LocalContext.current, data, size.width.value, if (compact) 72f else size.height.value)
+    var card = GlanceModifier.fillMaxWidth()
+    if (surface != null) card = card.background(surface, contentScale = ContentScale.FillBounds)
+    card = card.cornerRadius(widgetCardRadius).appWidgetBackground()
+    card = if (compact) {
         card.height(72.dp)
     } else {
         card.fillMaxHeight()
@@ -370,42 +456,32 @@ fun VeriFinWidgetContent(
         WidgetContentState.NEEDS_SETUP -> setup
         else -> open
     }
-    if (action != null) card = card.clickable(action)
+    val readyQuick = template == VeriFinWidgetTemplate.QUICK_ENTRY && data.state == WidgetContentState.READY
+    if (action != null && !readyQuick) card = card.clickable(action)
     Box(GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         if (data.state != WidgetContentState.READY) {
             // 未配置 / 无数据：只显示一句话，不给任何金额，也不猜一个默认账本。
             Column(card.padding(if (small) 12.dp else 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    data.label,
-                    style = TextStyle(color = ColorProvider(foreground), fontSize = 14.sp),
-                    maxLines = 2,
-                )
+                WidgetText(data.label, foreground, 14, typography, maxLines = 2)
             }
         } else if (template == VeriFinWidgetTemplate.QUICK_ENTRY) {
-            AndroidRemoteViews(
-                QuickWidgetContent.views(LocalContext.current, data, widgetId),
-                GlanceModifier.fillMaxWidth().height(72.dp),
-            )
+            Box(card) {
+                AndroidRemoteViews(
+                    QuickWidgetContent.views(LocalContext.current, data, widgetId),
+                    GlanceModifier.fillMaxSize(),
+                )
+            }
         } else if (template == VeriFinWidgetTemplate.DUAL_METRIC) {
             Row(
                 card.padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(GlanceModifier.defaultWeight()) {
-                    Text(
-                        data.label,
-                        style = TextStyle(color = ColorProvider(muted), fontSize = 11.sp),
-                        maxLines = 1,
-                    )
+                    WidgetText(data.label, muted, 11, typography)
                     Spacer(GlanceModifier.height(2.dp))
-                    Text(
-                        data.amount,
-                        style = TextStyle(
-                            color = ColorProvider(foreground),
-                            fontSize = (if (data.amount.length > 9) 16 else metricSize).sp,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                        maxLines = 1,
+                    WidgetText(
+                        data.amount, foreground, if (data.amount.length > 9) 16 else metricSize,
+                        typography, bold = true,
                     )
                 }
                 Spacer(GlanceModifier.width(10.dp))
@@ -415,30 +491,17 @@ fun VeriFinWidgetContent(
                 ) {}
                 Spacer(GlanceModifier.width(12.dp))
                 Column(GlanceModifier.defaultWeight()) {
-                    Text(
-                        data.secondaryLabel,
-                        style = TextStyle(color = ColorProvider(muted), fontSize = 11.sp),
-                        maxLines = 1,
-                    )
+                    WidgetText(data.secondaryLabel, muted, 11, typography)
                     Spacer(GlanceModifier.height(2.dp))
-                    Text(
-                        data.secondaryAmount,
-                        style = TextStyle(
-                            color = ColorProvider(foreground),
-                            fontSize = (if (data.secondaryAmount.length > 9) 16 else metricSize).sp,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                        maxLines = 1,
+                    WidgetText(
+                        data.secondaryAmount, foreground, if (data.secondaryAmount.length > 9) 16 else metricSize,
+                        typography, bold = true,
                     )
                 }
             }
         } else {
             Column(card.padding(if (small) 10.dp else 14.dp)) {
-                Text(
-                    data.label,
-                    style = TextStyle(color = ColorProvider(muted), fontSize = 12.sp),
-                    maxLines = 1,
-                )
+                WidgetText(data.label, muted, 12, typography)
                 if (template == VeriFinWidgetTemplate.TREND) {
                     Spacer(GlanceModifier.height(8.dp))
                     Row(
@@ -471,7 +534,9 @@ fun VeriFinWidgetContent(
                             contentAlignment = Alignment.CenterEnd,
                         ) {
                             Image(
-                                ImageProvider(WidgetGraphics.ring(data.usage, data.dark)),
+                                ImageProvider(
+                                    WidgetGraphics.ring(data.usage, data.dark, selectedTextColor, typography.scale),
+                                ),
                                 null,
                                 GlanceModifier.size(if (small) 48.dp else 64.dp),
                             )
@@ -494,20 +559,35 @@ fun VeriFinWidgetContent(
 @Composable
 private fun MetricText(data: WidgetDisplay, foreground: Color, size: Int) {
     Spacer(GlanceModifier.height(4.dp))
+    WidgetText(data.amount, foreground, size, data.typography, bold = true)
+}
+
+@Composable
+private fun WidgetText(
+    text: String,
+    color: Color,
+    size: Int,
+    typography: WidgetTypography,
+    bold: Boolean = false,
+    maxLines: Int = 1,
+) {
+    val scale = if (bold && text.length > 9) typography.scale.coerceAtMost(1f) else typography.scale
     Text(
-        data.amount,
+        text,
+        modifier = if (typography.centered) GlanceModifier.fillMaxWidth() else GlanceModifier,
         style = TextStyle(
-            color = ColorProvider(foreground),
-            fontSize = size.sp,
-            fontWeight = FontWeight.Bold,
+            color = ColorProvider(color),
+            fontSize = (size * scale).sp,
+            fontWeight = if (bold) FontWeight.Bold else null,
+            textAlign = if (typography.centered) TextAlign.Center else null,
         ),
-        maxLines = 1,
+        maxLines = maxLines,
     )
 }
 
 /** Glance has no arbitrary chart canvas: charts are bitmap leaves, never a second UI. */
 object WidgetGraphics {
-    fun ring(usage: Float, dark: Boolean): Bitmap {
+    fun ring(usage: Float, dark: Boolean, textColor: Color? = null, textScale: Float = 1f): Bitmap {
         val bitmap = Bitmap.createBitmap(192, 192, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -520,8 +600,8 @@ object WidgetGraphics {
         paint.color = if (usage > 1f) 0xFFD9534F.toInt() else 0xFF2B6B56.toInt()
         canvas.drawArc(18f, 18f, 174f, 174f, -90f, usage.coerceIn(0f, 1f) * 360f, false, paint)
         paint.style = Paint.Style.FILL
-        paint.color = if (dark) 0xFFF2ECE3.toInt() else 0xFF1F1C18.toInt()
-        paint.textSize = 44f
+        paint.color = (textColor ?: if (dark) widgetTextDark else widgetTextLight).toArgb()
+        paint.textSize = 44f * textScale
         paint.textAlign = Paint.Align.CENTER
         paint.typeface = android.graphics.Typeface.DEFAULT_BOLD
         canvas.drawText(

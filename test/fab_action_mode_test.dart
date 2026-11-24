@@ -20,7 +20,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 数字键盘出现（OK 键存在）。
-    expect(find.byKey(const Key('number_pad_ok')), findsOneWidget);
+    expect(find.byKey(const Key('number_pad_display')), findsOneWidget);
   });
 
   testWidgets('点击手动·长按AI：长按走AI（未配置则弹配置提示）', (tester) async {
@@ -35,6 +35,6 @@ void main() {
 
     // AI 未配置 → 弹出「尚未配置 AI」对话框；数字键盘不应出现。
     expect(find.text('尚未配置 AI'), findsOneWidget);
-    expect(find.byKey(const Key('number_pad_ok')), findsNothing);
+    expect(find.byKey(const Key('number_pad_display')), findsNothing);
   });
 }

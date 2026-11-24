@@ -39,8 +39,13 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  String? displayText(WidgetTester tester) =>
-      tester.widget<Text>(find.byKey(const Key('number_pad_display'))).data;
+  String? displayText(WidgetTester tester) {
+    final field = tester.widget<TextField>(
+      find.byKey(const Key('number_pad_display')),
+    );
+    final text = field.controller!.text;
+    return text.isEmpty ? field.decoration?.hintText : text;
+  }
 
   bool okEnabled(WidgetTester tester) =>
       tester
@@ -75,11 +80,16 @@ void main() {
     // 右下角浅色结果预览。
     expect(find.text('= 1300'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('number_pad_ok')));
+    final entryScreen = tester.element(
+      find.byKey(const Key('number_pad_display')),
+    );
+    final controller = VeriFinScope.of(entryScreen);
+    await tester.tap(find.text('食品餐饮'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('save_entry_button')));
     await tester.pumpAndSettle();
 
-    // 落到记账页，默认支出的大金额带负号（与 formatSignedAmount 同一套 ASCII 写法）。
-    expect(find.text('-1300'), findsOneWidget);
+    expect(controller.entries.single.amount, 1300);
   });
 
   testWidgets('不完整算式提示且不可确认', (tester) async {
@@ -94,7 +104,7 @@ void main() {
     expect(find.text('算式不完整'), findsOneWidget);
 
     final okButton = tester.widget<FilledButton>(
-      find.byKey(const Key('number_pad_ok')),
+      find.byKey(const Key('save_entry_button')),
     );
     expect(okButton.onPressed, isNull);
   });
@@ -159,8 +169,10 @@ void main() {
     await tester.pump();
 
     expect(find.text('0.001'), findsOneWidget);
+    await tester.tap(find.text('食品餐饮'));
+    await tester.pumpAndSettle();
     final ok = tester.widget<FilledButton>(
-      find.byKey(const Key('number_pad_ok')),
+      find.byKey(const Key('save_entry_button')),
     );
     expect(ok.onPressed, isNotNull);
   });

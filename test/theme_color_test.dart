@@ -60,7 +60,7 @@ void main() {
 
     expect(warmTheme.colorScheme.primary, const Color(0xFF2B6B56));
     expect(classicTheme.colorScheme.primary, veriRoyal);
-    expect(hyperTheme.colorScheme.primary, const Color(0xFF2F5BFF));
+    expect(hyperTheme.colorScheme.primary, const Color(0xFF2454FF));
     expect(obsidianTheme.colorScheme.primary, const Color(0xFFF0A32F));
     expect(theme.colorScheme.primary, const Color(0xFFB3261E));
     expect(theme.colorScheme.onPrimary.a, 1);

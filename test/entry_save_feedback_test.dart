@@ -85,7 +85,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 制造一次草稿修改并触发自动保存；再从别处删除交易，然后修改另一字段。
-    final reimbursableSwitch = find.byType(Switch).first;
+    final reimbursableSwitch = find.text('标记待报销');
     await tester.ensureVisible(reimbursableSwitch);
     await tester.pumpAndSettle();
     await tester.tap(reimbursableSwitch);
@@ -93,7 +93,7 @@ void main() {
     await controller.deleteEntry('stale-entry');
     await tester.pumpAndSettle();
 
-    final excludedSwitch = find.byType(Switch).at(1);
+    final excludedSwitch = find.text('不计入预算');
     await tester.ensureVisible(excludedSwitch);
     await tester.pumpAndSettle();
     await tester.tap(excludedSwitch);

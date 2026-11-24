@@ -9,6 +9,7 @@ import '../../data/app_database.dart';
 import '../../data/ledger_repository.dart';
 import '../../local_storage/local_storage.dart';
 import '../attachments/attachment_store.dart';
+import '../auto_bill_rules.dart';
 import '../logging/app_logger.dart';
 import '../models.dart';
 import '../update/update_check.dart';
@@ -116,7 +117,14 @@ class AppStartup {
       (
         stage: StartupStage.database,
         run: () async {
-          session.database = await AppDatabase.open();
+          // The same ledger startup runs when a cold overlay starts the engine.
+          // Finish loading rules alongside SQLite before advertising readiness.
+          await Future.wait<void>([
+            AppDatabase.open().then((database) {
+              session.database = database;
+            }),
+            AutoBillSuggestions.preloadRules(logger: session.logger),
+          ]);
         },
       ),
       (

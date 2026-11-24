@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:month_picker_dialog/month_picker_dialog.dart' as month_picker;
@@ -70,6 +71,60 @@ Future<T?> showVeriModalSheet<T>({
       ),
     ),
   );
+}
+
+/// Form layout shared by keyboard-aware modal sheets.
+class VeriFormSheet extends StatelessWidget {
+  const VeriFormSheet({
+    super.key,
+    required this.title,
+    required this.content,
+    required this.actions,
+  });
+
+  final String title;
+  final Widget content;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        top: false,
+        child: Center(
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: veriPageMaxWidth),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: 14,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  content,
+                  OverflowBar(
+                    alignment: MainAxisAlignment.end,
+                    overflowAlignment: OverflowBarAlignment.end,
+                    spacing: 8,
+                    overflowSpacing: 6,
+                    children: actions,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// 底部弹窗内嵌的拖拽把手：与内容连成一体。
@@ -1693,16 +1748,28 @@ Future<String?> showTextInputDialog({
   bool allowEmpty = false,
   TextInputType? keyboardType,
 }) async {
-  final controller = TextEditingController(text: initialValue);
-  final result = await showDialog<String>(
+  var value = initialValue;
+  final result = await showVeriModalSheet<String>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        keyboardType: keyboardType,
-        decoration: InputDecoration(labelText: label),
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (context) => VeriFormSheet(
+      title: title,
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 6,
+        children: [
+          ExcludeSemantics(child: Text(label)),
+          Semantics(
+            label: label,
+            child: TextFormField(
+              initialValue: initialValue,
+              autofocus: true,
+              keyboardType: keyboardType,
+              onChanged: (text) => value = text,
+            ),
+          ),
+        ],
       ),
       actions: <Widget>[
         TextButton(
@@ -1710,13 +1777,12 @@ Future<String?> showTextInputDialog({
           child: Text(AppLocalizations.of(context).commonCancel),
         ),
         FilledButton(
-          onPressed: () => Navigator.of(context).pop(controller.text),
+          onPressed: () => Navigator.of(context).pop(value),
           child: Text(AppLocalizations.of(context).commonConfirm),
         ),
       ],
     ),
   );
-  WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
   final trimmed = result?.trim();
   if (trimmed == null || (!allowEmpty && trimmed.isEmpty)) {
     return null;
@@ -1731,49 +1797,76 @@ Future<({String number, String last4, bool follows})?> showCardNumberDialog({
   required String initialNumber,
   required String initialLast4,
   required bool initialFollows,
-}) async {
-  final numberController = TextEditingController(text: initialNumber);
-  final last4Controller = TextEditingController(text: initialLast4);
-  var follows = initialFollows;
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        title: Text(AppLocalizations.of(context).cardNumberTitle),
-        content: SingleChildScrollView(
-          child: CardNumberFields(
-            numberController: numberController,
-            last4Controller: last4Controller,
-            follows: follows,
-            onFollowsChanged: (value) => setState(() => follows = value),
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(AppLocalizations.of(context).commonCancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(AppLocalizations.of(context).commonConfirm),
-          ),
-        ],
-      ),
-    ),
-  );
-  final number = numberController.text.trim();
-  final last4 = cardLast4Of(last4Controller.text);
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    numberController.dispose();
-    last4Controller.dispose();
+}) => showVeriModalSheet<({String number, String last4, bool follows})>(
+  context: context,
+  showDragHandle: true,
+  isScrollControlled: true,
+  builder: (_) => _CardNumberSheet(
+    initialNumber: initialNumber,
+    initialLast4: initialLast4,
+    initialFollows: initialFollows,
+  ),
+);
+
+class _CardNumberSheet extends StatefulWidget {
+  const _CardNumberSheet({
+    required this.initialNumber,
+    required this.initialLast4,
+    required this.initialFollows,
   });
-  if (confirmed != true) {
-    return null;
-  }
-  return (number: number, last4: last4, follows: follows);
+
+  final String initialNumber;
+  final String initialLast4;
+  final bool initialFollows;
+
+  @override
+  State<_CardNumberSheet> createState() => _CardNumberSheetState();
 }
 
-/// 「初始化所有数据」的两步破坏性确认：两步都确认才返回 true，任一步取消返回 false。
+class _CardNumberSheetState extends State<_CardNumberSheet> {
+  late final numberController = TextEditingController(
+    text: widget.initialNumber,
+  );
+  late final last4Controller = TextEditingController(text: widget.initialLast4);
+  late bool follows = widget.initialFollows;
+
+  @override
+  void dispose() {
+    numberController.dispose();
+    last4Controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return VeriFormSheet(
+      title: l10n.cardNumberTitle,
+      content: CardNumberFields(
+        numberController: numberController,
+        last4Controller: last4Controller,
+        follows: follows,
+        onFollowsChanged: (value) => setState(() => follows = value),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop((
+            number: numberController.text.trim(),
+            last4: cardLast4Of(last4Controller.text),
+            follows: follows,
+          )),
+          child: Text(l10n.commonConfirm),
+        ),
+      ],
+    );
+  }
+}
+
+/// 「初始化所有数据」的两步破坏性确认，第二步须输入随机验证码。
 /// 只负责确认；清空数据与收尾由调用方处理（设置页与锁屏页的后续动作不同）。
 Future<bool> confirmResetAllData(BuildContext context) async {
   final l10n = AppLocalizations.of(context);
@@ -1787,14 +1880,108 @@ Future<bool> confirmResetAllData(BuildContext context) async {
   if (!firstConfirmed || !context.mounted) {
     return false;
   }
-  final secondConfirmed = await showConfirmDialog(
-    context,
-    title: l10n.resetConfirmTitle,
-    message: l10n.resetConfirmMessage,
-    confirmLabel: l10n.resetConfirmAction,
-    destructive: true,
+  final secondConfirmed = await showDialog<bool>(
+    context: context,
+    builder: (_) => const _ResetCodeDialog(),
   );
-  return secondConfirmed;
+  return secondConfirmed == true;
+}
+
+class _ResetCodeDialog extends StatefulWidget {
+  const _ResetCodeDialog();
+
+  @override
+  State<_ResetCodeDialog> createState() => _ResetCodeDialogState();
+}
+
+class _ResetCodeDialogState extends State<_ResetCodeDialog> {
+  final _random = Random.secure();
+  final _input = TextEditingController();
+  late String _code = (1000 + _random.nextInt(9000)).toString();
+
+  void _refresh() {
+    setState(() {
+      final previous = int.parse(_code) - 1000;
+      final next = _random.nextInt(8999);
+      _code = (1000 + next + (next >= previous ? 1 : 0)).toString();
+      _input.clear();
+    });
+  }
+
+  @override
+  void dispose() {
+    _input.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return AlertDialog(
+      scrollable: true,
+      title: Text(l10n.resetConfirmTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 12,
+        children: [
+          Text(l10n.resetConfirmMessage),
+          Center(
+            child: Tooltip(
+              message: l10n.resetCodeRefresh,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  shape: const StadiumBorder(),
+                  backgroundColor: scheme.errorContainer,
+                  foregroundColor: scheme.onErrorContainer,
+                  side: BorderSide(color: scheme.outlineVariant),
+                ),
+                onPressed: _refresh,
+                icon: const Icon(Icons.refresh),
+                label: Text(
+                  _code,
+                  key: const Key('reset_data_code'),
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: scheme.onErrorContainer,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 4,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          TextField(
+            key: const Key('reset_data_code_input'),
+            controller: _input,
+            keyboardType: TextInputType.number,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(hintText: l10n.resetCodeInput),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.commonCancel),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: scheme.error,
+            foregroundColor: scheme.onError,
+          ),
+          onPressed: _input.text == _code
+              ? () {
+                  if (_input.text == _code) Navigator.of(context).pop(true);
+                }
+              : null,
+          child: Text(l10n.resetConfirmAction),
+        ),
+      ],
+    );
+  }
 }
 
 /// Executes the explicit hide/delete command and returns whether the account
@@ -1922,41 +2109,56 @@ Future<List<String>?> pickEntryTags({
     ...controller.tags,
     ...extraTags.where((tag) => !existingIds.contains(tag.id)),
   ];
-  return showVeriModalSheet<List<String>>(
-    context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    builder: (sheetContext) => SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.6,
-        ),
-        child: TagSelectorSheet(
-          tags: tags,
-          selectedIds: selectedIds,
-          onCreateTag: () async {
-            final l10n = AppLocalizations.of(sheetContext);
-            final label = await showTextInputDialog(
-              context: sheetContext,
-              title: l10n.tagCreateTitle,
-              label: l10n.tagNameLabel,
-            );
-            if (label == null) {
-              return null;
-            }
-            final id = controller.addTag(label);
-            if (id == null) {
-              VeriHaptics.emphasis();
-              return null;
-            }
-            VeriHaptics.commit();
-            return controller.tagById(id);
-          },
-        ),
-      ),
-    ),
+  return showTagSelectorSheet(
+    context,
+    tags: tags,
+    selectedIds: selectedIds,
+    onCreateTag: (sheetContext) async {
+      final l10n = AppLocalizations.of(sheetContext);
+      final label = await showTextInputDialog(
+        context: sheetContext,
+        title: l10n.tagCreateTitle,
+        label: l10n.tagNameLabel,
+      );
+      if (label == null) {
+        return null;
+      }
+      final id = controller.addTag(label);
+      if (id == null) {
+        VeriHaptics.emphasis();
+        return null;
+      }
+      VeriHaptics.commit();
+      return controller.tagById(id);
+    },
   );
 }
+
+/// 标签选择弹层，允许独立悬浮窗传入账本快照及可用的操作。
+Future<List<String>?> showTagSelectorSheet(
+  BuildContext context, {
+  required List<Tag> tags,
+  required List<String> selectedIds,
+  Future<Tag?> Function(BuildContext)? onCreateTag,
+}) => showVeriModalSheet<List<String>>(
+  context: context,
+  showDragHandle: true,
+  isScrollControlled: true,
+  builder: (sheetContext) => SafeArea(
+    child: ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.6,
+      ),
+      child: TagSelectorSheet(
+        tags: tags,
+        selectedIds: selectedIds,
+        onCreateTag: onCreateTag == null
+            ? null
+            : () => onCreateTag(sheetContext),
+      ),
+    ),
+  ),
+);
 
 /// 看板期间栏的「选择月份」入口（自绘弹层与系统日期选择器都试过，[问题反馈] 里
 /// 用户要求用现成组件库）：走 `month_picker_dialog` 的月份对话框，**只选年月、不再

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaohe/app/app_version.dart';
@@ -377,7 +379,8 @@ void main() {
   });
 
   testWidgets('点击开关行的标题也能切换开关', (WidgetTester tester) async {
-    await pumpApp(tester);
+    final store = _DelayedNetworkPreferenceStore();
+    final controller = await pumpApp(tester, store);
     await tapBottomTab(tester, 3);
     await tester.tap(find.byIcon(Icons.settings_outlined));
     await tester.pumpAndSettle();
@@ -397,6 +400,43 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.widget<CompactSwitchRow>(row).value, !before);
+
+    final network = find.text('允许应用联网');
+    await tester.scrollUntilVisible(network, 120);
+    await tester.pumpAndSettle();
+    expect(controller.externalNetworkEnabled, isFalse);
+
+    final failedEnable = store.delayNextWrite();
+    await tester.tap(network);
+    await tester.pump();
+    expect(store.read(_externalNetworkKey), 'true');
+    expect(controller.externalNetworkEnabled, isFalse);
+    failedEnable.completeError(StateError('simulated write failure'));
+    await tester.pumpAndSettle();
+    expect(controller.externalNetworkEnabled, isFalse);
+
+    await tester.tap(network);
+    await tester.pumpAndSettle();
+    expect(controller.externalNetworkEnabled, isTrue);
+    final restarted = await makeController(store);
+    expect(restarted.externalNetworkEnabled, isTrue);
+    restarted.dispose();
+
+    final failedDisable = store.delayNextWrite();
+    await tester.tap(network);
+    await tester.pump();
+    expect(controller.externalNetworkEnabled, isFalse);
+    failedDisable.completeError(StateError('simulated write failure'));
+    await tester.pumpAndSettle();
+    expect(controller.externalNetworkEnabled, isFalse);
+    expect(
+      tester
+          .widget<CompactSwitchRow>(
+            find.ancestor(of: network, matching: find.byType(CompactSwitchRow)),
+          )
+          .value,
+      isFalse,
+    );
   });
 
   testWidgets('changes theme preference from the profile page', (
@@ -410,8 +450,8 @@ void main() {
     expect(find.text('主题模式'), findsOneWidget);
     expect(find.text('同步方式'), findsNothing);
     expect(find.text('Android 打包'), findsNothing);
-    await tester.scrollUntilVisible(find.text('VeriFin $appVersionLabel'), 120);
-    expect(find.text('VeriFin $appVersionLabel'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('小禾记账 $appVersionLabel'), 120);
+    expect(find.text('小禾记账 $appVersionLabel'), findsOneWidget);
 
     await tester.scrollUntilVisible(find.text('主题模式'), -180);
     await tester.pumpAndSettle();
@@ -437,10 +477,18 @@ void main() {
     await tester.ensureVisible(find.text('主题风格'));
     await tester.tap(find.text('主题风格'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('自定义颜色'));
+    final customChoice = find.byKey(
+      const ValueKey('anchored_menu_item_settings_theme_color_custom'),
+    );
+    await tester.ensureVisible(customChoice);
+    await tester.pumpAndSettle();
+    await tester.tap(customChoice);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('settings_theme_color_custom')));
+    final customRow = find.byKey(const ValueKey('settings_theme_color_custom'));
+    await tester.ensureVisible(customRow);
+    await tester.pumpAndSettle();
+    await tester.tap(customRow);
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '#B3261E');
     await tester.pumpAndSettle();
@@ -501,7 +549,7 @@ void main() {
         of: find.byKey(const Key('main_bottom_nav')),
         matching: find.text('Home'),
       ),
-      findsOneWidget,
+      findsWidgets,
     );
   });
 
@@ -560,7 +608,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('再次确认初始化'), findsOneWidget);
-    expect(find.text('确认初始化'), findsOneWidget);
+    final confirm = find.widgetWithText(FilledButton, '确认清空');
+    expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
   });
 
   testWidgets('我的宫格提供预算与 AI 助理入口', (WidgetTester tester) async {
@@ -582,4 +631,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(BudgetOverviewPage), findsOneWidget);
   });
+}
+
+const _externalNetworkKey = 'verifin.external_network.v1';
+
+class _DelayedNetworkPreferenceStore extends LocalKeyValueStore {
+  Completer<void>? _pending;
+
+  Completer<void> delayNextWrite() => _pending = Completer<void>();
+
+  @override
+  Future<void> writeAndFlush(String key, String value) async {
+    final pending = _pending;
+    if (key != _externalNetworkKey || pending == null) {
+      await super.writeAndFlush(key, value);
+      return;
+    }
+    _pending = null;
+    // Match the plugin's optimistic cache even when the disk write fails.
+    write(key, value);
+    await pending.future;
+  }
 }

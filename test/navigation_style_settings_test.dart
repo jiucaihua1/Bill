@@ -34,12 +34,12 @@ void main() {
     }
   });
 
-  test('导航样式默认停靠，非法值回退，重置恢复默认并清键', () async {
+  test('导航样式默认液态玻璃，未知值回退停靠，重置恢复默认', () async {
     final store = LocalKeyValueStore();
     final controller = await makeController(store);
     expect(
       controller.navigationStylePreference,
-      NavigationStylePreference.docked,
+      NavigationStylePreference.liquidGlass,
     );
     expect(
       store.read('verifin.nav_style.v1'),
@@ -64,7 +64,7 @@ void main() {
     );
     expect(store.read('verifin.nav_style.v1'), 'docked');
 
-    // 未知标识（旧版本、手改或降级安装）一律回退默认样式，不能崩也不能白屏。
+    // 未知标识走停靠式安全回退。
     store.write('verifin.nav_style.v1', 'not-a-style');
     final restarted = await makeController(store);
     expect(
@@ -75,7 +75,7 @@ void main() {
     await restarted.resetAllData();
     expect(
       restarted.navigationStylePreference,
-      NavigationStylePreference.docked,
+      NavigationStylePreference.liquidGlass,
     );
     expect(store.read('verifin.nav_style.v1'), isNull);
   });
@@ -93,7 +93,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(of: row, matching: find.text('停靠底栏')),
+      find.descendant(of: row, matching: find.text('液态玻璃')),
       findsOneWidget,
       reason: '入口 trailing 要显示当前生效的样式名',
     );
@@ -125,7 +125,9 @@ void main() {
       ),
     );
 
-    controller.setNavigationStylePreference(NavigationStylePreference.docked);
+    controller.setNavigationStylePreference(
+      controller.navigationStylePreference,
+    );
 
     expect(notifications, 0, reason: '值没变就不该通知，否则每次重建都会连累整条导航');
     expect(

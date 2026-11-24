@@ -207,6 +207,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
   // 用户是否手动选过账户：选过就不再被「该分类上次用过的账户」覆盖。
   bool _accountTouched = false;
   bool _creatingDebtAccount = false;
+  bool _quickDetailsExpanded = false;
   // 防重复提交：极快双击「保存」可能在 pop 生效前触发两次、落两条交易。
   bool _saving = false;
   bool _saved = false;
@@ -838,16 +839,16 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
     final dateLabel = quick && DateUtils.isSameDay(_occurredAt, DateTime.now())
         ? l10n.todayLabel
         : l10n.dateMonthDay(_occurredAt);
-    final dateTimeChip = _EntryMetadataChip(
-      chipKey: const Key('entry_metadata_datetime'),
+    final dateTimeChip = EntryMetadataPill(
+      key: const Key('entry_metadata_datetime'),
       icon: Icons.calendar_today_outlined,
       label: Text('$dateLabel ${formatTime(_occurredAt)}'),
       compact: quick,
       onTap: _pickDateTime,
     );
-    final discountChip = _EntryMetadataChip(
-      chipKey: const Key('entry_metadata_discount'),
-      icon: Icons.local_offer_outlined,
+    final discountChip = EntryMetadataPill(
+      key: const Key('entry_metadata_discount'),
+      icon: Icons.percent_rounded,
       label: Text(
         _discountAmount > 0
             ? l10n.entryDiscountValue(
@@ -867,8 +868,8 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
             style: Theme.of(context).textTheme.bodySmall,
           )
         : null;
-    final tagsChip = _EntryMetadataChip(
-      chipKey: const Key('entry_metadata_tags'),
+    final tagsChip = EntryMetadataPill(
+      key: const Key('entry_metadata_tags'),
       icon: Icons.sell_outlined,
       label: Text(
         _tagIds.isEmpty ? l10n.tagLabel : l10n.entryTagCount(_tagIds.length),
@@ -981,23 +982,25 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
             tagsChip,
           ],
           if (quickTransfer && _debtDirection == null && roots.isNotEmpty)
-            _EntryMetadataChip(
-              chipKey: const Key('quick_transfer_category'),
+            EntryMetadataPill(
+              key: const Key('quick_transfer_category'),
               icon: Icons.category_outlined,
               label: Text(l10n.commonCategory),
               onTap: _showAllCategories,
             ),
           if (_type == EntryType.expense)
-            _EntryMetadataChip(
-              chipKey: const Key('entry_metadata_reimbursable'),
+            EntryMetadataPill(
+              key: const Key('entry_metadata_reimbursable'),
+              toggle: true,
               icon: Icons.receipt_long_outlined,
               label: Text(AppLocalizations.of(context).badgeReimbursable),
               selected: _reimbursable,
               onTap: () => setState(() => _reimbursable = !_reimbursable),
             ),
           if (_type == EntryType.expense)
-            _EntryMetadataChip(
-              chipKey: const Key('entry_metadata_excluded_budget'),
+            EntryMetadataPill(
+              key: const Key('entry_metadata_excluded_budget'),
+              toggle: true,
               icon: Icons.money_off_outlined,
               label: Text(AppLocalizations.of(context).excludedFromBudget),
               selected: _excludedFromBudget,
@@ -1023,8 +1026,8 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
                 ),
               ],
               semanticLabel: AppLocalizations.of(context).attachTitle,
-              builder: (context, openMenu, menuOpen) => _EntryMetadataChip(
-                chipKey: const Key('entry_metadata_attachments'),
+              builder: (context, openMenu, menuOpen) => EntryMetadataPill(
+                key: const Key('entry_metadata_attachments'),
                 icon: Icons.add_photo_alternate_outlined,
                 label: Text(
                   _pendingAttachments.isEmpty
@@ -1038,8 +1041,8 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
               ),
             ),
           if (controller.multiCurrencyEnabled)
-            _EntryMetadataChip(
-              chipKey: const Key('entry_currency_button'),
+            EntryMetadataPill(
+              key: const Key('entry_currency_button'),
               icon: Icons.currency_exchange_rounded,
               label: Text(
                 _currencyCode ?? controller.activeBook.baseCurrencyCode,
@@ -1146,12 +1149,12 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
                               horizontal: 10,
                               vertical: 4,
                             ),
-                            decoration: BoxDecoration(
+                            decoration: ShapeDecoration(
                               color: Theme.of(context)
                                   .colorScheme
                                   .surfaceContainerHighest
                                   .withValues(alpha: 0.55),
-                              borderRadius: BorderRadius.circular(999),
+                              shape: const StadiumBorder(),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1205,21 +1208,37 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
                         layout: controller.numberPadLayout,
                         submitEnabled: canSave,
                         blockReason: saveReason,
-                        amountLeading: noteField,
+                        amountLeading: Row(
+                          spacing: 6,
+                          children: [
+                            Icon(
+                              Icons.notes_rounded,
+                              size: 16,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                            Expanded(child: noteField),
+                          ],
+                        ),
                         amountColor: amountColor,
                         metadata: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             ?payable,
-                            Row(
-                              spacing: 4,
+                            Wrap(
+                              spacing: 5,
+                              runSpacing: 5,
                               children: [
-                                Expanded(flex: 2, child: dateTimeChip),
-                                if (_type == EntryType.expense)
-                                  Expanded(child: discountChip),
+                                dateTimeChip,
+                                if (_type == EntryType.expense) discountChip,
                                 if (!quickTransfer)
-                                  Expanded(
-                                    child: _EntryMetadataChip(
-                                      chipKey: const Key('quick_entry_account'),
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 112,
+                                    ),
+                                    child: EntryMetadataPill(
+                                      key: const Key('quick_entry_account'),
                                       icon:
                                           Icons.account_balance_wallet_outlined,
                                       compact: true,
@@ -1235,24 +1254,53 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
                                     ),
                                   ),
                                 if (quickTransfer && _debtDirection == null)
-                                  Expanded(
-                                    child: _EntryMetadataChip(
-                                      chipKey: const Key('fee_field'),
-                                      icon: Icons.paid_outlined,
-                                      compact: true,
-                                      label: Text(l10n.feeLabel),
-                                      selected: _fee > 0,
-                                      onTap: _accountId.isEmpty
-                                          ? null
-                                          : _editFee,
-                                    ),
+                                  EntryMetadataPill(
+                                    key: const Key('fee_field'),
+                                    icon: Icons.paid_outlined,
+                                    compact: true,
+                                    label: Text(l10n.feeLabel),
+                                    selected: _fee > 0,
+                                    onTap: _accountId.isEmpty ? null : _editFee,
                                   ),
-                                Expanded(child: tagsChip),
-                                Expanded(
-                                  child: _buildQuickDetailsMenu(details),
+                                tagsChip,
+                                EntryMetadataPill(
+                                  key: const Key('quick_entry_more_info'),
+                                  icon: Icons.more_horiz_rounded,
+                                  label: Text(l10n.entryMoreInfo),
+                                  compact: true,
+                                  selected: _quickDetailsExpanded,
+                                  toggle: true,
+                                  onTap: () => setState(
+                                    () => _quickDetailsExpanded =
+                                        !_quickDetailsExpanded,
+                                  ),
                                 ),
                               ],
                             ),
+                            if (_quickDetailsExpanded &&
+                                MediaQuery.viewInsetsOf(context).bottom ==
+                                    0) ...[
+                              const SizedBox(height: 6),
+                              VeriCard(
+                                key: const Key('quick_entry_more_details'),
+                                padding: const EdgeInsets.all(8),
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxHeight:
+                                        MediaQuery.sizeOf(context).height *
+                                        0.16,
+                                  ),
+                                  child: SingleChildScrollView(
+                                    primary: false,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: details,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                         onAmountChanged: _onInlineAmountChanged,
@@ -1613,39 +1661,6 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
     } finally {
       if (mounted) setState(() => _creatingDebtAccount = false);
     }
-  }
-
-  Widget _buildQuickDetailsMenu(List<Widget> details) {
-    final l10n = AppLocalizations.of(context);
-    final size = MediaQuery.sizeOf(context);
-    return MenuAnchor(
-      consumeOutsideTap: true,
-      menuChildren: [
-        ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: (size.width - 32).clamp(0.0, 330.0),
-            maxHeight: size.height * 0.5,
-          ),
-          child: SingleChildScrollView(
-            primary: false,
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: details,
-            ),
-          ),
-        ),
-      ],
-      builder: (context, menu, _) => _EntryMetadataChip(
-        chipKey: const Key('quick_entry_more_info'),
-        icon: Icons.more_horiz_rounded,
-        label: Text(l10n.entryMoreInfo),
-        compact: true,
-        selected: menu.isOpen,
-        onTap: () => menu.isOpen ? menu.close() : menu.open(),
-      ),
-    );
   }
 
   List<Widget> _buildCurrencyAmountFields(
@@ -3050,82 +3065,6 @@ class _EntryAllCategoryTile extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _EntryMetadataChip extends StatelessWidget {
-  const _EntryMetadataChip({
-    required this.chipKey,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.selected = false,
-    this.compact = false,
-  });
-
-  final Key chipKey;
-  final IconData icon;
-  final Widget label;
-  final VoidCallback? onTap;
-  final bool selected;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = selected ? scheme.primary : scheme.onSurface;
-    return Material(
-      color: selected
-          ? scheme.primary.withValues(alpha: 0.10)
-          : scheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(13),
-      child: InkWell(
-        key: chipKey,
-        borderRadius: BorderRadius.circular(13),
-        onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: compact ? 3 : 10,
-            vertical: compact ? 10 : 7,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: compact
-                ? MainAxisAlignment.center
-                : MainAxisAlignment.start,
-            children: <Widget>[
-              Icon(
-                icon,
-                size: compact ? 14 : 16,
-                color: color.withValues(alpha: onTap == null ? 0.36 : 0.72),
-              ),
-              SizedBox(width: compact ? 2 : 5),
-              Flexible(
-                child: DefaultTextStyle.merge(
-                  maxLines: compact ? 1 : null,
-                  overflow: compact ? TextOverflow.ellipsis : null,
-                  style:
-                      (compact
-                              ? Theme.of(context).textTheme.labelSmall
-                              : Theme.of(context).textTheme.labelMedium)
-                          ?.copyWith(
-                            color: color.withValues(
-                              alpha: onTap == null
-                                  ? 0.36
-                                  : (selected ? 0.92 : 0.68),
-                            ),
-                            fontWeight: selected
-                                ? FontWeight.w700
-                                : FontWeight.w600,
-                          ),
-                  child: label,
-                ),
-              ),
-            ],
           ),
         ),
       ),

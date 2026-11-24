@@ -49,6 +49,7 @@ class SettingsRow extends StatelessWidget {
     this.leading,
     required this.title,
     required this.trailing,
+    this.subtitle,
     this.onTap,
     this.trailingIcon,
     this.contentColor,
@@ -58,6 +59,7 @@ class SettingsRow extends StatelessWidget {
   final Widget? leading;
   final String title;
   final String trailing;
+  final String? subtitle;
   final VoidCallback? onTap;
   final IconData? trailingIcon;
   final Color? contentColor;
@@ -72,30 +74,48 @@ class SettingsRow extends StatelessWidget {
           leading ?? VeriIconBox(icon: icon!, size: 28, color: iconColor),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: contentColor,
-                fontWeight: FontWeight.w700,
-              ),
+            flex: subtitle == null ? 1 : 3,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: contentColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (subtitle case final description?) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              trailing,
-              textAlign: TextAlign.end,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color:
-                    contentColor ??
-                    Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.58),
+          if (trailing.isNotEmpty) ...[
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                trailing,
+                textAlign: TextAlign.end,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color:
+                      contentColor ??
+                      Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.58),
+                ),
               ),
             ),
-          ),
+          ],
           if (trailingIcon != null) ...<Widget>[
             const SizedBox(width: 4),
             Icon(

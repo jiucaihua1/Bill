@@ -48,12 +48,16 @@ void main() {
     await pumpPage(tester, controller, const EntryDetailPage.manual());
 
     final dining = find.text('食品餐饮');
+    expect(find.text('午餐'), findsOneWidget);
+    await tester.tap(dining);
+    await tester.pumpAndSettle();
+    expect(find.text('午餐'), findsNothing);
     await tester.tap(dining);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('entry_category_grid')), findsOneWidget);
     expect(find.byKey(const Key('number_pad_display')), findsOneWidget);
-    expect(find.byKey(const Key('save_entry_button')), findsOneWidget);
+    expect(find.byKey(const Key('number_key_CANCEL')), findsOneWidget);
     expect(find.text('午餐'), findsOneWidget);
     expect(find.text('早餐'), findsOneWidget);
     expect(find.byType(CategoryPickerSheet), findsNothing);

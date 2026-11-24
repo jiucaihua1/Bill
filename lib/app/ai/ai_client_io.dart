@@ -12,7 +12,9 @@ export 'ai_error.dart' show AiException, AiErrorCode, aiErrorMessage;
 
 const Duration _defaultConnectTimeout = Duration(seconds: 20);
 const Duration _defaultResponseTimeout = Duration(seconds: 60);
-const Duration _defaultStreamIdleTimeout = Duration(seconds: 45);
+const Duration _defaultStreamResponseTimeout = Duration(seconds: 120);
+const Duration _defaultStreamIdleTimeout = Duration(seconds: 75);
+const Duration _defaultStreamTotalTimeout = Duration(seconds: 300);
 const Duration _defaultTotalTimeout = Duration(seconds: 120);
 const int _defaultMaxResponseBytes = 2 * 1024 * 1024;
 const int _defaultMaxStreamEvents = 10000;
@@ -74,17 +76,18 @@ Future<AiCompletionResult> aiAgentComplete({
 
 /// 发起流式 OpenAI-compatible 补全，产出结构化 SSE 事件。
 ///
-/// 响应体连续 [idleTimeout] 没有任何字节会超时；流自然结束时必须已经收到
-/// `[DONE]` 或合法 `finish_reason`，否则按不完整响应处理。
+/// 响应头须在 [responseTimeout] 内读到，随后按 [idleTimeout] 等待响应体字节。
+/// 正常 EOF 可结束已有正文的响应，
+/// 纯工具调用或推理片段仍须有协议结束标记。
 Stream<AiCompletionEvent> aiAgentStream({
   required AiSettings settings,
   required List<AiAgentMessage> messages,
   List<Map<String, Object?>> tools = const <Map<String, Object?>>[],
   double temperature = 0,
   Duration connectionTimeout = _defaultConnectTimeout,
-  Duration responseTimeout = _defaultResponseTimeout,
+  Duration responseTimeout = _defaultStreamResponseTimeout,
   Duration idleTimeout = _defaultStreamIdleTimeout,
-  Duration totalTimeout = _defaultTotalTimeout,
+  Duration totalTimeout = _defaultStreamTotalTimeout,
   int maxResponseBytes = _defaultMaxResponseBytes,
   int maxStreamEvents = _defaultMaxStreamEvents,
 }) async* {
@@ -92,6 +95,8 @@ Stream<AiCompletionEvent> aiAgentStream({
   final client = HttpClient()..connectionTimeout = connectionTimeout;
   var sawDone = false;
   var sawFinish = false;
+  var sawContent = false;
+  var sawToolCall = false;
   var totalExpired = false;
   final totalTimer = Timer(totalTimeout, () {
     totalExpired = true;
@@ -160,11 +165,18 @@ Stream<AiCompletionEvent> aiAgentStream({
         if (event is AiCompletionFinished) {
           sawFinish = true;
         }
+        if (event is AiContentDelta && event.text.trim().isNotEmpty) {
+          sawContent = true;
+        }
+        if (event is AiToolCallDelta) sawToolCall = true;
         yield event;
       }
     }
     if (!sawDone && !sawFinish) {
-      throw AiException(AiErrorCode.incompleteStream);
+      if (!sawContent || sawToolCall) {
+        throw AiException(AiErrorCode.incompleteStream);
+      }
+      yield const AiCompletionFinished(AiFinishReason.stop);
     }
   } catch (error) {
     if (totalExpired) {
@@ -257,7 +269,9 @@ Future<HttpClientResponse> _post({
   } on FormatException {
     throw AiException(AiErrorCode.badUrl);
   }
+  checkAiNetwork(uri);
   final request = await client.openUrl('POST', uri).timeout(responseTimeout);
+  checkAiNetwork(uri);
   final apiKey = settings.apiKey.trim();
   if (apiKey.isNotEmpty) {
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $apiKey');
@@ -266,7 +280,7 @@ Future<HttpClientResponse> _post({
   if (acceptEventStream) {
     request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
   }
-  request.followRedirects = true;
+  request.followRedirects = false;
   request.add(utf8.encode(jsonEncode(body)));
   return request.close().timeout(responseTimeout);
 }

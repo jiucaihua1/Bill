@@ -192,7 +192,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 打开类型选择器：只有支出/收入/转账，没有「退款」。
-    await tester.tap(find.text('类型'));
+    await tester.tap(find.byKey(const Key('transaction_type_choice')));
     await tester.pumpAndSettle();
     expect(
       find.byKey(
@@ -256,7 +256,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('transaction_type_choice')), findsNothing);
-    await tester.tap(find.text('类型'));
+    await tester.tap(find.text('支出').first);
     await tester.pumpAndSettle();
     expect(find.text('收入'), findsNothing);
   });
@@ -372,7 +372,7 @@ void main() {
     await tester.tap(find.text('打开退款'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('发起日期'));
+    await tester.tap(find.text('退款日期'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('2').last);
     await tester.tap(find.text('确定'));
@@ -429,7 +429,7 @@ void main() {
 
     await tester.tap(find.text('标记已到账'));
     await tester.pumpAndSettle();
-    expect(find.text('本位币冲抵额'), findsOneWidget);
+    expect(find.text('退款日期'), findsOneWidget);
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
 

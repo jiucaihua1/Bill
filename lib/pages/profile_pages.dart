@@ -337,8 +337,10 @@ class ProfilePage extends StatelessWidget {
               _FeatureTileData(
                 icon: Icons.bolt_outlined,
                 color: veriSemantic(context, veriIncome),
-                label: '自动记账',
-                subtitle: '权限与规则配置',
+                label: AppLocalizations.of(context).autoSettingsTitle,
+                subtitle: AppLocalizations.of(
+                  context,
+                ).autoSettingsPermissionSubtitle,
                 onTap: () => Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
                     builder: (context) => const AutoBookkeepingPage(),
@@ -348,8 +350,10 @@ class ProfilePage extends StatelessWidget {
               _FeatureTileData(
                 icon: Icons.screenshot_rounded,
                 color: veriSemantic(context, veriBlue),
-                label: '截图记账',
-                subtitle: '磁贴与OCR识图',
+                label: AppLocalizations.of(context).screenshotSettingsTitle,
+                subtitle: AppLocalizations.of(
+                  context,
+                ).screenshotSettingsShortcutSubtitle,
                 onTap: () => Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
                     builder: (context) => const ScreenshotCapturePage(),

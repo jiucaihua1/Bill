@@ -17,15 +17,15 @@ void main() {
   ) async {
     final store = LocalKeyValueStore();
     await pumpApp(tester, store);
+    expect(find.byType(HomeTrendPanel), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.byKey(const Key('panel_settings_entry_home')),
       200,
       scrollable: firstVerticalScrollable(),
     );
-    expect(find.text('4个首页面板'), findsOneWidget);
+    expect(find.text('3个首页面板'), findsOneWidget);
     expect(find.byType(CalendarPreview), findsOneWidget);
-    expect(find.byType(MoneyUnitLabel), findsWidgets);
 
     final homeEntry = find.byKey(const Key('panel_settings_entry_home'));
     await Scrollable.ensureVisible(tester.element(homeEntry), alignment: 0.5);
@@ -42,8 +42,6 @@ void main() {
     await tester.pumpAndSettle();
 
     // 只剩一个开启面板时继续关闭会被阻止并提示。
-    await tester.tap(find.byKey(const Key('panel_switch_recent')));
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('panel_switch_budget')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('panel_switch_trend')));
@@ -166,7 +164,7 @@ void main() {
       find.byKey(const Key('panel_settings_entry_home')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('3个首页面板'), findsOneWidget);
+    expect(find.text('2个首页面板'), findsOneWidget);
     await tester.tap(find.byKey(const Key('panel_settings_entry_home')));
     await tester.pumpAndSettle();
 
@@ -178,7 +176,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final beforeReset = await makeController(store);
-    expect(beforeReset.enabledPanelIds(PanelPageKind.home).length, 3);
+    expect(beforeReset.enabledPanelIds(PanelPageKind.home).length, 2);
     beforeReset.dispose();
 
     // 确认后立即恢复默认并落库。
@@ -205,7 +203,6 @@ void main() {
 
     expect(controller.enabledPanelIds(PanelPageKind.home), <String>[
       'trend',
-      'recent',
       'budget',
       'calendar',
     ]);
@@ -214,9 +211,7 @@ void main() {
       controller.setPanelEnabled(PanelPageKind.home, 'calendar', false),
       isTrue,
     );
-    controller
-      ..setPanelEnabled(PanelPageKind.home, 'recent', false)
-      ..setPanelEnabled(PanelPageKind.home, 'budget', false);
+    controller.setPanelEnabled(PanelPageKind.home, 'budget', false);
 
     // 最后一个开启的面板不允许关闭。
     expect(
@@ -264,13 +259,12 @@ void main() {
     await target.importDataJson(exported);
 
     expect(target.enabledPanelIds(PanelPageKind.home), <String>[
-      'recent',
       'budget',
       'trend',
     ]);
     expect(
       target.panelSettings(PanelPageKind.home).map((panel) => panel.id),
-      <String>['recent', 'budget', 'trend', 'calendar'],
+      <String>['budget', 'calendar', 'trend'],
     );
 
     target.dispose();

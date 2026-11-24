@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaohe/app/app_theme.dart';
 import 'package:xiaohe/app/common_widgets.dart';
+import 'package:xiaohe/app/entry_sheets.dart';
 import 'package:xiaohe/app/models.dart';
 import 'package:xiaohe/app/veri_fin_scope.dart';
 import 'package:xiaohe/local_storage/local_storage.dart';
@@ -131,13 +132,23 @@ void main() {
     await createQuickEntry(tester);
 
     expect(find.byKey(const Key('save_entry_button')), findsOneWidget);
-    expect(find.text('-45'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('number_pad_display')))
+          .controller!
+          .text,
+      '45',
+    );
 
     await tester.tap(find.byKey(const Key('save_entry_button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('最近交易'), findsOneWidget);
-    expect(find.text('餐饮'), findsAtLeastNWidgets(1));
+    await tester.scrollUntilVisible(
+      find.text('最近交易'),
+      200,
+      scrollable: firstVerticalScrollable(),
+    );
+    expect(find.text('食品餐饮'), findsAtLeastNWidgets(1));
     expect(find.text('-45'), findsAtLeastNWidgets(1));
   });
 
@@ -152,22 +163,24 @@ void main() {
     await createQuickEntry(tester);
 
     Color? amountColor() {
-      final text = tester.widget<Text>(
-        find.descendant(
-          of: find.byKey(const Key('detail_amount_button')),
-          matching: find.byType(Text),
-        ),
+      final text = tester.widget<TextField>(
+        find.byKey(const Key('number_pad_display')),
       );
       return text.style?.color;
     }
 
+    Color expectedAmountColor(Color color) => veriSemantic(
+      tester.element(find.byKey(const Key('number_pad_display'))),
+      color,
+    );
+
     // 支出红色（浅色主题用加深变体）；账户选择框前置图标为账户图标；
     // 日期/时间旁没有多余账户 Chip。
-    expect(amountColor(), veriSemanticFor(Brightness.light, veriExpense));
+    expect(amountColor(), expectedAmountColor(veriExpense));
     expect(
       find.descendant(
-        of: find.byKey(const Key('account_dropdown')),
-        matching: find.byType(AccountIconBox),
+        of: find.byKey(const Key('quick_entry_account')),
+        matching: find.byIcon(Icons.account_balance_wallet_outlined),
       ),
       findsOneWidget,
     );
@@ -175,22 +188,21 @@ void main() {
 
     await tester.tap(find.text('收入'));
     await tester.pumpAndSettle();
-    expect(amountColor(), veriSemanticFor(Brightness.light, veriIncome));
-
-    await tester.tap(find.text('转账'));
-    await tester.pumpAndSettle();
-    expect(amountColor(), veriSemanticFor(Brightness.light, veriBlue));
+    expect(amountColor(), expectedAmountColor(veriIncome));
 
     // 账户选择弹窗展示账户图标与余额。
-    await tester.tap(find.byKey(const Key('account_dropdown')));
+    await tester.tap(find.byKey(const Key('quick_entry_account')));
     await tester.pumpAndSettle();
-    expect(find.text('选择转出账户'), findsOneWidget);
+    expect(find.text('选择账户'), findsOneWidget);
     expect(find.text('备用账户'), findsAtLeastNWidgets(1));
     expect(find.text('0'), findsAtLeastNWidgets(2));
     expect(find.byType(AccountIconBox), findsAtLeastNWidgets(2));
 
-    await tester.tap(find.text('现金账户'));
+    await tester.tap(find.text('现金账户').last);
     await tester.pumpAndSettle();
+    await tester.tap(find.text('转账'));
+    await tester.pumpAndSettle();
+    expect(amountColor(), expectedAmountColor(veriBlue));
     expect(find.byKey(const Key('save_entry_button')), findsOneWidget);
   });
 
@@ -204,7 +216,7 @@ void main() {
     await createQuickEntry(tester);
 
     // 打开账户选择弹窗，选「无账户」。
-    await tester.tap(find.byKey(const Key('account_dropdown')));
+    await tester.tap(find.byKey(const Key('quick_entry_account')));
     await tester.pumpAndSettle();
     expect(find.text('无账户'), findsOneWidget);
     await tester.tap(find.text('无账户'));
@@ -213,7 +225,7 @@ void main() {
     // 账户栏显示「无账户」。
     expect(
       find.descendant(
-        of: find.byKey(const Key('account_dropdown')),
+        of: find.byKey(const Key('quick_entry_account')),
         matching: find.text('无账户'),
       ),
       findsOneWidget,
@@ -237,7 +249,7 @@ void main() {
     await tester.tap(find.byKey(const Key('save_entry_button')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('餐饮').first);
+    await tester.tap(find.text('食品餐饮').first);
     await tester.pumpAndSettle();
 
     expect(find.text('支出'), findsAtLeastNWidgets(1));
@@ -318,7 +330,7 @@ void main() {
       ..dispose();
 
     await pumpApp(tester, store);
-    await tester.tap(find.text('最近交易'));
+    await openTransactionsFromHome(tester);
     await tester.pumpAndSettle();
 
     expect(find.text('交易明细'), findsOneWidget);
@@ -382,7 +394,7 @@ void main() {
 
     // 默认关闭：列表里不出现余额。
     final controller2 = await pumpApp(tester, store);
-    await tester.tap(find.text('最近交易'));
+    await openTransactionsFromHome(tester);
     await tester.pumpAndSettle();
     expect(find.textContaining('余额'), findsNothing);
 
@@ -459,7 +471,7 @@ void main() {
       ..dispose();
 
     await pumpApp(tester, store);
-    await tester.tap(find.text('最近交易'));
+    await openTransactionsFromHome(tester);
     await tester.pumpAndSettle();
 
     await tester.enterText(
@@ -504,6 +516,9 @@ void main() {
       final breakfast = controller
           .categoriesForType(EntryType.expense)
           .firstWhere((c) => c.label == '早餐');
+      final transport = controller.categories.firstWhere(
+        (category) => category.key == 'transport',
+      );
       controller
         ..addEntry(
           LedgerEntry(
@@ -523,7 +538,7 @@ void main() {
             bookId: controller.activeBook.id,
             type: EntryType.expense,
             amount: 12,
-            categoryId: 'transport',
+            categoryId: transport.id,
             accountId: 'cash-drill',
             note: '公交',
             occurredAt: now,
@@ -532,20 +547,30 @@ void main() {
         ..dispose();
 
       await pumpApp(tester, store);
-      await tester.tap(find.text('最近交易'));
+      await openTransactionsFromHome(tester);
       await tester.pumpAndSettle();
-      // 交易行显示分类标签：子分类「早餐」与顶级「交通」各一行。
-      expect(find.text('早餐'), findsOneWidget);
-      expect(find.text('交通'), findsOneWidget);
+      final transactionRows = find.descendant(
+        of: find.byType(TransactionsPage),
+        matching: find.byType(TransactionTile),
+      );
+      Iterable<String> visibleNotes() => tester
+          .widgetList<TransactionTile>(transactionRows)
+          .map((tile) => tile.entry.note);
+      // 默认两笔交易都显示。
+      expect(visibleNotes(), unorderedEquals(['肠粉', '公交']));
 
       // 按父分类「餐饮」筛选，应带出记在子分类「早餐」上的交易，排除「交通」。
       await tester.tap(find.text('全部分类'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('餐饮').last);
+      final picker = find.byType(CategoryPickerSheet);
+      final dining = find.descendant(of: picker, matching: find.text('食品餐饮'));
+      await tester.ensureVisible(dining);
+      await tester.pumpAndSettle();
+      await tester.tap(dining);
       await tester.pumpAndSettle();
 
-      expect(find.text('早餐'), findsOneWidget);
-      expect(find.text('交通'), findsNothing);
+      expect(picker, findsNothing);
+      expect(visibleNotes(), ['肠粉']);
     },
   );
 
@@ -559,7 +584,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('分类管理'), findsOneWidget);
-    expect(find.text('餐饮'), findsOneWidget);
+    expect(find.text('食品餐饮'), findsOneWidget);
 
     await tester.tap(find.byTooltip('新增顶级分类'));
     await tester.pumpAndSettle();
@@ -567,7 +592,14 @@ void main() {
     await tester.tap(find.text('确认'));
     await tester.pumpAndSettle();
     // 图标选择器为网格，选第一个内置图标（category）。
-    await tester.tap(find.byIcon(Icons.category_outlined).last);
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(BottomSheet),
+            matching: find.byType(CategoryIconBox),
+          )
+          .first,
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('咖啡'), findsOneWidget);
@@ -583,20 +615,27 @@ void main() {
     await tester.pumpAndSettle();
 
     // 点击「餐饮」打开操作菜单，再从「编辑」子菜单选择「新增子分类」。
-    await tester.tap(find.text('餐饮'));
+    await tester.tap(find.text('食品餐饮'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('编辑'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('新增子分类'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).last, '早餐');
+    await tester.enterText(find.byType(TextField).last, '工作餐');
     await tester.tap(find.text('确认'));
     await tester.pumpAndSettle();
     // 图标选择器为网格，选第一个内置图标（category）。
-    await tester.tap(find.byIcon(Icons.category_outlined).last);
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(BottomSheet),
+            matching: find.byType(CategoryIconBox),
+          )
+          .first,
+    );
     await tester.pumpAndSettle();
 
-    expect(find.text('早餐'), findsOneWidget);
+    expect(find.text('工作餐'), findsOneWidget);
     // 子分类的副标题显示所属父分类下的层级信息（父分类出现「个子分类」）。
     expect(find.textContaining('个子分类'), findsWidgets);
   });
@@ -638,14 +677,30 @@ void main() {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(393, 852);
     addTearDown(tester.view.reset);
-    await pumpApp(tester);
+    final store = LocalKeyValueStore();
+    final seed = await makeController(store);
+    seed.addCategory(
+      type: EntryType.expense,
+      label: '合并来源',
+      iconCode: 'category',
+    );
+    seed.dispose();
+    await pumpApp(tester, store);
 
     await tapBottomTab(tester, 3);
     await tester.tap(find.text('分类管理'));
     await tester.pumpAndSettle();
 
-    // 点「交通」→「编辑」→「合并到其他分类」。
-    await tester.tap(find.text('交通').first);
+    // 选没有下级的来源分类，再进入编辑菜单。
+    final source = find.text('合并来源');
+    await tester.scrollUntilVisible(
+      source,
+      200,
+      scrollable: firstVerticalScrollable(),
+    );
+    await tester.ensureVisible(source);
+    await tester.pumpAndSettle();
+    await tester.tap(source);
     await tester.pumpAndSettle();
     await tester.tap(find.text('编辑'));
     await tester.pumpAndSettle();
@@ -653,15 +708,15 @@ void main() {
     await tester.pumpAndSettle();
 
     // 选择器为带图标的层级树；选目标「餐饮」。
-    await tester.tap(find.text('餐饮').last);
+    await tester.tap(find.text('食品餐饮').last);
     await tester.pumpAndSettle();
     // 确认合并。
     await tester.tap(find.text('合并'));
     await tester.pumpAndSettle();
 
-    // 「交通」已被合并删除。
-    expect(find.text('交通'), findsNothing);
-    expect(find.text('餐饮'), findsWidgets);
+    // 来源分类已被合并删除。
+    expect(source, findsNothing);
+    expect(find.text('食品餐饮'), findsWidgets);
   });
 
   testWidgets('creates a tag in the tag management page', (
@@ -707,13 +762,19 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('必要'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('完成'));
+    await tester.tap(
+      find.descendant(of: find.byType(BottomSheet), matching: find.text('完成')),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('save_entry_button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('最近交易'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('最近交易'),
+      200,
+      scrollable: firstVerticalScrollable(),
+    );
   });
 
   testWidgets('filters transaction list by tag', (WidgetTester tester) async {
@@ -768,7 +829,7 @@ void main() {
       ..dispose();
 
     await pumpApp(tester, store);
-    await tester.tap(find.text('最近交易'));
+    await openTransactionsFromHome(tester);
     await tester.pumpAndSettle();
 
     expect(find.text(dining.label), findsOneWidget);
@@ -860,8 +921,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // 跳到交易列表，且只显示所选分类下的两笔支出。
-    expect(find.text('午餐'), findsOneWidget);
-    expect(find.text('公交'), findsNothing);
+    expect(find.textContaining('午餐', findRichText: true), findsOneWidget);
+    expect(find.textContaining('公交', findRichText: true), findsNothing);
     final metrics = tester
         .widgetList<SummaryMetric>(find.byType(SummaryMetric))
         .toList();
@@ -887,8 +948,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('午餐'), findsOneWidget);
-    expect(find.text('公交'), findsNothing);
+    expect(find.textContaining('午餐', findRichText: true), findsOneWidget);
+    expect(find.textContaining('公交', findRichText: true), findsNothing);
     final compact = MaterialLocalizations.of(
       tester.element(find.byType(TransactionsPage)),
     ).formatCompactDate(now);
@@ -902,7 +963,7 @@ void main() {
       DateTimeRange(start: previousDay, end: previousDay),
     );
     await tester.pumpAndSettle();
-    expect(find.text('午餐'), findsNothing);
+    expect(find.textContaining('午餐', findRichText: true), findsNothing);
     expect(find.text('小食'), findsNothing);
   });
 
@@ -984,7 +1045,7 @@ void main() {
     controller.dispose();
 
     await pumpApp(tester, store);
-    await tester.tap(find.text('最近交易'));
+    await openTransactionsFromHome(tester);
     await tester.pumpAndSettle();
 
     // 汇总/计数基于完整列表：仍显示全部 40 笔。
@@ -1025,7 +1086,7 @@ void main() {
     controller.dispose();
 
     final app = await pumpApp(tester, store);
-    await tester.tap(find.text('最近交易'));
+    await openTransactionsFromHome(tester);
     await tester.pumpAndSettle();
 
     // 翻到最旧的一笔，分页已加载到第二批。
@@ -1047,7 +1108,7 @@ void main() {
   testWidgets('交易列表提供记账入口', (WidgetTester tester) async {
     final store = LocalKeyValueStore();
     await pumpApp(tester, store);
-    await tester.tap(find.text('最近交易'));
+    await openTransactionsFromHome(tester);
     await tester.pumpAndSettle();
 
     final fab = find.byKey(const Key('transactions_quick_entry_fab'));
@@ -1056,7 +1117,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 与首页快捷记账一致：先弹数字键盘。
-    expect(find.byKey(const Key('number_pad_ok')), findsOneWidget);
+    expect(find.byKey(const Key('number_pad_display')), findsOneWidget);
   });
 
   testWidgets('只按时间筛选时显示「没有匹配交易」，清空后复位', (WidgetTester tester) async {
@@ -1077,7 +1138,7 @@ void main() {
     );
 
     await pumpApp(tester, store);
-    await tester.tap(find.text('最近交易'));
+    await openTransactionsFromHome(tester);
     await tester.pumpAndSettle();
     expect(find.textContaining('去年的一笔'), findsOneWidget);
 

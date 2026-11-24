@@ -112,7 +112,8 @@ class _AssetsPageState extends State<AssetsPage> {
             date: date,
           ),
     );
-    final hasAssetCover = controller.assetCoverUrl.isNotEmpty;
+    final assetCover = imageProviderForSource(controller.assetCoverUrl);
+    final hasAssetCover = assetCover != null;
     final assetCardTextColor = hasAssetCover
         ? Colors.white
         : Theme.of(context).colorScheme.onSurface;
@@ -216,9 +217,7 @@ class _AssetsPageState extends State<AssetsPage> {
                   image: !hasAssetCover
                       ? null
                       : DecorationImage(
-                          image: imageProviderForSource(
-                            controller.assetCoverUrl,
-                          ),
+                          image: assetCover,
                           fit: BoxFit.cover,
                           alignment: Alignment.center,
                         ),

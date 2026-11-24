@@ -5012,6 +5012,12 @@ abstract class AppLocalizations {
   /// **'裁剪头像'**
   String get cropAvatarTitle;
 
+  /// No description provided for @changeAvatarLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'更换头像'**
+  String get changeAvatarLabel;
+
   /// No description provided for @avatarGenerating.
   ///
   /// In zh, this message translates to:
@@ -5291,13 +5297,13 @@ abstract class AppLocalizations {
   /// Settings toggle: auto-fill new entries from history
   ///
   /// In zh, this message translates to:
-  /// **'自动识别'**
+  /// **'手动记账自动填充'**
   String get autoSuggestLabel;
 
   /// Subtitle explaining the auto-suggest toggle
   ///
   /// In zh, this message translates to:
-  /// **'记一笔时根据历史记账习惯，自动填写类型、分类、标签和备注'**
+  /// **'仅在手动记账时，根据历史账单自动填写类型、分类、标签和备注。'**
   String get autoSuggestDesc;
 
   /// No description provided for @appLockLabel.
@@ -5305,6 +5311,54 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'应用锁'**
   String get appLockLabel;
+
+  /// No description provided for @externalNetworkTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许应用联网'**
+  String get externalNetworkTitle;
+
+  /// No description provided for @externalNetworkHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'开启后可使用 AI、检查更新和 WebDAV 自动上传。手动 WebDAV 操作可单次授权。'**
+  String get externalNetworkHint;
+
+  /// No description provided for @externalNetworkDisabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'应用联网已关闭，可在设置中开启。'**
+  String get externalNetworkDisabled;
+
+  /// No description provided for @externalNetworkInvalidWebdavUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'请输入有效的 WebDAV 服务器地址。'**
+  String get externalNetworkInvalidWebdavUrl;
+
+  /// No description provided for @webdavOriginMismatch.
+  ///
+  /// In zh, this message translates to:
+  /// **'备份地址与已配置的 WebDAV 服务器不一致。'**
+  String get webdavOriginMismatch;
+
+  /// No description provided for @webdavNetworkPermissionTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'允许本次 WebDAV 联网？'**
+  String get webdavNetworkPermissionTitle;
+
+  /// No description provided for @webdavNetworkPermissionBody.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅为这次 WebDAV 操作连接 {host}。'**
+  String webdavNetworkPermissionBody(String host);
+
+  /// No description provided for @webdavNetworkAllowOnce.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅本次允许'**
+  String get webdavNetworkAllowOnce;
 
   /// No description provided for @enabledLabel.
   ///
@@ -7511,14 +7565,278 @@ abstract class AppLocalizations {
   /// No description provided for @resetConfirmMessage.
   ///
   /// In zh, this message translates to:
-  /// **'确认后会立即清空所有本地数据，并恢复默认状态。此操作不能撤销。'**
+  /// **'此操作会清空所有本地数据并恢复默认状态，无法撤销。请输入下方验证码后继续。'**
   String get resetConfirmMessage;
 
   /// No description provided for @resetConfirmAction.
   ///
   /// In zh, this message translates to:
-  /// **'确认初始化'**
+  /// **'确认清空'**
   String get resetConfirmAction;
+
+  /// No description provided for @autoSettingsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动记账'**
+  String get autoSettingsTitle;
+
+  /// No description provided for @autoSettingsPermissionSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'权限与识别平台'**
+  String get autoSettingsPermissionSubtitle;
+
+  /// No description provided for @autoSettingsRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新权限检测'**
+  String get autoSettingsRefresh;
+
+  /// No description provided for @autoSettingsEnabled.
+  ///
+  /// In zh, this message translates to:
+  /// **'启用自动记账'**
+  String get autoSettingsEnabled;
+
+  /// No description provided for @autoSettingsEnabledHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'识别已选平台的付款和转账，按历史账单和分类规则预选分类，确认后入账。'**
+  String get autoSettingsEnabledHint;
+
+  /// No description provided for @autoSettingsPersistent.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知栏运行状态'**
+  String get autoSettingsPersistent;
+
+  /// No description provided for @autoSettingsPersistentHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动记账开启时，在通知栏显示运行状态。'**
+  String get autoSettingsPersistentHint;
+
+  /// No description provided for @autoSettingsCore.
+  ///
+  /// In zh, this message translates to:
+  /// **'核心必选'**
+  String get autoSettingsCore;
+
+  /// No description provided for @autoSettingsEnhancements.
+  ///
+  /// In zh, this message translates to:
+  /// **'体验增强'**
+  String get autoSettingsEnhancements;
+
+  /// No description provided for @autoSettingsAdvanced.
+  ///
+  /// In zh, this message translates to:
+  /// **'高级选项'**
+  String get autoSettingsAdvanced;
+
+  /// No description provided for @autoSettingsPlatforms.
+  ///
+  /// In zh, this message translates to:
+  /// **'识别平台'**
+  String get autoSettingsPlatforms;
+
+  /// No description provided for @autoSettingsAccessibility.
+  ///
+  /// In zh, this message translates to:
+  /// **'无障碍服务'**
+  String get autoSettingsAccessibility;
+
+  /// No description provided for @autoSettingsAccessibilityHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'识别已选平台的付款和转账页面。'**
+  String get autoSettingsAccessibilityHint;
+
+  /// No description provided for @autoSettingsNotificationAccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'通知读取权限'**
+  String get autoSettingsNotificationAccess;
+
+  /// No description provided for @autoSettingsNotificationHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'接收已选平台的支付通知。'**
+  String get autoSettingsNotificationHint;
+
+  /// No description provided for @autoSettingsBattery.
+  ///
+  /// In zh, this message translates to:
+  /// **'忽略电池优化'**
+  String get autoSettingsBattery;
+
+  /// No description provided for @autoSettingsBatteryHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'减少系统在后台中断监听的情况。'**
+  String get autoSettingsBatteryHint;
+
+  /// No description provided for @autoSettingsReady.
+  ///
+  /// In zh, this message translates to:
+  /// **'已就绪'**
+  String get autoSettingsReady;
+
+  /// No description provided for @autoSettingsOpen.
+  ///
+  /// In zh, this message translates to:
+  /// **'去设置'**
+  String get autoSettingsOpen;
+
+  /// No description provided for @autoSettingsShizuku.
+  ///
+  /// In zh, this message translates to:
+  /// **'Shizuku 授权状态'**
+  String get autoSettingsShizuku;
+
+  /// No description provided for @autoSettingsShizukuGranted.
+  ///
+  /// In zh, this message translates to:
+  /// **'已授权。自动记账仍使用系统采集通道。'**
+  String get autoSettingsShizukuGranted;
+
+  /// No description provided for @autoSettingsShizukuInstalled.
+  ///
+  /// In zh, this message translates to:
+  /// **'已安装。启动 Shizuku 服务后可请求授权。'**
+  String get autoSettingsShizukuInstalled;
+
+  /// No description provided for @autoSettingsShizukuUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'未安装。自动记账无需此授权。'**
+  String get autoSettingsShizukuUnavailable;
+
+  /// No description provided for @autoSettingsShizukuSuccess.
+  ///
+  /// In zh, this message translates to:
+  /// **'Shizuku 已授权'**
+  String get autoSettingsShizukuSuccess;
+
+  /// No description provided for @autoSettingsShizukuRequest.
+  ///
+  /// In zh, this message translates to:
+  /// **'请在授权弹窗中允许访问。'**
+  String get autoSettingsShizukuRequest;
+
+  /// No description provided for @autoSettingsShizukuStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先在 Shizuku 中启动服务。'**
+  String get autoSettingsShizukuStart;
+
+  /// No description provided for @autoSettingsWeChat.
+  ///
+  /// In zh, this message translates to:
+  /// **'微信支付 / 转账'**
+  String get autoSettingsWeChat;
+
+  /// No description provided for @autoSettingsWeChatHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'支付成功页、账单和转账详情'**
+  String get autoSettingsWeChatHint;
+
+  /// No description provided for @autoSettingsAlipay.
+  ///
+  /// In zh, this message translates to:
+  /// **'支付宝'**
+  String get autoSettingsAlipay;
+
+  /// No description provided for @autoSettingsAlipayHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'付款成功页和账单详情'**
+  String get autoSettingsAlipayHint;
+
+  /// No description provided for @autoSettingsJd.
+  ///
+  /// In zh, this message translates to:
+  /// **'京东'**
+  String get autoSettingsJd;
+
+  /// No description provided for @autoSettingsJdHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'订单支付成功页和白条 / 钱包账单'**
+  String get autoSettingsJdHint;
+
+  /// No description provided for @autoSettingsPdd.
+  ///
+  /// In zh, this message translates to:
+  /// **'拼多多'**
+  String get autoSettingsPdd;
+
+  /// No description provided for @autoSettingsPddHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'订单支付和多多支付账单详情'**
+  String get autoSettingsPddHint;
+
+  /// No description provided for @screenshotSettingsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'截图记账'**
+  String get screenshotSettingsTitle;
+
+  /// No description provided for @screenshotSettingsShortcutSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'磁贴与截图识别'**
+  String get screenshotSettingsShortcutSubtitle;
+
+  /// No description provided for @screenshotSettingsRecognition.
+  ///
+  /// In zh, this message translates to:
+  /// **'识别方式'**
+  String get screenshotSettingsRecognition;
+
+  /// No description provided for @screenshotSettingsRecognitionHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'截图在设备上识别。AI 服务只接收提取出的文字。'**
+  String get screenshotSettingsRecognitionHint;
+
+  /// No description provided for @screenshotSettingsConfigureAi.
+  ///
+  /// In zh, this message translates to:
+  /// **'识别账单还需要在 AI 设置里配置模型。'**
+  String get screenshotSettingsConfigureAi;
+
+  /// No description provided for @screenshotSettingsShortcut.
+  ///
+  /// In zh, this message translates to:
+  /// **'控制中心快捷入口'**
+  String get screenshotSettingsShortcut;
+
+  /// No description provided for @screenshotSettingsShortcutHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'在 Android 快捷设置的编辑页添加「截图记账」磁贴，也可将账单截图从系统分享至小禾记账。'**
+  String get screenshotSettingsShortcutHint;
+
+  /// No description provided for @screenshotSettingsSupported.
+  ///
+  /// In zh, this message translates to:
+  /// **'常见账单截图'**
+  String get screenshotSettingsSupported;
+
+  /// No description provided for @resetCodeRefresh.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新验证码'**
+  String get resetCodeRefresh;
+
+  /// No description provided for @resetCodeInput.
+  ///
+  /// In zh, this message translates to:
+  /// **'输入图中的 4 位验证码'**
+  String get resetCodeInput;
 
   /// No description provided for @checkingLabel.
   ///
@@ -7817,7 +8135,7 @@ abstract class AppLocalizations {
   /// No description provided for @widgetConfigureHint.
   ///
   /// In zh, this message translates to:
-  /// **'添加到桌面后若显示「点击进入配置」，点一下就能选账本和外观。'**
+  /// **'添加到桌面后，点「点击进入配置」可选择账本、外观和背景透明度。'**
   String get widgetConfigureHint;
 
   /// No description provided for @widgetTemplateQuickEntry.
@@ -7909,6 +8227,96 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'外观'**
   String get widgetAppearance;
+
+  /// No description provided for @widgetTextSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'字号'**
+  String get widgetTextSize;
+
+  /// No description provided for @widgetTextSmall.
+  ///
+  /// In zh, this message translates to:
+  /// **'小'**
+  String get widgetTextSmall;
+
+  /// No description provided for @widgetTextStandard.
+  ///
+  /// In zh, this message translates to:
+  /// **'标准'**
+  String get widgetTextStandard;
+
+  /// No description provided for @widgetTextLarge.
+  ///
+  /// In zh, this message translates to:
+  /// **'大'**
+  String get widgetTextLarge;
+
+  /// No description provided for @widgetTextAlignment.
+  ///
+  /// In zh, this message translates to:
+  /// **'文字对齐'**
+  String get widgetTextAlignment;
+
+  /// No description provided for @widgetTextStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'靠左'**
+  String get widgetTextStart;
+
+  /// No description provided for @widgetTextCenter.
+  ///
+  /// In zh, this message translates to:
+  /// **'居中'**
+  String get widgetTextCenter;
+
+  /// No description provided for @widgetTextColor.
+  ///
+  /// In zh, this message translates to:
+  /// **'文字颜色'**
+  String get widgetTextColor;
+
+  /// No description provided for @widgetTextAutomatic.
+  ///
+  /// In zh, this message translates to:
+  /// **'随外观'**
+  String get widgetTextAutomatic;
+
+  /// No description provided for @widgetTextWhite.
+  ///
+  /// In zh, this message translates to:
+  /// **'白色'**
+  String get widgetTextWhite;
+
+  /// No description provided for @widgetTextBlack.
+  ///
+  /// In zh, this message translates to:
+  /// **'黑色'**
+  String get widgetTextBlack;
+
+  /// No description provided for @widgetTextBlue.
+  ///
+  /// In zh, this message translates to:
+  /// **'蓝色'**
+  String get widgetTextBlue;
+
+  /// No description provided for @widgetTextGreen.
+  ///
+  /// In zh, this message translates to:
+  /// **'绿色'**
+  String get widgetTextGreen;
+
+  /// No description provided for @widgetBackgroundOpacity.
+  ///
+  /// In zh, this message translates to:
+  /// **'背景透明度'**
+  String get widgetBackgroundOpacity;
+
+  /// No description provided for @widgetBackgroundOpacityPercent.
+  ///
+  /// In zh, this message translates to:
+  /// **'{percent}%'**
+  String widgetBackgroundOpacityPercent(int percent);
 
   /// No description provided for @widgetBookPlaceholder.
   ///
@@ -9483,12 +9891,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'分类图标主题'**
   String get categoryIconThemeTitle;
-
-  /// No description provided for @categoryIconThemeBuiltin.
-  ///
-  /// In zh, this message translates to:
-  /// **'系统内置图标'**
-  String get categoryIconThemeBuiltin;
 
   /// No description provided for @categoryIconThemeLine.
   ///

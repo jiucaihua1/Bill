@@ -1,3 +1,4 @@
+import '../external_network_guard.dart';
 import 'webdav_config.dart';
 
 /// WebDAV 操作异常，面向用户可读。
@@ -10,11 +11,17 @@ class WebdavException implements Exception {
   String toString() => message;
 }
 
-Future<void> webdavTestConnection(WebdavConfig config) async {
+Future<void> webdavTestConnection(
+  WebdavConfig config, {
+  WebdavAuthorization? authorization,
+}) async {
   throw const WebdavException('当前平台不支持 WebDAV');
 }
 
-Future<List<WebdavRemoteFile>> webdavList(WebdavConfig config) async {
+Future<List<WebdavRemoteFile>> webdavList(
+  WebdavConfig config, {
+  WebdavAuthorization? authorization,
+}) async {
   throw const WebdavException('当前平台不支持 WebDAV');
 }
 
@@ -28,6 +35,7 @@ Future<void> webdavUploadFile(
   String cachePath, {
   bool Function()? isCancelled,
   Duration responseTimeout = const Duration(seconds: 60),
+  WebdavAuthorization? authorization,
 }) async {
   throw const WebdavException('当前平台不支持 WebDAV');
 }
@@ -38,6 +46,7 @@ Future<void> webdavDownloadToFile(
   String cachePath, {
   bool Function()? isCancelled,
   Duration responseTimeout = const Duration(seconds: 60),
+  WebdavAuthorization? authorization,
 }) async {
   throw const WebdavException('当前平台不支持 WebDAV');
 }

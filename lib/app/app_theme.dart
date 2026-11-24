@@ -607,6 +607,17 @@ ThemeData buildVeriFinTheme(
     scaffoldBackgroundColor: canvas,
     fontFamily: 'Roboto',
     visualDensity: VisualDensity.compact,
+    dialogTheme: DialogThemeData(
+      backgroundColor: tokens.cardColor,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: colorScheme.shadow,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(tokens.cardRadius),
+        side: BorderSide(color: tokens.borderColor),
+      ),
+    ),
     dividerTheme: DividerThemeData(
       color: tokens.borderColor,
       thickness: 0.8,

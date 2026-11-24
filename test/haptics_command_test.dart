@@ -43,7 +43,7 @@ void main() {
       await tester.tap(find.byKey(const Key('save_entry_button')));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('餐饮').first);
+      await tester.tap(find.text('食品餐饮').first);
       await tester.pumpAndSettle();
       played.clear();
 

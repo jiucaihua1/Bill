@@ -92,9 +92,9 @@ class _ImageCropperPageState extends State<ImageCropperPage> {
   @override
   void initState() {
     super.initState();
-    _imageStream = imageProviderForSource(
-      widget.imageDataUrl,
-    ).resolve(ImageConfiguration.empty);
+    final provider = imageProviderForSource(widget.imageDataUrl);
+    if (provider == null) return;
+    _imageStream = provider.resolve(ImageConfiguration.empty);
     _imageListener = ImageStreamListener((ImageInfo info, _) {
       if (mounted) {
         setState(() {

@@ -220,17 +220,17 @@ class _SetPassphraseDialogState extends State<_SetPassphraseDialog> {
   }
 }
 
-/// 编辑 WebDAV 配置的对话框（含连通性测试）。控制器由 State 管理并释放。
-class _WebdavEditDialog extends StatefulWidget {
-  const _WebdavEditDialog({required this.existing});
+/// 编辑 WebDAV 配置的底部抽屉，含连通性测试。
+class _WebdavEditSheet extends StatefulWidget {
+  const _WebdavEditSheet({required this.existing});
 
   final WebdavConfig existing;
 
   @override
-  State<_WebdavEditDialog> createState() => _WebdavEditDialogState();
+  State<_WebdavEditSheet> createState() => _WebdavEditSheetState();
 }
 
-class _WebdavEditDialogState extends State<_WebdavEditDialog> {
+class _WebdavEditSheetState extends State<_WebdavEditSheet> {
   static const _nutstoreHost = 'dav.jianguoyun.com';
   static const _nutstoreBackupUrl = 'https://$_nutstoreHost/dav/Bill/';
 
@@ -279,16 +279,29 @@ class _WebdavEditDialogState extends State<_WebdavEditDialog> {
 
   Future<void> _test() async {
     final l10n = AppLocalizations.of(context);
-    setState(() {
-      _testing = true;
-      _statusText = l10n.testingConnection;
-    });
+    final config = _current();
+    setState(() => _testing = true);
     try {
-      await webdavTestConnection(_current());
-      if (mounted) setState(() => _statusText = l10n.connectionOk);
+      final tested = await _withManualWebdav<bool>(
+        context,
+        config,
+        WebdavOperation.testConnection,
+        (authorization) async {
+          setState(() => _statusText = l10n.testingConnection);
+          await webdavTestConnection(config, authorization: authorization);
+          return true;
+        },
+      );
+      if (mounted && tested == true) {
+        setState(() => _statusText = l10n.connectionOk);
+      }
     } catch (error) {
       if (mounted) {
-        setState(() => _statusText = l10n.connectionFailed('$error'));
+        setState(
+          () => _statusText = l10n.connectionFailed(
+            _webdavFailureReason(l10n, error),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _testing = false);
@@ -299,59 +312,57 @@ class _WebdavEditDialogState extends State<_WebdavEditDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final usesNutstore = _usesNutstore;
-    return AlertDialog(
-      title: Text(l10n.webdavServer),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            ActionChip(
-              label: Text(l10n.webdavUseNutstore),
-              onPressed: _testing ? null : _useNutstore,
+    return VeriFormSheet(
+      title: l10n.webdavServer,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          ActionChip(
+            label: Text(l10n.webdavUseNutstore),
+            onPressed: _testing ? null : _useNutstore,
+          ),
+          TextField(
+            controller: _urlController,
+            enabled: !_testing,
+            onChanged: _clearStatus,
+            keyboardType: TextInputType.url,
+            decoration: InputDecoration(
+              labelText: l10n.webdavUrlLabel,
+              hintText: 'https://dav.example.com/verifin/',
             ),
-            TextField(
-              controller: _urlController,
-              enabled: !_testing,
-              onChanged: _clearStatus,
-              keyboardType: TextInputType.url,
-              decoration: InputDecoration(
-                labelText: l10n.webdavUrlLabel,
-                hintText: 'https://dav.example.com/verifin/',
-              ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _userController,
+            enabled: !_testing,
+            onChanged: _clearStatus,
+            decoration: InputDecoration(labelText: l10n.webdavUserLabel),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _passController,
+            enabled: !_testing,
+            onChanged: _clearStatus,
+            obscureText: true,
+            decoration: InputDecoration(
+              labelText: usesNutstore
+                  ? l10n.webdavNutstorePassLabel
+                  : l10n.webdavPassLabel,
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _userController,
-              enabled: !_testing,
-              onChanged: _clearStatus,
-              decoration: InputDecoration(labelText: l10n.webdavUserLabel),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _passController,
-              enabled: !_testing,
-              onChanged: _clearStatus,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: usesNutstore
-                    ? l10n.webdavNutstorePassLabel
-                    : l10n.webdavPassLabel,
-              ),
-            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            usesNutstore
+                ? l10n.webdavNutstoreSetupHint
+                : l10n.webdavCreateFolderHint,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          if (_statusText != null) ...<Widget>[
             const SizedBox(height: 10),
-            Text(
-              usesNutstore
-                  ? l10n.webdavNutstoreSetupHint
-                  : l10n.webdavCreateFolderHint,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (_statusText != null) ...<Widget>[
-              const SizedBox(height: 10),
-              Text(_statusText!, style: Theme.of(context).textTheme.bodySmall),
-            ],
+            Text(_statusText!, style: Theme.of(context).textTheme.bodySmall),
           ],
-        ),
+        ],
       ),
       actions: <Widget>[
         TextButton(

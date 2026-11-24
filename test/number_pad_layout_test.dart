@@ -70,8 +70,8 @@ void main() {
     await tester.tap(find.byKey(const Key('quick_entry_fab')));
     await tester.pumpAndSettle();
     expect(
-      tester.getTopLeft(find.byKey(const Key('number_key_1'))).dy,
-      lessThan(tester.getTopLeft(find.byKey(const Key('number_key_7'))).dy),
+      tester.getTopLeft(find.byKey(const Key('number_key_7'))).dy,
+      lessThan(tester.getTopLeft(find.byKey(const Key('number_key_1'))).dy),
     );
 
     final restarted = await makeController(store);

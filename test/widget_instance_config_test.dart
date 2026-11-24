@@ -72,6 +72,8 @@ void main() {
     expect(session.books, <String, String>{'book-1': '个人', 'book-2': '旅行'});
     expect(session.config?.bookId, 'book-2');
     expect(session.config?.appearance, WidgetAppearance.dark);
+    expect(session.config?.backgroundOpacity, 1);
+    expect(session.config?.typography, defaultWidgetTypography);
   });
 
   test('未配置的实例不替用户挑账本，外观回退跟随系统', () async {
@@ -112,10 +114,36 @@ void main() {
     const config = WidgetInstanceConfig(
       bookId: 'book-1',
       appearance: WidgetAppearance.dark,
+      backgroundOpacity: 0.35,
+      typography: (
+        size: WidgetTextSize.large,
+        alignment: WidgetTextAlignment.center,
+        color: WidgetTextColor.green,
+      ),
     );
     final decoded = WidgetInstanceConfig.decode(config.encode())!;
     expect(decoded.bookId, 'book-1');
     expect(decoded.appearance, WidgetAppearance.dark);
+    expect(decoded.backgroundOpacity, 0.35);
+    expect(decoded.typography, config.typography);
+    expect(
+      WidgetInstanceConfig.decode(
+        '{"bookId":"b","backgroundOpacity":-0.2}',
+      )!.backgroundOpacity,
+      0,
+    );
+    expect(
+      WidgetInstanceConfig.decode(
+        '{"bookId":"b","backgroundOpacity":1.2}',
+      )!.backgroundOpacity,
+      1,
+    );
+    expect(
+      WidgetInstanceConfig.decode(
+        '{"bookId":"b","backgroundOpacity":"bad"}',
+      )!.backgroundOpacity,
+      1,
+    );
 
     expect(WidgetInstanceConfig.decode(null), isNull);
     expect(WidgetInstanceConfig.decode(''), isNull);

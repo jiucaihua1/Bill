@@ -6,6 +6,7 @@ import 'app_theme.dart';
 import 'calc_expression.dart';
 import 'category_tree.dart';
 import 'common_widgets.dart';
+import 'currency_catalog.dart';
 import 'currency_math.dart';
 import 'haptics.dart';
 import 'ledger_math.dart';
@@ -89,10 +90,24 @@ class NumberPadSheet extends StatefulWidget {
 }
 
 class _NumberPadSheetState extends State<NumberPadSheet> {
-  late String _input = _initialInput(
-    widget.initialAmount,
-    widget.maxFractionDigits,
+  final _amountFocus = FocusNode();
+  late final _editor = TextEditingController.fromValue(
+    _valueAtEnd(_initialInput(widget.initialAmount, widget.maxFractionDigits)),
   );
+
+  String get _input => _editor.text;
+
+  static TextEditingValue _valueAtEnd(String input) => TextEditingValue(
+    text: input,
+    selection: TextSelection.collapsed(offset: input.length),
+  );
+
+  @override
+  void dispose() {
+    _editor.dispose();
+    _amountFocus.dispose();
+    super.dispose();
+  }
 
   /// 初始输入串：空值与 0 都从空输入开始，不再把 `0` 预填成值。
   ///
@@ -123,50 +138,69 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
         ? MediaQuery.viewPaddingOf(context).bottom
         : math.max(keyboardInset, MediaQuery.paddingOf(context).bottom);
     final tokens = VeriStyleTokens.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final metadataSurface = Color.lerp(
+      tokens.cardColor,
+      tokens.surfaceAltColor,
+      0.45,
+    );
+    final symbol = CurrencyCatalog.find(widget.currencyCode)?.symbol;
     Widget amountDisplayBox(Widget display) {
       return Container(
         width: widget.amountLeading == null ? double.infinity : null,
         padding: EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: _inline ? 6 : 12,
+          horizontal: 12,
+          vertical: _inline ? 5 : 12,
         ),
         decoration: BoxDecoration(
-          color: tokens.surfaceAltColor,
+          color: _inline ? metadataSurface : tokens.raisedSurfaceColor,
           borderRadius: BorderRadius.circular(tokens.innerRadius),
+          border: _inline
+              ? null
+              : Border.all(
+                  color: Color.lerp(tokens.borderColor, scheme.primary, 0.22)!,
+                ),
         ),
-        child: display,
+        child: _inline && symbol != null
+            ? Row(
+                children: [
+                  Text(
+                    symbol,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(child: display),
+                ],
+              )
+            : display,
       );
     }
 
     Widget amountRow(Widget display) {
       final leading = widget.amountLeading;
       if (leading == null) return amountDisplayBox(display);
-      return IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: Container(
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: tokens.surfaceAltColor,
-                  borderRadius: BorderRadius.circular(tokens.innerRadius),
-                ),
-                child: leading,
+      return Row(
+        children: [
+          Expanded(
+            child: Container(
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: metadataSurface,
+                borderRadius: BorderRadius.circular(tokens.innerRadius),
               ),
+              child: leading,
             ),
-            const SizedBox(width: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 112, maxWidth: 180),
-              child: amountDisplayBox(display),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 112, maxWidth: 180),
+            child: amountDisplayBox(display),
+          ),
+        ],
       );
     }
 
@@ -192,38 +226,50 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
                 ),
                 const SizedBox(height: 10),
               ],
-              // 数字显示行单独成层：按键只重绘这一行，不带动整块毛玻璃背景
-              // 重算模糊（弹层越大越贵）。
+              // 隔离频繁变动的金额显示和下方键区。
               RepaintBoundary(
                 child: amountRow(
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
-                      Text(
+                      TextField(
                         key: const Key('number_pad_display'),
-                        _input.isEmpty
-                            ? _inline
-                                  ? formatCurrencyNumber(
-                                      0,
-                                      widget.currencyCode!,
-                                      style: CurrencyFractionStyle.standard,
-                                    )
-                                  : AppLocalizations.of(
-                                      context,
-                                    ).numberPadAmountHint
-                            : _input,
+                        controller: _editor,
+                        focusNode: _amountFocus,
+                        groupId: _amountFocus,
+                        readOnly: true,
+                        showCursor: true,
+                        selectAllOnFocus: false,
+                        keyboardType: TextInputType.none,
+                        onTapOutside: (_) => _amountFocus.unfocus(),
                         textAlign: TextAlign.end,
+                        textDirection: TextDirection.ltr,
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.displaySmall
-                            ?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: _input.isEmpty
-                                  ? Theme.of(context).colorScheme.onSurface
-                                        .withValues(alpha: 0.32)
-                                  : widget.amountColor,
-                            ),
+                        cursorColor: scheme.primary,
+                        decoration: InputDecoration(
+                          hintText: _inline
+                              ? formatCurrencyNumber(
+                                  0,
+                                  widget.currencyCode!,
+                                  style: CurrencyFractionStyle.standard,
+                                )
+                              : AppLocalizations.of(
+                                  context,
+                                ).numberPadAmountHint,
+                          hintStyle: TextStyle(color: scheme.onSurfaceVariant),
+                          filled: false,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        style: theme.textTheme.displaySmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          color: widget.amountColor ?? tokens.inkColor,
+                        ),
                       ),
                       // 算式模式在右下角展示浅色结果预览；不完整则提示。
                       if (_hasOperator) ...<Widget>[
@@ -233,13 +279,11 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
                               ? AppLocalizations.of(context).calcIncomplete
                               : '= ${_formatResult(_result!)}',
                           textAlign: TextAlign.end,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withValues(alpha: 0.45),
-                                fontWeight: FontWeight.w600,
-                              ),
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
                         ),
                       ],
                     ],
@@ -247,7 +291,7 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
                 ),
               ),
               if (widget.metadata case final metadata?) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 metadata,
               ],
               if (widget.maxAmount != null)
@@ -285,20 +329,15 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
                     ),
                   ),
                 ),
-              SizedBox(height: _inline ? 6 : 10),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  const spacing = 6.0;
-                  final cellW = (constraints.maxWidth - spacing * 3) / 4;
-                  return _buildKeys(
-                    context,
-                    cellW,
-                    spacing,
-                    keyboardOverlap: _inline
-                        ? math.max(0.0, keyboardInset - bottomInset)
-                        : 0.0,
-                  );
-                },
+              SizedBox(height: _inline ? 8 : 12),
+              TextFieldTapRegion(
+                groupId: _amountFocus,
+                child: _buildKeyTray(
+                  context,
+                  keyboardOverlap: _inline
+                      ? math.max(0.0, keyboardInset - bottomInset)
+                      : 0.0,
+                ),
               ),
             ],
           ),
@@ -313,17 +352,41 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
           top: Radius.circular(tokens.cardRadius),
         ),
         border: Border(top: BorderSide(color: tokens.borderColor)),
-        boxShadow: isDark
-            ? const <BoxShadow>[]
-            : const <BoxShadow>[
-                BoxShadow(
-                  color: Color(0x0D000000),
-                  blurRadius: 16,
-                  offset: Offset(0, -4),
-                ),
-              ],
       ),
       child: body,
+    );
+  }
+
+  Widget _buildKeyTray(
+    BuildContext context, {
+    required double keyboardOverlap,
+  }) {
+    final tokens = VeriStyleTokens.of(context);
+    final keys = LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 6.0;
+        final cellWidth = (constraints.maxWidth - spacing * 3) / 4;
+        return _buildKeys(
+          context,
+          cellWidth,
+          spacing,
+          keyboardOverlap: keyboardOverlap,
+        );
+      },
+    );
+    if (keyboardOverlap > 0) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: keys,
+      );
+    }
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Color.lerp(tokens.cardColor, tokens.surfaceAltColor, 0.68),
+        borderRadius: BorderRadius.circular(tokens.innerRadius),
+        border: Border.all(color: tokens.borderColor),
+      ),
+      child: Padding(padding: const EdgeInsets.all(8), child: keys),
     );
   }
 
@@ -340,7 +403,7 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
     if (keyboardOverlap > 0) {
       // 输入法开始展开时仍占住原数字键区，备注不会先下坠、再被系统键盘推上去。
       return SizedBox(
-        height: math.max(height * 4 + spacing * 3, keyboardOverlap),
+        height: math.max(height * 4 + spacing * 3 + 16, keyboardOverlap),
       );
     }
     Widget cell(String value, {double? cellWidth}) => SizedBox(
@@ -395,56 +458,36 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
     final isContinue = value == 'AGAIN';
     final isSubmit = isOk || isContinue;
     final isOperator = _operators.contains(value);
-    final isClear = value == 'C' || value == '⌫';
+    final isUtility = value == 'C' || value == '⌫' || value == 'CANCEL';
     final isDot = value == '.';
     final tokens = VeriStyleTokens.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final keyColor = tokens.surfaceAltColor;
-    final keyTextColor = tokens.inkColor;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final canSubmit = _canSubmit && widget.submitEnabled;
     final enabled =
         (!isSubmit || canSubmit) && (!isDot || widget.maxFractionDigits > 0);
-    final okDisabledBackground = isDark
-        ? Colors.white.withValues(alpha: 0.10)
-        : Theme.of(context).colorScheme.primary.withValues(alpha: 0.16);
-    final okDisabledForeground = isDark
-        ? Colors.white.withValues(alpha: 0.46)
-        : Theme.of(context).colorScheme.primary.withValues(alpha: 0.56);
-    // 按键分组配色：运算符=主色弱底、清除/退格=语义支出柔底、小数点=琥珀柔底、数字=柔雾底。
-    final Color buttonBackground;
-    final Color buttonForeground;
-    final primary = Theme.of(context).colorScheme.primary;
-    final expense = veriSemantic(context, veriExpense);
-    final warning = veriSemantic(context, veriWarning);
-    if (isOk) {
-      buttonBackground = enabled ? primary : okDisabledBackground;
-      buttonForeground = enabled
-          ? Theme.of(context).colorScheme.onPrimary
-          : okDisabledForeground;
-    } else if (isOperator || isContinue) {
-      buttonBackground = Color.alphaBlend(
-        primary.withValues(alpha: isDark ? 0.24 : 0.12),
-        tokens.cardColor,
-      );
-      buttonForeground = isDark
-          ? Colors.white.withValues(alpha: 0.94)
-          : primary;
-    } else if (isClear) {
-      buttonBackground = Color.alphaBlend(
-        expense.withValues(alpha: isDark ? 0.24 : 0.12),
-        tokens.cardColor,
-      );
-      buttonForeground = isDark ? const Color(0xFFFFAAB6) : expense;
-    } else if (isDot) {
-      buttonBackground = Color.alphaBlend(
-        warning.withValues(alpha: isDark ? 0.24 : 0.14),
-        tokens.cardColor,
-      );
-      buttonForeground = isDark ? veriWarning : warning;
-    } else {
-      buttonBackground = keyColor;
-      buttonForeground = keyTextColor;
-    }
+    final buttonBackground = switch (value) {
+      'OK' => scheme.primary,
+      'AGAIN' => Color.lerp(
+        tokens.raisedSurfaceColor,
+        scheme.primaryContainer,
+        0.46,
+      )!,
+      _ when isOperator => Color.lerp(
+        tokens.raisedSurfaceColor,
+        scheme.secondaryContainer,
+        0.58,
+      )!,
+      _ when isUtility => tokens.cardColor,
+      _ => tokens.raisedSurfaceColor,
+    };
+    final buttonForeground = switch (value) {
+      'OK' => scheme.onPrimary,
+      'AGAIN' => scheme.onPrimaryContainer,
+      _ when isOperator => scheme.onSecondaryContainer,
+      _ when isUtility => scheme.onSurfaceVariant,
+      _ => tokens.inkColor,
+    };
     final l10n = AppLocalizations.of(context);
     final label = switch (value) {
       'OK' when _inline => l10n.commonDone,
@@ -461,35 +504,35 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
       style: FilledButton.styleFrom(
         backgroundColor: buttonBackground,
         foregroundColor: buttonForeground,
-        disabledBackgroundColor: isOk
-            ? okDisabledBackground
-            : keyColor.withValues(alpha: 0.42),
-        disabledForegroundColor: isOk
-            ? okDisabledForeground
-            : keyTextColor.withValues(alpha: 0.36),
+        disabledBackgroundColor: tokens.cardColor,
+        disabledForegroundColor: scheme.onSurfaceVariant.withValues(
+          alpha: 0.46,
+        ),
+        side: isOk && enabled
+            ? BorderSide.none
+            : BorderSide(color: tokens.borderColor),
+        textStyle:
+            (isSubmit || isUtility
+                    ? theme.textTheme.labelLarge
+                    : theme.textTheme.titleLarge)
+                ?.copyWith(
+                  fontWeight: isOperator ? FontWeight.w600 : FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
         minimumSize: Size.zero,
         padding: EdgeInsets.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(tokens.buttonRadius),
+          borderRadius: BorderRadius.circular(veriRadiusMd),
         ),
       ),
       onPressed: enabled ? () => _handleKey(value) : null,
       onLongPress: _inline && value == '⌫' ? () => _handleKey('C') : null,
       child: value == '⌫'
-          ? Icon(Icons.backspace_outlined, color: buttonForeground)
+          ? const Icon(Icons.backspace_outlined, size: 19)
           : Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: buttonForeground,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
+              child: FittedBox(fit: BoxFit.scaleDown, child: Text(label)),
             ),
     );
   }
@@ -515,25 +558,7 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
       : currencyAmountTolerance(widget.currencyCode!);
 
   static const String _operators = '+-×÷';
-
-  /// 当前正在输入的操作数（最后一个运算符之后的片段；首位 `-` 视为负号不算运算符）。
-  String get _currentOperand {
-    final idx = _lastOperatorIndex();
-    return idx < 0 ? _input : _input.substring(idx + 1);
-  }
-
-  int _lastOperatorIndex() {
-    for (var i = _input.length - 1; i >= 0; i--) {
-      final ch = _input[i];
-      if (ch == '+' || ch == '×' || ch == '÷') {
-        return i;
-      }
-      if (ch == '-' && i != 0) {
-        return i;
-      }
-    }
-    return -1;
-  }
+  static final _operandSeparator = RegExp(r'[+\-×÷]');
 
   void _handleKey(String value) {
     if (value == 'CANCEL') {
@@ -560,51 +585,56 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
     }
 
     VeriHaptics.tap();
-    setState(() {
-      if (value == 'C') {
-        _input = '';
-        return;
+    final edit = value == 'C' ? _valueAtEnd('') : _editAtSelection(value);
+    if (edit != null) {
+      setState(() => _editor.value = edit);
+      widget.onAmountChanged?.call(_result);
+    }
+    _amountFocus.requestFocus();
+  }
+
+  TextEditingValue? _editAtSelection(String key) {
+    final input = _input;
+    final selection = _editor.selection;
+    final length = input.length;
+    var start = selection.isValid ? math.min(selection.start, length) : length;
+    var end = selection.isValid ? math.min(selection.end, length) : length;
+    var inserted = key;
+    bool isOperatorAt(int index) =>
+        index >= 0 && index < length && _operators.contains(input[index]);
+
+    if (key == '⌫') {
+      if (start == end && start > 0) start--;
+      inserted = '';
+    } else if (_operators.contains(key)) {
+      if (start > 0 && input[start - 1] == '.') start--;
+      if (start > 0 && isOperatorAt(start - 1)) start--;
+      if (start == 0 && !(widget.allowNegative && key == '-')) return null;
+      if (isOperatorAt(end)) end++;
+    } else if (key == '.') {
+      if (widget.maxFractionDigits == 0) return null;
+      if (start == 0 || isOperatorAt(start - 1)) inserted = '0.';
+    } else if (start > 0 &&
+        input[start - 1] == '0' &&
+        (start == 1 || isOperatorAt(start - 2)) &&
+        (end == length || isOperatorAt(end))) {
+      // Replace a lone leading zero before continuing the operand.
+      start--;
+    }
+
+    final candidate = input.replaceRange(start, end, inserted);
+    for (final operand in candidate.split(_operandSeparator)) {
+      final dot = operand.indexOf('.');
+      if (dot >= 0 &&
+          (dot != operand.lastIndexOf('.') ||
+              operand.length - dot - 1 > widget.maxFractionDigits)) {
+        return null;
       }
-      if (value == '⌫') {
-        if (_input.isNotEmpty) {
-          _input = _input.substring(0, _input.length - 1);
-        }
-        return;
-      }
-      if (_operators.contains(value)) {
-        _appendOperator(value);
-        return;
-      }
-      if (value == '.') {
-        if (widget.maxFractionDigits == 0) {
-          return;
-        }
-        final operand = _currentOperand;
-        if (operand.contains('.')) {
-          return;
-        }
-        // 空操作数与「只有负号」都补前导 0，避免出现 `-.` 这种无效串。
-        _input += operand.isEmpty || operand == '-' ? '0.' : '.';
-        return;
-      }
-      // 数字键：小数位与前导零规则只针对当前操作数。
-      final operand = _currentOperand;
-      if (operand.contains('.')) {
-        final decimalLength = operand.split('.').last.length;
-        if (decimalLength >= widget.maxFractionDigits) {
-          return;
-        }
-      }
-      if (operand == '0') {
-        // 用新数字替换当前操作数的前导零。
-        _input = _input.substring(0, _input.length - 1) + value;
-      } else if (operand == '-0') {
-        _input = '${_input.substring(0, _input.length - 1)}$value';
-      } else {
-        _input += value;
-      }
-    });
-    widget.onAmountChanged?.call(_result);
+    }
+    return TextEditingValue(
+      text: candidate,
+      selection: TextSelection.collapsed(offset: start + inserted.length),
+    );
   }
 
   String _formatResult(double value) =>
@@ -614,39 +644,6 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
     final fixed = value.toStringAsFixed(fractionDigits);
     if (!fixed.contains('.')) return fixed;
     return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
-  }
-
-  /// 追加一个运算符。
-  ///
-  /// 空输入时只有「允许负数」下的 `-` 有意义——作为首位负号写入，其余运算符仍
-  /// 需要左操作数而保持不响应。单独一个 `-` 之后不能再接运算符，否则算式必然
-  /// 不完整。末尾已是运算符则替换，末尾的 `.` 先去掉。
-  void _appendOperator(String op) {
-    if (_input.isEmpty) {
-      if (op == '-' && widget.allowNegative) {
-        _input = '-';
-      }
-      return;
-    }
-    var next = _input;
-    if (next.endsWith('.')) {
-      next = next.substring(0, next.length - 1);
-    }
-    if (next.isEmpty || next == '-') {
-      return;
-    }
-    final last = next[next.length - 1];
-    final endsWithOperator =
-        last == '+' ||
-        last == '×' ||
-        last == '÷' ||
-        (last == '-' && next.length > 1);
-    if (endsWithOperator) {
-      next = next.substring(0, next.length - 1) + op;
-    } else {
-      next += op;
-    }
-    _input = next;
   }
 }
 
@@ -963,6 +960,93 @@ class _CategoryPickerRow {
 
 /// 记账时给交易多选标签的底部弹窗。展示已有标签的 FilterChip 供多选，
 /// 并可即时新建标签。点「完成」返回选中的标签 id 列表（取消返回 null）。
+/// Lightweight action or selection used by entry metadata and its pickers.
+class EntryMetadataPill extends StatelessWidget {
+  const EntryMetadataPill({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.icon,
+    this.compact = false,
+    this.selected = false,
+    this.toggle = false,
+  });
+
+  final Widget label;
+  final VoidCallback? onTap;
+  final IconData? icon;
+  final bool compact;
+  final bool selected;
+  final bool toggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final tokens = VeriStyleTokens.of(context);
+    final foreground = selected
+        ? scheme.onPrimaryContainer
+        : scheme.onSurfaceVariant;
+    final ink = onTap == null ? foreground.withValues(alpha: 0.46) : foreground;
+    return Material(
+      color: selected ? scheme.primaryContainer : tokens.raisedSurfaceColor,
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: selected
+              ? Color.lerp(tokens.borderColor, scheme.primary, 0.38)!
+              : tokens.borderColor,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Semantics(
+        toggled: toggle ? selected : null,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const StadiumBorder(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: compact ? 34 : 38),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 6 : 12,
+                vertical: 4,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: compact
+                    ? MainAxisAlignment.center
+                    : MainAxisAlignment.start,
+                children: [
+                  if (icon case final glyph?) ...[
+                    Icon(glyph, size: compact ? 13 : 16, color: ink),
+                    SizedBox(width: compact ? 3 : 6),
+                  ],
+                  Flexible(
+                    child: DefaultTextStyle.merge(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          (compact
+                                  ? theme.textTheme.labelSmall
+                                  : theme.textTheme.labelMedium)
+                              ?.copyWith(
+                                color: ink,
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                              ),
+                      child: label,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 标签选择弹层组件体。**勿直接实例化**——统一走 `pages/sheets.dart` 的
 /// `showTagSelectorSheet`。
 class TagSelectorSheet extends StatefulWidget {
@@ -1031,25 +1115,24 @@ class _TagSelectorSheetState extends State<TagSelectorSheet> {
                 runSpacing: 8,
                 children: <Widget>[
                   for (final tag in _tags)
-                    FilterChip(
+                    EntryMetadataPill(
                       label: Text(tag.label),
                       selected: _selected.contains(tag.id),
-                      onSelected: (value) {
+                      toggle: true,
+                      onTap: () {
                         VeriHaptics.tap();
                         setState(() {
-                          if (value) {
+                          if (!_selected.remove(tag.id)) {
                             _selected.add(tag.id);
-                          } else {
-                            _selected.remove(tag.id);
                           }
                         });
                       },
                     ),
                   if (widget.onCreateTag != null)
-                    ActionChip(
-                      avatar: const Icon(Icons.add, size: 18),
+                    EntryMetadataPill(
+                      icon: Icons.add,
                       label: Text(AppLocalizations.of(context).tagCreateTitle),
-                      onPressed: _createTag,
+                      onTap: _createTag,
                     ),
                 ],
               ),

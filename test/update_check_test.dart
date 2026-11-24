@@ -48,15 +48,32 @@ void main() {
   });
 
   group('解析 Release 响应', () {
-    test('更新的 tag 返回可跳转版本', () {
+    test('只提供带小禾记账 APK 的新版，跳过旧包名系列', () {
       final result = parseLatestRelease(
-        jsonEncode(<String, Object?>{'tag_name': 'v1.21.0'}),
-        currentVersion: '1.20.15',
+        jsonEncode(<String, Object?>{
+          'tag_name': 'v1.0.1',
+          'assets': [
+            {'name': 'Xiaohe-Ledger-1.0.1-arm64.apk'},
+          ],
+        }),
+        currentVersion: '1.0.0',
       );
       expect(result, isA<UpdateAvailable>());
       final available = result as UpdateAvailable;
-      expect(available.release.tag, 'v1.21.0');
-      expect(available.release.version, '1.21.0');
+      expect(available.release.tag, 'v1.0.1');
+      expect(available.release.version, '1.0.1');
+      expect(
+        parseLatestRelease(
+          jsonEncode(<String, Object?>{
+            'tag_name': 'v1.21.5',
+            'assets': [
+              {'name': 'Bill-1.21.5-personal-arm64.apk'},
+            ],
+          }),
+          currentVersion: '1.0.0',
+        ),
+        isA<UpdateUpToDate>(),
+      );
     });
 
     test('同版本、旧版本与无 v 前缀都按版本号判断', () {

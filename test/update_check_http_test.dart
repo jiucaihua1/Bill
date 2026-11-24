@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xiaohe/app/external_network_guard.dart';
 import 'package:xiaohe/app/update/update_check.dart';
 
 /// 这些用例需要真实 `dart:io` HTTP，因此**不能**与 widget 测试放在同一文件：
@@ -16,17 +17,30 @@ Future<Uri> _serve(Future<void> Function(HttpRequest request) handler) async {
 }
 
 void main() {
+  setUp(() => ExternalNetworkGuard.bind(() => true));
+  tearDown(() => ExternalNetworkGuard.bind(null));
   test('200 且版本更新时返回目标 tag，并带上固定请求头', () async {
     late HttpHeaders received;
     final endpoint = await _serve((request) async {
       received = request.headers;
       request.response.headers.contentType = ContentType.json;
       request.response.write(
-        jsonEncode(<String, Object?>{'tag_name': 'v1.21.0'}),
+        jsonEncode(<String, Object?>{
+          'tag_name': 'v1.21.0',
+          'assets': [
+            {'name': 'Xiaohe-Ledger-1.21.0-arm64.apk'},
+          ],
+        }),
       );
       await request.response.close();
     });
 
+    ExternalNetworkGuard.bind(null);
+    expect(
+      await checkForUpdate(endpoint: endpoint, currentVersion: '1.20.15'),
+      isA<UpdateCheckNetworkDisabled>(),
+    );
+    ExternalNetworkGuard.bind(() => true);
     final result = await checkForUpdate(
       endpoint: endpoint,
       currentVersion: '1.20.15',

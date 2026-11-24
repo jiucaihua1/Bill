@@ -233,6 +233,7 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
       final controller = await makeController();
       addTearDown(controller.dispose);
+      await tester.runAsync(controller.categoryIconThemes.restore);
       controller.setBackupDirectory('content://tree/backups', '备份目录');
 
       await tester.pumpWidget(
@@ -269,8 +270,28 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '继续'));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '确认初始化'));
+      final confirm = find.widgetWithText(FilledButton, '确认清空');
+      final codeText = find.byKey(const Key('reset_data_code'));
+      final codeInput = find.byKey(const Key('reset_data_code_input'));
+      final initialCode = tester.widget<Text>(codeText).data!;
+      expect(initialCode, matches(RegExp(r'^\d{4}$')));
+      expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+      await tester.enterText(codeInput, '${initialCode}0');
+      await tester.pump();
+      expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+      await tester.tap(find.byTooltip('刷新验证码'));
       await tester.pumpAndSettle();
+      final refreshedCode = tester.widget<Text>(codeText).data!;
+      expect(refreshedCode, isNot(initialCode));
+      await tester.enterText(codeInput, initialCode);
+      await tester.pump();
+      expect(tester.widget<FilledButton>(confirm).onPressed, isNull);
+      await tester.enterText(codeInput, refreshedCode);
+      await tester.pump();
+      expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
 
       expect(find.byKey(const Key('open_data_management')), findsOneWidget);
       expect(find.text('保存修改？'), findsNothing);

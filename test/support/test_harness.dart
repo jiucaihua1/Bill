@@ -10,6 +10,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaohe/app/attachments/attachment_store.dart';
+import 'package:xiaohe/app/common_widgets.dart';
 import 'package:xiaohe/app/feedback.dart';
 import 'package:xiaohe/app/haptics.dart';
 import 'package:xiaohe/app/logging/app_logger.dart';
@@ -241,6 +242,21 @@ Future<void> createQuickEntry(WidgetTester tester) async {
   await tester.pump();
   await tester.tap(find.byKey(const Key('number_key_5')));
   await tester.pump();
-  await tester.tap(find.byKey(const Key('number_pad_ok')));
+  await tester.pumpAndSettle();
+}
+
+Future<void> openTransactionsFromHome(WidgetTester tester) async {
+  final viewAll = find.descendant(
+    of: find.byType(CalendarPreview),
+    matching: find.byIcon(Icons.chevron_right_rounded),
+  );
+  await tester.scrollUntilVisible(
+    viewAll,
+    200,
+    scrollable: firstVerticalScrollable(),
+  );
+  await tester.ensureVisible(viewAll);
+  await tester.pumpAndSettle();
+  await tester.tap(viewAll);
   await tester.pumpAndSettle();
 }

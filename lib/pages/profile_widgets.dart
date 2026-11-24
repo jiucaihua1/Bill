@@ -13,11 +13,9 @@ class ProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (profile.avatarDataUrl.isNotEmpty) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundImage: imageProviderForSource(profile.avatarDataUrl),
-      );
+    final avatar = imageProviderForSource(profile.avatarDataUrl);
+    if (avatar != null) {
+      return CircleAvatar(radius: radius, backgroundImage: avatar);
     }
     return CircleAvatar(
       radius: radius,

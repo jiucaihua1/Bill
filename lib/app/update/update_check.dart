@@ -16,6 +16,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../app_version.dart';
 import '../external_links.dart';
+import '../external_network_guard.dart';
 import '../logging/app_logger.dart';
 
 /// GitHub 上最新正式版 Release 的 API。
@@ -69,6 +70,10 @@ final class UpdateCheckFailed extends UpdateCheckResult {
   final String reason;
 }
 
+final class UpdateCheckNetworkDisabled extends UpdateCheckResult {
+  const UpdateCheckNetworkDisabled();
+}
+
 /// 测试注入点：替换真实网络检查。
 @visibleForTesting
 Future<UpdateCheckResult> Function()? debugUpdateCheckOverride;
@@ -96,7 +101,10 @@ Future<UpdateCheckResult> _checkLatestRelease(
 ) async {
   final client = HttpClient()..connectionTimeout = _connectTimeout;
   try {
+    ExternalNetworkGuard.check(endpoint);
     final request = await client.getUrl(endpoint);
+    ExternalNetworkGuard.check(endpoint);
+    request.followRedirects = false;
     request.headers
       ..set(HttpHeaders.userAgentHeader, 'VeriFin/$currentVersion')
       ..set(HttpHeaders.acceptHeader, 'application/vnd.github+json');
@@ -106,6 +114,8 @@ Future<UpdateCheckResult> _checkLatestRelease(
     }
     final body = await _readBody(response);
     return parseLatestRelease(body, currentVersion: currentVersion);
+  } on ExternalNetworkDisabled {
+    return const UpdateCheckNetworkDisabled();
   } on TimeoutException {
     return const UpdateCheckFailed('timeout');
   } on SocketException catch (error) {
@@ -161,6 +171,14 @@ UpdateCheckResult parseLatestRelease(
     return const UpdateCheckFailed('empty version');
   }
   if (compareVersions(version, currentVersion) <= 0) {
+    return const UpdateUpToDate();
+  }
+  // The old Android package shared this repository and used higher 1.21.x
+  // tags. Only releases with the current package's APK qualify as updates.
+  final assets = decoded['assets'];
+  final expectedApk = 'Xiaohe-Ledger-$version-arm64.apk';
+  if (assets is! List ||
+      !assets.any((asset) => asset is Map && asset['name'] == expectedApk)) {
     return const UpdateUpToDate();
   }
   return UpdateAvailable(UpdateRelease(tag: tag, version: version));

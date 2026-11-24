@@ -126,6 +126,7 @@ flutter:
     - assets/category_icons/colored/
     - assets/credits/
     - assets/import_icons/
+    - assets/rules/auto_bill_rules.json
 
   # To add assets to your application, add an assets section, like this:
   # assets:

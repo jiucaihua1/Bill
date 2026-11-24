@@ -127,9 +127,9 @@ void main() {
     );
   });
 
-  testWidgets('更多信息收纳日期时间标签报销附件与币种', (tester) async {
+  testWidgets('更多信息在属性条下展开且不遮挡键盘', (tester) async {
     tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(800, 1100);
+    tester.view.physicalSize = const Size(393, 852);
     addTearDown(tester.view.reset);
 
     final controller = await makeController();
@@ -137,7 +137,7 @@ void main() {
     await tester.pumpWidget(
       VeriFinScope(
         controller: controller,
-        child: zhMaterialApp(home: const EntryDetailPage(initialAmount: 30)),
+        child: zhMaterialApp(home: const EntryDetailPage.manual()),
       ),
     );
     await tester.pumpAndSettle();
@@ -145,6 +145,17 @@ void main() {
     expect(find.text('更多信息'), findsOneWidget);
     expect(find.byKey(const Key('entry_metadata_datetime')), findsOneWidget);
     expect(find.byKey(const Key('entry_metadata_tags')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('entry_metadata_discount')),
+        matching: find.byIcon(Icons.percent_rounded),
+      ),
+      findsOneWidget,
+    );
+    final more = find.byKey(const Key('quick_entry_more_info'));
+    expect(find.byKey(const Key('entry_metadata_reimbursable')), findsNothing);
+    await tester.tap(more);
+    await tester.pumpAndSettle();
     expect(
       find.byKey(const Key('entry_metadata_reimbursable')),
       findsOneWidget,
@@ -155,6 +166,15 @@ void main() {
     );
     expect(find.byKey(const Key('entry_metadata_attachments')), findsOneWidget);
     expect(find.byKey(const Key('entry_currency_button')), findsOneWidget);
+    final details = find.byKey(const Key('quick_entry_more_details'));
+    expect(
+      tester.getTopLeft(details).dy,
+      greaterThan(tester.getBottomLeft(more).dy),
+    );
+    expect(
+      tester.getBottomLeft(details).dy,
+      lessThan(tester.getTopLeft(find.byKey(const Key('number_key_1'))).dy),
+    );
 
     await tester.tap(find.byKey(const Key('entry_metadata_tags')));
     await tester.pumpAndSettle();

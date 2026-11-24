@@ -1,6 +1,7 @@
 import 'package:anchored_menu/anchored_menu.dart';
 import 'package:flutter/material.dart';
 
+import '../app/app_theme.dart';
 import '../app/auto_save.dart';
 import '../app/avatar_picker.dart';
 import '../app/common_widgets.dart';
@@ -88,6 +89,9 @@ class _ProfileInfoPageState extends State<ProfileInfoPage> {
   @override
   Widget build(BuildContext context) {
     final controller = VeriFinScope.of(context);
+    final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
+    final tokens = VeriStyleTokens.of(context);
 
     return AutoSavePopScope(
       autoSave: _autoSave,
@@ -97,92 +101,139 @@ class _ProfileInfoPageState extends State<ProfileInfoPage> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 28),
               children: <Widget>[
-                VeriHeader(
-                  title: AppLocalizations.of(context).personalInfo,
-                  showBack: true,
-                ),
+                VeriHeader(title: l10n.personalInfo, showBack: true),
                 const SizedBox(height: 10),
                 AutoSaveFailureBanner(autoSave: _autoSave),
                 Center(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(42),
-                    onTap: _pickAvatar,
-                    child: ProfileAvatar(
-                      profile: controller.profile.copyWith(
-                        avatarDataUrl: _avatarDataUrl,
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(tokens.cardRadius),
+                      onTap: _pickAvatar,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: 7,
+                          children: [
+                            Ink(
+                              padding: const EdgeInsets.all(4),
+                              decoration: ShapeDecoration(
+                                color: tokens.raisedSurfaceColor,
+                                shape: CircleBorder(
+                                  side: BorderSide(
+                                    color: Color.lerp(
+                                      tokens.borderColor,
+                                      theme.colorScheme.primary,
+                                      0.24,
+                                    )!,
+                                  ),
+                                ),
+                              ),
+                              child: ProfileAvatar(
+                                profile: controller.profile.copyWith(
+                                  avatarDataUrl: _avatarDataUrl,
+                                ),
+                                radius: 36,
+                              ),
+                            ),
+                            Text(
+                              l10n.changeAvatarLabel,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      radius: 40,
                     ),
                   ),
                 ),
                 const SizedBox(height: 14),
-                TextField(
-                  controller: _nicknameController,
-                  decoration: InputDecoration(
-                    labelText: AppLocalizations.of(context).nicknameLabel,
+                VeriCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    spacing: 12,
+                    children: [
+                      _textField(
+                        context,
+                        l10n.nicknameLabel,
+                        _nicknameController,
+                      ),
+                      _textField(
+                        context,
+                        l10n.bioLabel,
+                        _bioController,
+                        lines: 3,
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 10),
-                TextField(
-                  controller: _bioController,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    labelText: AppLocalizations.of(context).bioLabel,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                AnchoredMenuChoice<ProfileGender>(
-                  key: const Key('profile_gender_choice'),
-                  values: ProfileGender.values,
-                  selected: _gender,
-                  idOf: (value) => 'profile_gender_${value.name}',
-                  labelOf: (value) => value.label(AppLocalizations.of(context)),
-                  iconOf: (value) => switch (value) {
-                    ProfileGender.unset => Icons.remove_circle_outline,
-                    ProfileGender.male => Icons.male_rounded,
-                    ProfileGender.female => Icons.female_rounded,
-                  },
-                  onSelected: (value) => _apply(() => _gender = value),
-                  semanticLabel: AppLocalizations.of(context).pickGenderTitle,
-                  builder: (context, openMenu, menuOpen) => SelectField(
-                    label: AppLocalizations.of(context).genderLabel,
-                    value: _gender.label(AppLocalizations.of(context)),
-                    icon: Icons.person_outline,
-                    onTap: openMenu,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SelectField(
-                  key: const Key('profile_birthday_field'),
-                  label: AppLocalizations.of(context).birthdayLabel,
-                  value: _birthday.isEmpty
-                      ? AppLocalizations.of(context).clearOption
-                      : _birthday,
-                  icon: Icons.cake_outlined,
-                  suffixIcon: _birthday.isEmpty
-                      ? null
-                      : IconButton(
-                          key: const Key('profile_birthday_clear'),
-                          tooltip: AppLocalizations.of(context).birthdayClear,
-                          onPressed: _clearBirthday,
-                          icon: const Icon(Icons.close),
+                VeriCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AnchoredMenuChoice<ProfileGender>(
+                        key: const Key('profile_gender_choice'),
+                        values: ProfileGender.values,
+                        selected: _gender,
+                        idOf: (value) => 'profile_gender_${value.name}',
+                        labelOf: (value) => value.label(l10n),
+                        iconOf: (value) => switch (value) {
+                          ProfileGender.unset => Icons.remove_circle_outline,
+                          ProfileGender.male => Icons.male_rounded,
+                          ProfileGender.female => Icons.female_rounded,
+                        },
+                        onSelected: (value) => _apply(() => _gender = value),
+                        semanticLabel: l10n.pickGenderTitle,
+                        builder: (context, openMenu, menuOpen) => SettingsRow(
+                          title: l10n.genderLabel,
+                          trailing: _gender.label(l10n),
+                          icon: Icons.person_outline,
+                          trailingIcon: menuOpen
+                              ? Icons.keyboard_arrow_up
+                              : Icons.keyboard_arrow_down,
+                          onTap: openMenu,
                         ),
-                  onTap: _pickBirthday,
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _cityController,
-                  maxLines: 1,
-                  decoration: InputDecoration(
-                    labelText: AppLocalizations.of(context).cityLabel,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _occupationController,
-                  maxLines: 1,
-                  decoration: InputDecoration(
-                    labelText: AppLocalizations.of(context).occupationLabel,
+                      ),
+                      Divider(height: 1, color: tokens.borderColor),
+                      Row(
+                        key: const Key('profile_birthday_field'),
+                        children: [
+                          Expanded(
+                            child: SettingsRow(
+                              title: l10n.birthdayLabel,
+                              trailing: _birthday.isEmpty
+                                  ? l10n.clearOption
+                                  : _birthday,
+                              icon: Icons.cake_outlined,
+                              trailingIcon: Icons.chevron_right,
+                              onTap: _pickBirthday,
+                            ),
+                          ),
+                          if (_birthday.isNotEmpty)
+                            IconButton(
+                              key: const Key('profile_birthday_clear'),
+                              tooltip: l10n.birthdayClear,
+                              onPressed: _clearBirthday,
+                              icon: const Icon(Icons.close, size: 18),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _textField(context, l10n.cityLabel, _cityController),
+                      const SizedBox(height: 12),
+                      _textField(
+                        context,
+                        l10n.occupationLabel,
+                        _occupationController,
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -190,6 +241,47 @@ class _ProfileInfoPageState extends State<ProfileInfoPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _textField(
+    BuildContext context,
+    String label,
+    TextEditingController controller, {
+    int lines = 1,
+  }) {
+    final theme = Theme.of(context);
+    final tokens = VeriStyleTokens.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 6,
+      children: [
+        ExcludeSemantics(
+          child: Text(
+            label,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        Semantics(
+          label: label,
+          child: TextField(
+            controller: controller,
+            maxLines: lines,
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: Color.lerp(
+                tokens.cardColor,
+                tokens.surfaceAltColor,
+                0.56,
+              ),
+              isDense: true,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

@@ -374,14 +374,16 @@ void main() {
     await tester.pump();
     await _pumpAsync(tester);
 
-    expect(find.text('不可点击午餐'), findsOneWidget);
-    await tester.tap(find.text('不可点击午餐'));
+    final note = find.textContaining('不可点击午餐', findRichText: true);
+    expect(note, findsOneWidget);
+    await tester.ensureVisible(note);
+    await tester.tap(note);
     await tester.pumpAndSettle();
     expect(find.byType(TransactionDetailPage), findsNothing);
 
     await controller.deleteEntries(<String>{'readonly-entry'});
     await tester.pumpAndSettle();
-    expect(find.text('不可点击午餐'), findsOneWidget);
+    expect(note, findsOneWidget);
   });
 
   testWidgets('清空聊天记录', (tester) async {

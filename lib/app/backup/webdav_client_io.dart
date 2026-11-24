@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../external_network_guard.dart';
 import 'backup_progress.dart';
 import 'webdav_config.dart';
 
@@ -25,6 +26,7 @@ const Duration _connectTimeout = Duration(seconds: 30);
 /// [_connectTimeout] 与协调器层的兜底超时防挂死。
 const Duration _responseTimeout = Duration(seconds: 60);
 const int _maxWebdavListingBytes = 4 * 1024 * 1024;
+const int _maxDownloadRedirects = 5;
 
 HttpClient _newClient() => HttpClient()..connectionTimeout = _connectTimeout;
 
@@ -43,16 +45,35 @@ Future<HttpClientRequest> _open(
   HttpClient client,
   String method,
   Uri uri,
-  WebdavConfig config,
-) async {
+  WebdavConfig config, {
+  WebdavOperation? operation,
+  WebdavAuthorization? authorization,
+}) async {
+  if ((uri.scheme != 'http' && uri.scheme != 'https') ||
+      uri.host.isEmpty ||
+      uri.origin != _collectionUri(config).origin) {
+    throw const WebdavOriginMismatch();
+  }
+  ExternalNetworkGuard.check(
+    uri,
+    operation: operation,
+    authorization: authorization,
+  );
   final request = await client.openUrl(method, uri);
+  ExternalNetworkGuard.check(
+    uri,
+    operation: operation,
+    authorization: authorization,
+  );
   request.headers.set(HttpHeaders.authorizationHeader, _authHeader(config));
-  request.followRedirects = true;
+  request.followRedirects = false;
   return request;
 }
 
 Never _fail(Object error) {
-  if (error is BackupCancelledException) {
+  if (error is BackupCancelledException ||
+      error is ExternalNetworkDisabled ||
+      error is WebdavOriginMismatch) {
     throw error;
   }
   if (error is WebdavException) {
@@ -92,7 +113,9 @@ String _statusMessage(int status) {
 
 Uri _collectionUri(WebdavConfig config) {
   final uri = Uri.tryParse(normalizeCollectionUrl(config.url));
-  if (uri == null || !uri.hasScheme) {
+  if (uri == null ||
+      uri.host.isEmpty ||
+      (uri.scheme != 'http' && uri.scheme != 'https')) {
     throw const WebdavException('WebDAV 地址无效');
   }
   return uri;
@@ -109,12 +132,21 @@ Future<void> _ensureCollection(
   WebdavConfig config, {
   required Duration responseTimeout,
   bool Function()? isCancelled,
+  WebdavAuthorization? authorization,
 }) async {
   try {
     _throwIfCancelled(isCancelled);
-    await _createCollection(client, config, responseTimeout);
+    await _createCollection(
+      client,
+      config,
+      responseTimeout,
+      WebdavOperation.upload,
+      authorization,
+    );
     // 上传仍以 PUT 的结果为准，已有目录可能不允许 MKCOL。
   } on BackupCancelledException {
+    rethrow;
+  } on ExternalNetworkDisabled {
     rethrow;
   } catch (_) {
     // 目录创建失败不阻断上传（多数服务器目录已存在）。
@@ -125,19 +157,34 @@ Future<int> _createCollection(
   HttpClient client,
   WebdavConfig config,
   Duration timeout,
+  WebdavOperation operation,
+  WebdavAuthorization? authorization,
 ) async {
-  final request = await _open(client, 'MKCOL', _collectionUri(config), config);
+  final request = await _open(
+    client,
+    'MKCOL',
+    _collectionUri(config),
+    config,
+    operation: operation,
+    authorization: authorization,
+  );
   final response = await request.close().timeout(timeout);
   await response.drain<void>().timeout(timeout);
   return response.statusCode;
 }
 
-Future<int> _probeCollection(HttpClient client, WebdavConfig config) async {
+Future<int> _probeCollection(
+  HttpClient client,
+  WebdavConfig config,
+  WebdavAuthorization? authorization,
+) async {
   final request = await _open(
     client,
     'PROPFIND',
     _collectionUri(config),
     config,
+    operation: WebdavOperation.testConnection,
+    authorization: authorization,
   );
   request.headers.set('Depth', '0');
   request.headers.contentType = ContentType(
@@ -151,18 +198,27 @@ Future<int> _probeCollection(HttpClient client, WebdavConfig config) async {
   return response.statusCode;
 }
 
-Future<void> webdavTestConnection(WebdavConfig config) async {
+Future<void> webdavTestConnection(
+  WebdavConfig config, {
+  WebdavAuthorization? authorization,
+}) async {
   final client = _newClient();
   try {
-    var status = await _probeCollection(client, config);
+    var status = await _probeCollection(client, config, authorization);
     if (status == HttpStatus.notFound) {
-      final created = await _createCollection(client, config, _responseTimeout);
+      final created = await _createCollection(
+        client,
+        config,
+        _responseTimeout,
+        WebdavOperation.testConnection,
+        authorization,
+      );
       switch (created) {
         case HttpStatus.created:
           return;
         case HttpStatus.methodNotAllowed:
           // 另一个客户端可能已经创建了这个目录。
-          status = await _probeCollection(client, config);
+          status = await _probeCollection(client, config, authorization);
           if (status == HttpStatus.notFound) {
             throw const WebdavException('服务器不支持自动创建备份目录，请选择已有目录');
           }
@@ -201,7 +257,10 @@ Future<Uint8List> _readResponseLimited(
   return builder.takeBytes();
 }
 
-Future<List<WebdavRemoteFile>> webdavList(WebdavConfig config) async {
+Future<List<WebdavRemoteFile>> webdavList(
+  WebdavConfig config, {
+  WebdavAuthorization? authorization,
+}) async {
   final client = _newClient();
   try {
     final request = await _open(
@@ -209,6 +268,8 @@ Future<List<WebdavRemoteFile>> webdavList(WebdavConfig config) async {
       'PROPFIND',
       _collectionUri(config),
       config,
+      operation: WebdavOperation.restore,
+      authorization: authorization,
     );
     request.headers.set('Depth', '1');
     request.headers.contentType = ContentType(
@@ -225,7 +286,7 @@ Future<List<WebdavRemoteFile>> webdavList(WebdavConfig config) async {
         tooLargeMessage: 'WebDAV 文件列表响应过大',
       ).timeout(_responseTimeout),
     );
-    if (response.statusCode >= 400) {
+    if (response.statusCode >= 300) {
       throw WebdavException(_statusMessage(response.statusCode));
     }
     return parsePropfindResponse(body)
@@ -255,7 +316,7 @@ Future<void> webdavDelete(WebdavConfig config, String href) async {
     final response = await request.close().timeout(_responseTimeout);
     await response.drain<void>();
     // 404 视为已删除，其余 4xx/5xx 报错。
-    if (response.statusCode >= 400 && response.statusCode != 404) {
+    if (response.statusCode >= 300 && response.statusCode != 404) {
       throw WebdavException(_statusMessage(response.statusCode));
     }
   } catch (error) {
@@ -272,6 +333,7 @@ Future<void> webdavUploadFile(
   String cachePath, {
   bool Function()? isCancelled,
   Duration responseTimeout = _responseTimeout,
+  WebdavAuthorization? authorization,
 }) async {
   _throwIfCancelled(isCancelled);
   final client = _newClient();
@@ -281,17 +343,34 @@ Future<void> webdavUploadFile(
       config,
       responseTimeout: responseTimeout,
       isCancelled: isCancelled,
+      authorization: authorization,
     );
     _throwIfCancelled(isCancelled);
     final target = Uri.parse(joinWebdavUrl(config.url, filename));
-    final request = await _open(client, 'PUT', target, config);
+    final request = await _open(
+      client,
+      'PUT',
+      target,
+      config,
+      operation: WebdavOperation.upload,
+      authorization: authorization,
+    );
     request.headers.contentType = ContentType('application', 'octet-stream');
     request.headers.contentLength = await File(cachePath).length();
-    await request.addStream(_cancellableFileChunks(cachePath, isCancelled));
+    await request.addStream(
+      _cancellableFileChunks(cachePath, isCancelled).map((chunk) {
+        ExternalNetworkGuard.check(
+          target,
+          operation: WebdavOperation.upload,
+          authorization: authorization,
+        );
+        return chunk;
+      }),
+    );
     _throwIfCancelled(isCancelled);
     final response = await request.close().timeout(responseTimeout);
     await response.drain<void>().timeout(responseTimeout);
-    if (response.statusCode >= 400) {
+    if (response.statusCode >= 300) {
       throw WebdavException(_statusMessage(response.statusCode));
     }
   } catch (error) {
@@ -309,20 +388,22 @@ Future<void> webdavDownloadToFile(
   String cachePath, {
   bool Function()? isCancelled,
   Duration responseTimeout = _responseTimeout,
+  WebdavAuthorization? authorization,
 }) async {
   _throwIfCancelled(isCancelled);
   final client = _newClient();
   final target = File(cachePath);
   var wroteTarget = false;
   try {
-    final request = await _open(
+    final response = await _openDownload(
       client,
-      'GET',
       _resolveHref(config, href),
       config,
+      authorization,
+      isCancelled,
+      responseTimeout,
     );
-    final response = await request.close().timeout(responseTimeout);
-    if (response.statusCode >= 400) {
+    if (response.statusCode >= 300) {
       throw WebdavException(_statusMessage(response.statusCode));
     }
     final sink = target.openWrite();
@@ -349,6 +430,35 @@ Future<void> webdavDownloadToFile(
     _fail(error);
   } finally {
     client.close(force: true);
+  }
+}
+
+Future<HttpClientResponse> _openDownload(
+  HttpClient client,
+  Uri target,
+  WebdavConfig config,
+  WebdavAuthorization? authorization,
+  bool Function()? isCancelled,
+  Duration timeout,
+) async {
+  for (var redirects = 0; ; redirects++) {
+    _throwIfCancelled(isCancelled);
+    final request = await _open(
+      client,
+      'GET',
+      target,
+      config,
+      operation: WebdavOperation.restore,
+      authorization: authorization,
+    );
+    final response = await request.close().timeout(timeout);
+    if (!response.isRedirect || redirects == _maxDownloadRedirects) {
+      return response;
+    }
+    final location = response.headers.value(HttpHeaders.locationHeader);
+    if (location == null || location.trim().isEmpty) return response;
+    await response.drain<void>().timeout(timeout);
+    target = target.resolve(location.trim());
   }
 }
 

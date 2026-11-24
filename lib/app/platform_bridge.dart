@@ -17,6 +17,8 @@ library;
 
 import 'package:flutter/services.dart';
 
+import 'widgets/widget_catalog.dart';
+
 part 'platform_bridge_capture.dart';
 part 'platform_bridge_storage.dart';
 part 'platform_bridge_widget.dart';

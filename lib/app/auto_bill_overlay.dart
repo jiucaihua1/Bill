@@ -56,8 +56,7 @@ class AutoBillReviewData {
   NumberPadLayout get numberPadLayout =>
       NumberPadLayout.fromStorage(fields['numberPadLayout'] as String?);
   CategoryIconPreset get categoryIconPreset =>
-      CategoryIconPreset.values.asNameMap()[fields['categoryIconPreset']] ??
-      CategoryIconPreset.builtin;
+      CategoryIconPreset.fromStorage(fields['categoryIconPreset']);
   late final categories = _list('categories').map(Category.fromJson).toList();
   late final tags = _list('tags').map(Tag.fromJson).toList();
   late final accounts = {

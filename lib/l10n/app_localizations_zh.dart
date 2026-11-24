@@ -2739,6 +2739,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get cropAvatarTitle => '裁剪头像';
 
   @override
+  String get changeAvatarLabel => '更换头像';
+
+  @override
   String get avatarGenerating => '正在生成头像…';
 
   @override
@@ -2885,13 +2888,40 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get autoSuggestLabel => '自动识别';
+  String get autoSuggestLabel => '手动记账自动填充';
 
   @override
-  String get autoSuggestDesc => '记一笔时根据历史记账习惯，自动填写类型、分类、标签和备注';
+  String get autoSuggestDesc => '仅在手动记账时，根据历史账单自动填写类型、分类、标签和备注。';
 
   @override
   String get appLockLabel => '应用锁';
+
+  @override
+  String get externalNetworkTitle => '允许应用联网';
+
+  @override
+  String get externalNetworkHint =>
+      '开启后可使用 AI、检查更新和 WebDAV 自动上传。手动 WebDAV 操作可单次授权。';
+
+  @override
+  String get externalNetworkDisabled => '应用联网已关闭，可在设置中开启。';
+
+  @override
+  String get externalNetworkInvalidWebdavUrl => '请输入有效的 WebDAV 服务器地址。';
+
+  @override
+  String get webdavOriginMismatch => '备份地址与已配置的 WebDAV 服务器不一致。';
+
+  @override
+  String get webdavNetworkPermissionTitle => '允许本次 WebDAV 联网？';
+
+  @override
+  String webdavNetworkPermissionBody(String host) {
+    return '仅为这次 WebDAV 操作连接 $host。';
+  }
+
+  @override
+  String get webdavNetworkAllowOnce => '仅本次允许';
 
   @override
   String get enabledLabel => '已开启';
@@ -4090,10 +4120,143 @@ class AppLocalizationsZh extends AppLocalizations {
   String get resetConfirmTitle => '再次确认初始化';
 
   @override
-  String get resetConfirmMessage => '确认后会立即清空所有本地数据，并恢复默认状态。此操作不能撤销。';
+  String get resetConfirmMessage => '此操作会清空所有本地数据并恢复默认状态，无法撤销。请输入下方验证码后继续。';
 
   @override
-  String get resetConfirmAction => '确认初始化';
+  String get resetConfirmAction => '确认清空';
+
+  @override
+  String get autoSettingsTitle => '自动记账';
+
+  @override
+  String get autoSettingsPermissionSubtitle => '权限与识别平台';
+
+  @override
+  String get autoSettingsRefresh => '刷新权限检测';
+
+  @override
+  String get autoSettingsEnabled => '启用自动记账';
+
+  @override
+  String get autoSettingsEnabledHint => '识别已选平台的付款和转账，按历史账单和分类规则预选分类，确认后入账。';
+
+  @override
+  String get autoSettingsPersistent => '通知栏运行状态';
+
+  @override
+  String get autoSettingsPersistentHint => '自动记账开启时，在通知栏显示运行状态。';
+
+  @override
+  String get autoSettingsCore => '核心必选';
+
+  @override
+  String get autoSettingsEnhancements => '体验增强';
+
+  @override
+  String get autoSettingsAdvanced => '高级选项';
+
+  @override
+  String get autoSettingsPlatforms => '识别平台';
+
+  @override
+  String get autoSettingsAccessibility => '无障碍服务';
+
+  @override
+  String get autoSettingsAccessibilityHint => '识别已选平台的付款和转账页面。';
+
+  @override
+  String get autoSettingsNotificationAccess => '通知读取权限';
+
+  @override
+  String get autoSettingsNotificationHint => '接收已选平台的支付通知。';
+
+  @override
+  String get autoSettingsBattery => '忽略电池优化';
+
+  @override
+  String get autoSettingsBatteryHint => '减少系统在后台中断监听的情况。';
+
+  @override
+  String get autoSettingsReady => '已就绪';
+
+  @override
+  String get autoSettingsOpen => '去设置';
+
+  @override
+  String get autoSettingsShizuku => 'Shizuku 授权状态';
+
+  @override
+  String get autoSettingsShizukuGranted => '已授权。自动记账仍使用系统采集通道。';
+
+  @override
+  String get autoSettingsShizukuInstalled => '已安装。启动 Shizuku 服务后可请求授权。';
+
+  @override
+  String get autoSettingsShizukuUnavailable => '未安装。自动记账无需此授权。';
+
+  @override
+  String get autoSettingsShizukuSuccess => 'Shizuku 已授权';
+
+  @override
+  String get autoSettingsShizukuRequest => '请在授权弹窗中允许访问。';
+
+  @override
+  String get autoSettingsShizukuStart => '请先在 Shizuku 中启动服务。';
+
+  @override
+  String get autoSettingsWeChat => '微信支付 / 转账';
+
+  @override
+  String get autoSettingsWeChatHint => '支付成功页、账单和转账详情';
+
+  @override
+  String get autoSettingsAlipay => '支付宝';
+
+  @override
+  String get autoSettingsAlipayHint => '付款成功页和账单详情';
+
+  @override
+  String get autoSettingsJd => '京东';
+
+  @override
+  String get autoSettingsJdHint => '订单支付成功页和白条 / 钱包账单';
+
+  @override
+  String get autoSettingsPdd => '拼多多';
+
+  @override
+  String get autoSettingsPddHint => '订单支付和多多支付账单详情';
+
+  @override
+  String get screenshotSettingsTitle => '截图记账';
+
+  @override
+  String get screenshotSettingsShortcutSubtitle => '磁贴与截图识别';
+
+  @override
+  String get screenshotSettingsRecognition => '识别方式';
+
+  @override
+  String get screenshotSettingsRecognitionHint => '截图在设备上识别。AI 服务只接收提取出的文字。';
+
+  @override
+  String get screenshotSettingsConfigureAi => '识别账单还需要在 AI 设置里配置模型。';
+
+  @override
+  String get screenshotSettingsShortcut => '控制中心快捷入口';
+
+  @override
+  String get screenshotSettingsShortcutHint =>
+      '在 Android 快捷设置的编辑页添加「截图记账」磁贴，也可将账单截图从系统分享至小禾记账。';
+
+  @override
+  String get screenshotSettingsSupported => '常见账单截图';
+
+  @override
+  String get resetCodeRefresh => '刷新验证码';
+
+  @override
+  String get resetCodeInput => '输入图中的 4 位验证码';
 
   @override
   String get checkingLabel => '检查中...';
@@ -4248,7 +4411,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get widgetHowToAddDesc => '长按桌面空白处 → 选择「小组件」→ 找到小禾记账 → 拖动想要的小组件到桌面。';
 
   @override
-  String get widgetConfigureHint => '添加到桌面后若显示「点击进入配置」，点一下就能选账本和外观。';
+  String get widgetConfigureHint => '添加到桌面后，点「点击进入配置」可选择账本、外观和背景透明度。';
 
   @override
   String get widgetTemplateQuickEntry => '快速记账';
@@ -4294,6 +4457,53 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get widgetAppearance => '外观';
+
+  @override
+  String get widgetTextSize => '字号';
+
+  @override
+  String get widgetTextSmall => '小';
+
+  @override
+  String get widgetTextStandard => '标准';
+
+  @override
+  String get widgetTextLarge => '大';
+
+  @override
+  String get widgetTextAlignment => '文字对齐';
+
+  @override
+  String get widgetTextStart => '靠左';
+
+  @override
+  String get widgetTextCenter => '居中';
+
+  @override
+  String get widgetTextColor => '文字颜色';
+
+  @override
+  String get widgetTextAutomatic => '随外观';
+
+  @override
+  String get widgetTextWhite => '白色';
+
+  @override
+  String get widgetTextBlack => '黑色';
+
+  @override
+  String get widgetTextBlue => '蓝色';
+
+  @override
+  String get widgetTextGreen => '绿色';
+
+  @override
+  String get widgetBackgroundOpacity => '背景透明度';
+
+  @override
+  String widgetBackgroundOpacityPercent(int percent) {
+    return '$percent%';
+  }
 
   @override
   String get widgetBookPlaceholder => '请选择账本';
@@ -5274,9 +5484,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get categoryIconThemeTitle => '分类图标主题';
-
-  @override
-  String get categoryIconThemeBuiltin => '系统内置图标';
 
   @override
   String get categoryIconThemeLine => '细线手账风';

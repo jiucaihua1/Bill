@@ -19,11 +19,13 @@ void main() {
 
   final calls = <String>[];
   final saved = <String, String>{};
+  final previewArguments = <Map<Object?, Object?>>[];
   var bookReads = 0;
 
   void mockChannels({String books = booksJson, String? config}) {
     calls.clear();
     saved.clear();
+    previewArguments.clear();
     bookReads = 0;
     if (config != null) saved['${widgetConfigPrefix}42'] = config;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -52,6 +54,11 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(app, (call) async {
           calls.add('app:${call.method}');
+          if (call.method == 'renderWidgetPreview') {
+            previewArguments.add(
+              Map<Object?, Object?>.from(call.arguments as Map),
+            );
+          }
           if (call.method == 'widgetConfigurationInfo') {
             return <String, Object?>{
               'template': 'net_worth',
@@ -70,6 +77,9 @@ void main() {
   });
 
   Future<void> pumpPage(WidgetTester tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(393, 916);
+    addTearDown(tester.view.reset);
     await tester.pumpWidget(
       zhMaterialApp(home: const WidgetConfigurationPage()),
     );
@@ -97,6 +107,8 @@ void main() {
     expect(saveEnabled(tester), isFalse);
     expect(draftPreview(tester).sample, isTrue);
     expect(draftPreview(tester).appearance, WidgetAppearance.system);
+    expect(draftPreview(tester).backgroundOpacity, 1);
+    expect(draftPreview(tester).typography, defaultWidgetTypography);
     expect(draftPreview(tester).bookId, '');
   });
 
@@ -120,7 +132,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(draftPreview(tester).appearance, WidgetAppearance.dark);
 
-    await tester.tap(find.byKey(const Key('widget_save')));
+    final slider = find.byKey(const Key('widget_background_opacity'));
+    expect(find.text('背景透明度'), findsOneWidget);
+    tester.widget<Slider>(slider).onChanged!(0);
+    await tester.pumpAndSettle();
+    expect(previewArguments.last['backgroundOpacity'], 0);
+    expect(find.text('0%'), findsOneWidget);
+    tester.widget<Slider>(slider).onChanged!(0.35);
+    await tester.pumpAndSettle();
+    expect(draftPreview(tester).backgroundOpacity, 0.35);
+    expect(previewArguments.last['backgroundOpacity'], 0.35);
+
+    for (final (key, option) in [
+      ('widget_text_size', '大'),
+      ('widget_text_alignment', '居中'),
+      ('widget_text_color', '蓝色'),
+    ]) {
+      final row = find.byKey(Key(key));
+      await tester.ensureVisible(row);
+      await tester.pumpAndSettle();
+      await tester.tap(row);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(option).last);
+      await tester.pumpAndSettle();
+    }
+    expect(previewArguments.last['textSize'], 'large');
+    expect(previewArguments.last['textAlignment'], 'center');
+    expect(previewArguments.last['textColor'], 'blue');
+
+    final save = find.byKey(const Key('widget_save'));
+    await tester.ensureVisible(save);
+    await tester.tap(save);
     // 保存成功后由原生关闭本页；测试里没有原生，页面停在「保存中」
     // （按钮里的进度圈会一直转），因此这里只推进固定的几帧。
     await tester.pump();
@@ -131,6 +173,10 @@ void main() {
       'tapAction': 'stats',
       'leftMetric': 'week_expense',
       'rightMetric': 'today_expense',
+      'backgroundOpacity': 0.35,
+      'textSize': 'large',
+      'textAlignment': 'center',
+      'textColor': 'blue',
     });
     expect(calls, contains('app:refreshWidgetInstance'));
     expect(calls, contains('finish'));
@@ -138,9 +184,10 @@ void main() {
 
   testWidgets('读取已保存配置时回填账本与外观', (tester) async {
     mockChannels(
-      config: jsonEncode(<String, String>{
+      config: jsonEncode(<String, Object>{
         'bookId': 'book-1',
         'appearance': 'light',
+        'backgroundOpacity': 0.42,
       }),
     );
     await pumpPage(tester);
@@ -148,6 +195,7 @@ void main() {
     expect(find.text('个人'), findsOneWidget);
     expect(find.text('浅色'), findsOneWidget);
     expect(draftPreview(tester).appearance, WidgetAppearance.light);
+    expect(find.text('42%'), findsOneWidget);
     expect(draftPreview(tester).bookId, 'book-1');
     expect(draftPreview(tester).sample, isFalse);
     expect(saveEnabled(tester), isTrue);

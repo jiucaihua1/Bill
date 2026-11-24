@@ -8,6 +8,7 @@ import 'app/app_theme.dart';
 import 'app/auto_bill_overlay.dart';
 import 'app/backup/backup_coordinator.dart';
 import 'app/category_icon_theme.dart';
+import 'app/external_network_guard.dart';
 import 'app/feedback.dart';
 import 'app/l10n_outside_context.dart';
 import 'app/models.dart';
@@ -56,7 +57,12 @@ Future<void> main([List<String> arguments = const <String>[]]) async {
             if (coordinator.stage != StartupStage.ready) return;
             coordinator.removeListener(onReady);
             final controller = startup.controller;
-            if (controller != null) autoBillOverlay.attach(controller);
+            if (controller != null) {
+              ExternalNetworkGuard.bind(
+                () => controller.externalNetworkEnabled,
+              );
+              autoBillOverlay.attach(controller);
+            }
           }
 
           coordinator.addListener(onReady);
@@ -82,7 +88,7 @@ Future<void> main([List<String> arguments = const <String>[]]) async {
             errors: errors,
             createCoordinator: createCoordinator,
             initialCoordinator: initialCoordinator,
-            progressRevealDelay: const Duration(milliseconds: 700),
+            progressRevealDelay: const Duration(milliseconds: 160),
             buildApp: () => LiquidGlassWidgets.wrap(
               child: VeriFinApp(controller: startup.controller!),
               brightnessResolver: Theme.maybeBrightnessOf,

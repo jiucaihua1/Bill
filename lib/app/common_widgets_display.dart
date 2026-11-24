@@ -466,7 +466,6 @@ class CategoryIconBox extends StatelessWidget {
     final glyphRatio = switch (preset) {
       CategoryIconPreset.emoji => 0.56,
       CategoryIconPreset.line || CategoryIconPreset.colored => 0.58,
-      CategoryIconPreset.builtin => isEmojiIconCode(iconCode) ? 0.56 : 0.54,
     };
     return Container(
       width: size,
@@ -505,52 +504,33 @@ class CategoryGlyph extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final preset = CategoryIconThemeScope.presetOf(context);
-    if (isEmojiIconCode(iconCode) &&
-        (preset == CategoryIconPreset.builtin ||
-            preset == CategoryIconPreset.emoji)) {
+    if (isEmojiIconCode(iconCode)) {
       return Text(
         emojiOfIconCode(iconCode),
         style: TextStyle(fontSize: size, height: 1),
       );
     }
-    final builtin = isEmojiIconCode(iconCode)
-        ? Text(
-            emojiOfIconCode(iconCode),
-            style: TextStyle(fontSize: size, height: 1),
-          )
-        : Icon(iconForCode(iconCode), size: size, color: color);
-
-    switch (preset) {
-      case CategoryIconPreset.builtin:
-        return builtin;
-      case CategoryIconPreset.emoji:
-        final key = resolveCategoryPresetKey(
-          iconCode: iconCode,
-          categoryName: categoryName,
-        );
-        return Text(
-          categoryPresetEmoji(key),
-          style: TextStyle(fontSize: size, height: 1),
-        );
-      case CategoryIconPreset.line:
-      case CategoryIconPreset.colored:
-        final key = resolveCategoryPresetKey(
-          iconCode: iconCode,
-          categoryName: categoryName,
-        );
-        final asset = categoryPresetSvgAsset(preset, key);
-        if (asset == null) return builtin;
-        return SvgPicture.asset(
-          asset,
-          width: size,
-          height: size,
-          fit: BoxFit.contain,
-          excludeFromSemantics: true,
-          colorFilter: preset == CategoryIconPreset.line && color != null
-              ? ColorFilter.mode(color!, BlendMode.srcIn)
-              : null,
-        );
+    final key = resolveCategoryPresetKey(
+      iconCode: iconCode,
+      categoryName: categoryName,
+    );
+    final asset = categoryPresetSvgAsset(preset, key);
+    if (asset == null) {
+      return Text(
+        categoryPresetEmoji(key),
+        style: TextStyle(fontSize: size, height: 1),
+      );
     }
+    return SvgPicture.asset(
+      asset,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      excludeFromSemantics: true,
+      colorFilter: preset == CategoryIconPreset.line && color != null
+          ? ColorFilter.mode(color!, BlendMode.srcIn)
+          : null,
+    );
   }
 }
 

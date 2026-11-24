@@ -1,3 +1,4 @@
+import '../external_network_guard.dart';
 import '../veri_fin_controller.dart';
 import 'backup_service.dart';
 import 'webdav_client.dart';
@@ -31,7 +32,10 @@ class BackupCoordinator {
       return;
     }
     final toLocal = settings.hasDirectory;
-    final toWebdav = webdav.isConfigured && webdav.autoUpload;
+    final toWebdav =
+        controller.externalNetworkEnabled &&
+        webdav.isConfigured &&
+        webdav.autoUpload;
     if (!toLocal && !toWebdav) {
       return;
     }
@@ -41,6 +45,7 @@ class BackupCoordinator {
     }
     _running = true;
     var allTargetsSucceeded = true;
+    var wroteBackup = false;
     PreparedBackup? prepared;
     try {
       // 只准备一次备份内容（未加密→zip、加密→文本信封），本地与 WebDAV 共用同一份，
@@ -59,6 +64,7 @@ class BackupCoordinator {
             settings: settings,
             prepared: prepared,
           );
+          wroteBackup = true;
         } catch (error) {
           allTargetsSucceeded = false;
           // 本地目录失败（授权失效、写坏被回读校验拦下等）不影响 WebDAV 尝试；
@@ -66,7 +72,7 @@ class BackupCoordinator {
           controller.logger?.error('本地自动备份失败', source: 'backup', error: error);
         }
       }
-      if (toWebdav) {
+      if (toWebdav && controller.externalNetworkEnabled) {
         try {
           // 兜底总超时：即便上传响应被服务器黑洞挂住，也保证 finally 能释放 _running，
           // 不会让此后所有自动备份（含本地目录）被静默跳过。自动备份取较宽的 5 分钟，
@@ -76,8 +82,11 @@ class BackupCoordinator {
             prepared.filename,
             prepared.cachePath,
           ).timeout(const Duration(minutes: 5));
+          wroteBackup = true;
           // 与本地一致：按保留份数清理远端旧的自动备份，避免无限累积。
           await _pruneWebdav(webdav, settings.retention);
+        } on ExternalNetworkDisabled {
+          // Permission can change while preparing a local backup.
         } catch (error) {
           allTargetsSucceeded = false;
           // WebDAV 失败不打断，但记日志便于诊断（网络 / 认证 / 服务器错误等）。
@@ -91,7 +100,7 @@ class BackupCoordinator {
       // Only advance the shared timestamp when every configured target has
       // succeeded. A partial success must remain due so the failed target is
       // retried and the UI does not imply that both destinations are current.
-      if (allTargetsSucceeded) {
+      if (allTargetsSucceeded && wroteBackup) {
         controller.recordBackupTime(now);
       }
     } catch (error) {

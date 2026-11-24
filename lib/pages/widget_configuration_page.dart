@@ -212,6 +212,8 @@ class _WidgetConfigurationPageState extends State<WidgetConfigurationPage> {
   WidgetSetupSession? _session;
   String _bookId = '';
   WidgetAppearance _appearance = WidgetAppearance.fallback;
+  double _backgroundOpacity = 1;
+  WidgetTypography _typography = defaultWidgetTypography;
   WidgetTapAction _tapAction = WidgetTapAction.home;
   WidgetDualMetricChoice _leftMetric = WidgetDualMetricChoice.defaultLeft;
   WidgetDualMetricChoice _rightMetric = WidgetDualMetricChoice.defaultRight;
@@ -231,6 +233,8 @@ class _WidgetConfigurationPageState extends State<WidgetConfigurationPage> {
         _session = session;
         _bookId = session.config?.bookId ?? '';
         _appearance = session.config?.appearance ?? WidgetAppearance.fallback;
+        _backgroundOpacity = session.config?.backgroundOpacity ?? 1;
+        _typography = session.config?.typography ?? defaultWidgetTypography;
         _tapAction =
             session.config?.tapAction ??
             WidgetTapAction.defaultFor(session.template);
@@ -263,6 +267,8 @@ class _WidgetConfigurationPageState extends State<WidgetConfigurationPage> {
         WidgetInstanceConfig(
           bookId: _bookId,
           appearance: _appearance,
+          backgroundOpacity: _backgroundOpacity,
+          typography: _typography,
           tapAction: _tapAction,
           leftMetric: _leftMetric,
           rightMetric: _rightMetric,
@@ -289,6 +295,33 @@ class _WidgetConfigurationPageState extends State<WidgetConfigurationPage> {
   /// 账本必选：没有可选账本、或用户还没选账本时都不允许保存。
   bool _canSave(WidgetSetupSession session) =>
       session.books.isNotEmpty && session.books.containsKey(_bookId);
+
+  Widget _textOption<T extends Enum>({
+    required String id,
+    required String title,
+    required IconData icon,
+    required List<T> values,
+    required T selected,
+    required String Function(T) label,
+    required ValueChanged<T> onSelected,
+  }) => AnchoredMenuChoice<T>(
+    values: values,
+    selected: selected,
+    idOf: (value) => '${id}_${value.name}',
+    labelOf: label,
+    onSelected: (value) {
+      if (!_saving) onSelected(value);
+    },
+    semanticLabel: title,
+    builder: (context, openMenu, menuOpen) => SettingsRow(
+      key: Key(id),
+      icon: icon,
+      title: title,
+      trailing: label(selected),
+      trailingIcon: Icons.expand_more,
+      onTap: _saving ? null : openMenu,
+    ),
+  );
 
   Future<void> _pickBook(WidgetSetupSession session) async {
     final selected = await showOptionSheet<String>(
@@ -335,8 +368,42 @@ class _WidgetConfigurationPageState extends State<WidgetConfigurationPage> {
                     template: session.template,
                     bookId: _bookId,
                     appearance: _appearance,
+                    backgroundOpacity: _backgroundOpacity,
+                    typography: _typography,
+                    leftMetric: _leftMetric,
+                    rightMetric: _rightMetric,
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
+                  VeriCard(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: Text(l.widgetBackgroundOpacity)),
+                            Text(
+                              l.widgetBackgroundOpacityPercent(
+                                (_backgroundOpacity * 100).round(),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Slider(
+                          key: const Key('widget_background_opacity'),
+                          value: _backgroundOpacity,
+                          divisions: 100,
+                          semanticFormatterCallback: (value) =>
+                              '${l.widgetBackgroundOpacity} ${l.widgetBackgroundOpacityPercent((value * 100).round())}',
+                          onChanged: _saving
+                              ? null
+                              : (value) {
+                                  setState(() => _backgroundOpacity = value);
+                                },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   VeriCard(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -401,6 +468,54 @@ class _WidgetConfigurationPageState extends State<WidgetConfigurationPage> {
                             trailingIcon: Icons.expand_more,
                             onTap: _saving ? null : openMenu,
                           ),
+                        ),
+                        const Divider(height: 1),
+                        _textOption(
+                          id: 'widget_text_size',
+                          title: l.widgetTextSize,
+                          icon: Icons.format_size,
+                          values: WidgetTextSize.values,
+                          selected: _typography.size,
+                          label: (value) => value.label(l),
+                          onSelected: (value) => setState(() {
+                            _typography = (
+                              size: value,
+                              alignment: _typography.alignment,
+                              color: _typography.color,
+                            );
+                          }),
+                        ),
+                        const Divider(height: 1),
+                        _textOption(
+                          id: 'widget_text_alignment',
+                          title: l.widgetTextAlignment,
+                          icon: Icons.format_align_center,
+                          values: WidgetTextAlignment.values,
+                          selected: _typography.alignment,
+                          label: (value) => value.label(l),
+                          onSelected: (value) => setState(() {
+                            _typography = (
+                              size: _typography.size,
+                              alignment: value,
+                              color: _typography.color,
+                            );
+                          }),
+                        ),
+                        const Divider(height: 1),
+                        _textOption(
+                          id: 'widget_text_color',
+                          title: l.widgetTextColor,
+                          icon: Icons.format_color_text,
+                          values: WidgetTextColor.values,
+                          selected: _typography.color,
+                          label: (value) => value.label(l),
+                          onSelected: (value) => setState(() {
+                            _typography = (
+                              size: _typography.size,
+                              alignment: _typography.alignment,
+                              color: value,
+                            );
+                          }),
                         ),
                         if (session.template == WidgetTemplate.dualMetric) ...[
                           const Divider(height: 1),
@@ -479,11 +594,19 @@ class _WidgetDraftPreview extends StatelessWidget {
     required this.template,
     required this.bookId,
     required this.appearance,
+    required this.backgroundOpacity,
+    required this.typography,
+    required this.leftMetric,
+    required this.rightMetric,
   });
 
   final WidgetTemplate template;
   final String bookId;
   final WidgetAppearance appearance;
+  final double backgroundOpacity;
+  final WidgetTypography typography;
+  final WidgetDualMetricChoice leftMetric;
+  final WidgetDualMetricChoice rightMetric;
 
   @override
   Widget build(BuildContext context) {
@@ -502,15 +625,27 @@ class _WidgetDraftPreview extends StatelessWidget {
             ? 72
             : 180;
         return Center(
-          child: NativeWidgetPreview(
-            key: const Key('widget_draft_preview'),
-            template: template.key,
-            width: width,
-            height: height,
-            bookId: bookId,
-            appearance: appearance,
-            sample: bookId.isEmpty,
-            semanticLabel: AppLocalizations.of(context).widgetPreview,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(
+                VeriStyleTokens.of(context).cardRadius,
+              ),
+            ),
+            child: NativeWidgetPreview(
+              key: const Key('widget_draft_preview'),
+              template: template.key,
+              width: width,
+              height: height,
+              bookId: bookId,
+              appearance: appearance,
+              backgroundOpacity: backgroundOpacity,
+              typography: typography,
+              leftMetric: leftMetric,
+              rightMetric: rightMetric,
+              sample: bookId.isEmpty,
+              semanticLabel: AppLocalizations.of(context).widgetPreview,
+            ),
           ),
         );
       },

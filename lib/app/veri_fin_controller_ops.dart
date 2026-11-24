@@ -5,6 +5,34 @@ final RegExp _budgetMonthKeyPattern = RegExp(r'^\d{4}-\d{2}$');
 /// 控制器的「领域操作」层：交易/账户/分组/账本/分类/标签/预算/偏好/备份/
 /// 导入导出等所有对外方法。字段与持久化在 [_ControllerState]。
 mixin _ControllerOps on ChangeNotifier, _ControllerState {
+  bool get externalNetworkEnabled => _externalNetworkEnabled;
+
+  Future<void> setExternalNetworkEnabled(bool enabled) async {
+    await _writeExternalNetworkPreference(enabled);
+    notifyListeners();
+  }
+
+  Future<void> _writeExternalNetworkPreference(bool? enabled) {
+    final change = ++_externalNetworkChange;
+    // Revoking access takes effect before the disk write. Granting access
+    // requires a successful write because SharedPreferences caches eagerly.
+    if (enabled != true) _externalNetworkEnabled = false;
+    return _externalNetworkWrite = _externalNetworkWrite.then((_) async {
+      try {
+        if (enabled == null) {
+          await _store.deleteAndFlush(_externalNetworkKey);
+        } else {
+          await _store.writeAndFlush(_externalNetworkKey, enabled.toString());
+        }
+        if (change == _externalNetworkChange && enabled == true) {
+          _externalNetworkEnabled = true;
+        }
+      } catch (error, stackTrace) {
+        _handlePersistError(error, stackTrace);
+      }
+    });
+  }
+
   /// 组装某个账本的桌面小组件投影输入；账本不存在时返回 `null`。
   ///
   /// 只读：不切换活动账本、不改写任何数据，供投影服务为每个账本各取一份快照。
@@ -46,6 +74,15 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       _entriesView ??= List<LedgerEntry>.unmodifiable(
         _entries.where((entry) => entry.bookId == _activeBookId),
       );
+
+  AutoBillMerchantIndex get autoBillMerchantIndex {
+    final index = _autoBillMerchantIndex;
+    if (index != null && index.bookId == _activeBookId) return index;
+    return _autoBillMerchantIndex = AutoBillMerchantIndex(
+      _activeBookId,
+      entries,
+    );
+  }
 
   /// Read-only entries for cross-book widget previews.
   List<LedgerEntry> entriesForBook(String bookId) =>
@@ -766,9 +803,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       _handlePersistError(error, stackTrace);
       return -1;
     }
-    _entries
-      ..clear()
-      ..addAll(nextEntries);
+    _replaceLedgerEntries(nextEntries);
     _recurringRules
       ..clear()
       ..addAll(nextRules);
@@ -2099,6 +2134,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
 
   void addEntry(LedgerEntry entry) {
     _entries.insert(0, entry);
+    _ledgerEntryChanged(entry);
     _entries.sort(_compareEntriesLatestFirst);
     _persistEntries();
     notifyListeners();
@@ -2137,6 +2173,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     String? autoCaptureSourcePackage,
   }) async {
     final currentIndex = _entries.indexWhere((item) => item.id == entry.id);
+    final entryRevision = _ledgerEntryRevision;
     if ((isNew && currentIndex != -1) || (!isNew && currentIndex == -1)) {
       return _entrySaveValidationFailure(EntryValidationCode.staleDraft);
     }
@@ -2216,12 +2253,13 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     final hasNewEntry =
         isNew || refunds.any((refund) => !existingEntryIds.contains(refund.id));
     final nextEntries = <LedgerEntry>[];
+    final removedRefundIds = <String>[];
     for (final current in _entries) {
       if (current.id == entry.id) {
         nextEntries.add(entry.copyWith(refundedBaseAmount: 0));
       } else if (current.type == EntryType.refund &&
           current.refundOf == entry.id) {
-        continue;
+        removedRefundIds.add(current.id);
       } else {
         nextEntries.add(current);
       }
@@ -2351,9 +2389,12 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       return const EntrySavePersistenceFailure();
     }
 
-    _entries
-      ..clear()
-      ..addAll(nextEntries);
+    _replaceLedgerEntries(
+      nextEntries,
+      previousRevision: entryRevision,
+      removedIds: removedRefundIds,
+      changedEntries: [entry, ...refunds],
+    );
     _attachments
       ..clear()
       ..addAll(nextAttachments);
@@ -2671,12 +2712,11 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       _exchangeRates
         ..clear()
         ..addAll(nextRates);
-      _entries
-        ..clear()
-        ..addAll(nextEntries);
+      _replaceLedgerEntries(nextEntries);
       // 导入数据里的旧式单标量退款（如一木账单的「退款」列）迁成关联退款条目、
       // 并重算净额缓存，使余额/统计当场即正确（不必等下次载入自愈）。
       _syncRefundData();
+      _invalidateDerivedViews();
       saved = await _runTrackedWrite(
         () => _repository.replaceAllLedgerData(_ledgerDataSnapshot()),
       );
@@ -2696,9 +2736,8 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       _exchangeRates
         ..clear()
         ..addAll(oldRates);
-      _entries
-        ..clear()
-        ..addAll(oldEntries);
+      _replaceLedgerEntries(oldEntries);
+      _invalidateDerivedViews();
       await _collectAttachmentOrphans();
       return false;
     }
@@ -2713,7 +2752,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     if (index == -1) {
       return;
     }
-    _entries[index] = entry;
+    _writeLedgerEntryAt(index, entry);
     _entries.sort(_compareEntriesLatestFirst);
     _persistEntries();
     notifyListeners();
@@ -2930,6 +2969,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       settledAt: settledAt,
     );
     _entries.add(refund);
+    _ledgerEntryChanged(refund);
     _entries.sort(_compareEntriesLatestFirst);
     _syncRefundCache(); // 重算原支出净额缓存
     _persistEntries();
@@ -2954,10 +2994,13 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
             _entries,
             excludeRefundId: refund.id,
           );
-    _entries[index] = refund.copyWith(
-      amount: normalizeCurrencyAmount(
-        refund.amount.clamp(0.0, cap),
-        refund.currencyCode,
+    _writeLedgerEntryAt(
+      index,
+      refund.copyWith(
+        amount: normalizeCurrencyAmount(
+          refund.amount.clamp(0.0, cap),
+          refund.currencyCode,
+        ),
       ),
     );
     _entries.sort(_compareEntriesLatestFirst);
@@ -3002,9 +3045,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     if (!saved) {
       return false;
     }
-    _entries
-      ..clear()
-      ..addAll(nextEntries);
+    _replaceLedgerEntries(nextEntries);
     _attachments
       ..clear()
       ..addAll(nextAttachments);
@@ -3191,9 +3232,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     _accounts
       ..clear()
       ..addAll(nextAccounts);
-    _entries
-      ..clear()
-      ..addAll(nextEntries);
+    _replaceLedgerEntries(nextEntries);
     _recurringRules
       ..clear()
       ..addAll(nextRecurringRules);
@@ -3314,9 +3353,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     _tags
       ..clear()
       ..addAll(nextTags);
-    _entries
-      ..clear()
-      ..addAll(nextEntries);
+    _replaceLedgerEntries(nextEntries);
     _recurringRules
       ..clear()
       ..addAll(nextRules);
@@ -3421,6 +3458,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   }
 
   Future<bool> _deleteEntryIds(Set<String> entryIds) async {
+    final entryRevision = _ledgerEntryRevision;
     final removeIds = _withDependentRefundIds(entryIds);
     if (!_entries.any((entry) => removeIds.contains(entry.id))) {
       return false;
@@ -3440,9 +3478,11 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     if (!saved) {
       return false;
     }
-    _entries
-      ..clear()
-      ..addAll(nextEntries);
+    _replaceLedgerEntries(
+      nextEntries,
+      previousRevision: entryRevision,
+      removedIds: removeIds,
+    );
     _attachments
       ..clear()
       ..addAll(nextAttachments);
@@ -3464,7 +3504,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       if (entryIds.contains(entry.id) &&
           entry.bookId == category.bookId &&
           entry.type == category.type) {
-        _entries[i] = entry.copyWith(categoryId: categoryId);
+        _writeLedgerEntryAt(i, entry.copyWith(categoryId: categoryId));
         changed += 1;
       }
     }
@@ -3595,9 +3635,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
         status: BatchAccountChangeStatus.persistenceFailure,
       );
     }
-    _entries
-      ..clear()
-      ..addAll(nextEntries);
+    _replaceLedgerEntries(nextEntries);
     _markWidgetProjectionChanged();
     notifyListeners();
     return BatchAccountChangeResult(
@@ -3786,9 +3824,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     _accounts
       ..clear()
       ..addAll(nextAccounts);
-    _entries
-      ..clear()
-      ..addAll(nextEntries);
+    _replaceLedgerEntries(nextEntries);
     _attachments
       ..clear()
       ..addAll(nextAttachments);
@@ -3855,8 +3891,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       difference.abs() * rate,
       book.baseCurrencyCode,
     );
-    _entries.insert(
-      0,
+    addEntry(
       LedgerEntry(
         id: _generateId('entry'),
         bookId: account.bookId,
@@ -3878,11 +3913,6 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
         occurredAt: now,
       ),
     );
-    _entries.sort(_compareEntriesLatestFirst);
-    _persistEntries();
-    notifyListeners();
-    // 余额调整也生成了一笔交易：触发自动备份与小组件刷新。
-    onEntryAdded?.call();
     return true;
   }
 
@@ -4267,9 +4297,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     if (!saved) {
       return -1;
     }
-    _entries
-      ..clear()
-      ..addAll(nextEntries);
+    _replaceLedgerEntries(nextEntries);
     _recurringRules
       ..clear()
       ..addAll(nextRules);
@@ -4429,9 +4457,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     _tags
       ..clear()
       ..addAll(nextTags);
-    _entries
-      ..clear()
-      ..addAll(nextEntries);
+    _replaceLedgerEntries(nextEntries);
     notifyListeners();
     return true;
   }
@@ -4638,7 +4664,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       return false;
     }
 
-    _entries.clear();
+    _replaceLedgerEntries(const []);
     _accounts
       ..clear()
       ..addAll(nextAccounts);
@@ -4677,6 +4703,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     for (final page in PanelPageKind.values) {
       _pagePanels[page] = _defaultPanelSettings(page.specs);
     }
+    await _writeExternalNetworkPreference(null);
     await _collectAttachmentOrphans();
 
     for (final key in <String>[
@@ -5183,9 +5210,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
         ..clear()
         ..addAll(nextLedgerBooks);
       _activeBookId = nextActiveBookId;
-      _entries
-        ..clear()
-        ..addAll(nextEntries);
+      _replaceLedgerEntries(nextEntries);
       _accounts
         ..clear()
         ..addAll(nextAccounts);
@@ -5258,6 +5283,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       // 退款自愈：把导入数据里的旧标量退款迁成关联退款条目并重算净额缓存。
       _syncRefundData();
       _healTagData();
+      _invalidateDerivedViews();
       final saved = await _runTrackedWrite(
         () => _repository.replaceAllLedgerData(_ledgerDataSnapshot()),
       );
@@ -5283,9 +5309,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       _attachments
         ..clear()
         ..addAll(oldAttachments);
-      _entries
-        ..clear()
-        ..addAll(oldEntries);
+      _replaceLedgerEntries(oldEntries);
       _recurringRules
         ..clear()
         ..addAll(oldRules);
@@ -5335,6 +5359,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       _autoSuggestEnabled = oldAutoSuggestEnabled;
       _showRunningBalance = oldShowRunningBalance;
       _homeTrendConfig = oldHomeTrendConfig;
+      _invalidateDerivedViews();
       await _collectAttachmentOrphans();
       rethrow;
     }

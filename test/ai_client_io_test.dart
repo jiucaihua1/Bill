@@ -7,6 +7,7 @@ import 'package:xiaohe/app/ai/ai_agent_message.dart';
 import 'package:xiaohe/app/ai/ai_client.dart';
 import 'package:xiaohe/app/ai/ai_completion_event.dart';
 import 'package:xiaohe/app/ai/ai_settings.dart';
+import 'package:xiaohe/app/external_network_guard.dart';
 
 typedef _RequestHandler = Future<void> Function(HttpRequest request);
 
@@ -44,6 +45,8 @@ void _sse(HttpResponse response, Object data) {
 }
 
 void main() {
+  setUp(() => ExternalNetworkGuard.bind(() => true));
+  tearDown(() => ExternalNetworkGuard.bind(null));
   const messages = <AiAgentMessage>[AiTextMessage.user('hello')];
   const tools = <Map<String, Object?>>[
     <String, Object?>{
@@ -128,8 +131,11 @@ void main() {
   });
 
   test('stream accepts a finish reason when endpoint omits DONE', () async {
+    var requests = 0;
     final settings = await _serve((request) async {
+      requests++;
       await _requestJson(request);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
       request.response.headers.contentType = ContentType(
         'text',
         'event-stream',
@@ -146,9 +152,24 @@ void main() {
       await request.response.close();
     });
 
+    ExternalNetworkGuard.bind(null);
+    await expectLater(
+      aiAgentStream(settings: settings, messages: messages),
+      emitsError(
+        isA<AiException>().having(
+          (error) => error.code,
+          'code',
+          AiErrorCode.externalNetworkDisabled,
+        ),
+      ),
+    );
+    expect(requests, 0);
+    ExternalNetworkGuard.bind(() => true);
     final events = await aiAgentStream(
       settings: settings,
       messages: messages,
+      idleTimeout: const Duration(milliseconds: 50),
+      responseTimeout: const Duration(seconds: 2),
     ).toList();
 
     expect(events.whereType<AiContentDelta>().single.text, 'answer');
@@ -159,38 +180,40 @@ void main() {
     expect(events.whereType<AiStreamDone>(), isEmpty);
   });
 
-  test('stream rejects a natural close without a terminal marker', () async {
-    final settings = await _serve((request) async {
-      await _requestJson(request);
-      request.response.headers.contentType = ContentType(
-        'text',
-        'event-stream',
-        charset: 'utf-8',
-      );
-      _sse(request.response, <String, Object?>{
-        'choices': <Object?>[
-          <String, Object?>{
-            'delta': <String, Object?>{'content': 'partial'},
-          },
-        ],
+  test(
+    'stream accepts a natural close after content without a terminal marker',
+    () async {
+      final settings = await _serve((request) async {
+        await _requestJson(request);
+        request.response.headers.contentType = ContentType(
+          'text',
+          'event-stream',
+          charset: 'utf-8',
+        );
+        _sse(request.response, <String, Object?>{
+          'choices': <Object?>[
+            <String, Object?>{
+              'delta': <String, Object?>{'content': 'partial'},
+            },
+          ],
+        });
+        await request.response.close();
       });
-      await request.response.close();
-    });
 
-    await expectLater(
-      aiAgentStream(settings: settings, messages: messages),
-      emitsInOrder(<Object>[
-        isA<AiContentDelta>(),
-        emitsError(
-          isA<AiException>().having(
-            (error) => error.code,
-            'code',
-            AiErrorCode.incompleteStream,
+      await expectLater(
+        aiAgentStream(settings: settings, messages: messages),
+        emitsInOrder(<Object>[
+          isA<AiContentDelta>(),
+          isA<AiCompletionFinished>().having(
+            (event) => event.reason,
+            'reason',
+            AiFinishReason.stop,
           ),
-        ),
-      ]),
-    );
-  });
+          emitsDone,
+        ]),
+      );
+    },
+  );
 
   test('stream idle timeout is mapped without hanging', () async {
     final settings = await _serve((request) async {

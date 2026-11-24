@@ -70,6 +70,8 @@ void main() {
     );
 
     gate.complete();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('APP_READY'), findsNothing);
     await tester.pumpAndSettle();
 
     expect(find.text('APP_READY'), findsOneWidget);
@@ -141,8 +143,7 @@ void main() {
     expect(find.text('载入账本数据'), findsOneWidget);
 
     gate.complete();
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('APP_READY'), findsOneWidget);
   });

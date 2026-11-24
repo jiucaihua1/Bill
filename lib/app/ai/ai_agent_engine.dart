@@ -40,8 +40,8 @@ class AiAgentCancellation {
 class AiAgentEngine {
   const AiAgentEngine({
     required this.tools,
-    this.maxToolRounds = 5,
-    this.maxToolCalls = 10,
+    this.maxToolRounds = 8,
+    this.maxToolCalls = 16,
     this.maxPriorMessages = 12,
     this.maxPriorCharacters = 12000,
     this.maxToolSummaryCharacters = 4000,

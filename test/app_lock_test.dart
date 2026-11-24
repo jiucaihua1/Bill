@@ -86,6 +86,7 @@ void main() {
   testWidgets('锁屏「忘记密码」两步确认后清空数据并关闭应用锁', (tester) async {
     final store = LocalKeyValueStore();
     final controller = await makeController(store);
+    await tester.runAsync(controller.categoryIconThemes.restore);
     await controller.setAppLock(kind: AppLockKind.pin, secret: '123456');
     // 必须走真实 VeriFinApp 结构：AppLockGate 挂在 MaterialApp.builder，锁屏没有
     // 根 Navigator 祖先；用 `home:` 直接挂 AppLockGate 会掩盖这个差异。
@@ -101,10 +102,21 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, '继续'));
     await tester.pumpAndSettle();
 
-    // 第二步确认：真正执行。
+    // 第二步须输入验证码才能执行。
     expect(find.text('再次确认初始化'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, '确认初始化'));
+    final code = tester
+        .widget<Text>(find.byKey(const Key('reset_data_code')))
+        .data!;
+    await tester.enterText(
+      find.byKey(const Key('reset_data_code_input')),
+      code,
+    );
+    await tester.pump();
+    final confirm = find.widgetWithText(FilledButton, '确认清空');
+    expect(tester.widget<FilledButton>(confirm).onPressed, isNotNull);
+    await tester.tap(confirm);
     await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsNothing);
 
     expect(controller.appLockEnabled, isFalse);
     expect(find.byKey(const Key('app_lock_forgot')), findsNothing);

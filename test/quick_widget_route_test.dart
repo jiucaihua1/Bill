@@ -25,15 +25,15 @@ void main() {
     await pumpShell(tester);
     await AppWidgetBridge.handleRoute({'route': 'app'});
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('number_pad_ok')), findsNothing);
+    expect(find.byKey(const Key('number_pad_display')), findsNothing);
     // The entry route awaits dismissal of the keypad.
     final entry = AppWidgetBridge.handleRoute({'route': 'entry'});
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('number_pad_ok')), findsOneWidget);
+    expect(find.byKey(const Key('number_pad_display')), findsOneWidget);
     await AppWidgetBridge.handleRoute({'route': 'app'});
     await tester.pumpAndSettle();
     await entry;
-    expect(find.byKey(const Key('number_pad_ok')), findsNothing);
+    expect(find.byKey(const Key('number_pad_display')), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -50,8 +50,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(NumberPadSheet), findsOneWidget);
 
-    // 点遮罩关闭键盘；两笔请求一起结束。
-    await tester.tapAt(const Offset(10, 10));
+    // 点取消关闭键盘；两笔请求一起结束。
+    await tester.tap(find.byKey(const Key('number_key_CANCEL')));
     await tester.pumpAndSettle();
     await first;
     await second;
@@ -69,7 +69,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(NumberPadSheet), findsOneWidget);
 
-    await tester.tapAt(const Offset(10, 10));
+    await tester.tap(find.byKey(const Key('number_key_CANCEL')));
     await tester.pumpAndSettle();
     expect(find.byType(NumberPadSheet), findsNothing);
     expect(tester.takeException(), isNull);

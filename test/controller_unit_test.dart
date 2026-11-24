@@ -75,7 +75,7 @@ void main() {
   test('seeds Chinese defaults when locale preference is zh', () async {
     final controller = await makeController();
     expect(controller.activeBook.name, '日常账本');
-    expect(controller.categories.map((c) => c.label), contains('餐饮'));
+    expect(controller.categories.map((c) => c.label), contains('食品餐饮'));
   });
 
   test('新增/编辑账户时名称去首尾空格', () async {

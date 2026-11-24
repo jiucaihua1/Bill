@@ -141,6 +141,6 @@ flutter test integration_test/ -d <device-id> --flavor diagnostic
    ```
 
 3. 用 Android SDK 的 `aapt2 dump badging` 检查包名和版本，用 `apksigner verify --print-certs` 核对证书。真机直接覆盖安装，验证账本保留、应用可启动、OCR 和提醒等原生功能可用。
-4. 在 [Bill Releases](https://github.com/jiucaihua1/Bill/releases) 创建 `vX.Y.Z` 正式 Release，标签版本与 APK 一致，上传验收过的 APK 并设为 Latest。用仍运行旧版本的手机或测试设备确认「检查更新 → 前往」打开对应 Release。
+4. 在 [Bill Releases](https://github.com/jiucaihua1/Bill/releases) 创建 `vX.Y.Z` 正式 Release，上传验收过的 `Xiaohe-Ledger-X.Y.Z-arm64.apk` 并设为 Latest。应用用附件名识别当前安装包系列，再和标签比较版本。用仍运行旧版本的手机或测试设备确认「检查更新 → 前往」打开对应 Release。
 
 推送 `main` 会运行代码质量检查和 debug 编译。正式 APK 由维护者签名构建并上传。清理测试安装前，先核对设备、包名和数据归属。

@@ -243,7 +243,7 @@ void main() {
     await tester.tap(find.byTooltip('调整余额'));
     await tester.pumpAndSettle();
     expect(find.text('请输入金额'), findsOneWidget);
-    for (final key in <String>['-', '5', '00']) {
+    for (final key in <String>['-', '5', '0', '0']) {
       await tester.tap(find.byKey(Key('number_key_$key')));
       await tester.pump();
     }

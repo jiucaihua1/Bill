@@ -5,6 +5,8 @@ import '../app/app_theme.dart';
 import '../app/auto_bill_overlay.dart';
 import '../app/auto_bill_rules.dart';
 import '../app/category_icon_theme.dart';
+import '../app/category_tree.dart';
+import '../app/common_widgets.dart';
 import '../app/currency_math.dart';
 import '../app/entry_sheets.dart';
 import '../app/haptics.dart';
@@ -16,7 +18,8 @@ import '../l10n/app_localizations.dart';
 import 'entry_detail_page.dart';
 import 'sheets.dart';
 
-/// The overlay isolate renders the sheet. Ledger access stays in the main engine.
+/// The overlay isolate renders the prepared suggestions without opening SQLite
+/// or loading classification rules again.
 Future<void> runAutoBillOverlay() async {
   WidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('verifin/auto_bill_overlay_view');
@@ -184,7 +187,7 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
         categories.where((c) => c.id == categoryId).firstOrNull ??
         categories.where((c) => c.isUncategorized).firstOrNull;
     _categoryId = selected?.id ?? '';
-    _collapsedCategoryId = selected?.parentId ?? selected?.id;
+    _collapsedCategoryId = selected?.id;
     final accountId = fields['suggestedAccountId'];
     if (accountId is String && widget.data.accounts.containsKey(accountId)) {
       _accountId = accountId;
@@ -238,7 +241,12 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
       categories: _categoriesForType(_type),
       selectedId: _categoryId,
     );
-    if (mounted && next != null) setState(() => _categoryId = next);
+    if (mounted && next != null) {
+      setState(() {
+        _categoryId = next;
+        _collapsedCategoryId = null;
+      });
+    }
   }
 
   Future<void> _pickAccount({bool destination = false}) async {
@@ -263,22 +271,15 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
       } else {
         _accountId = picked;
       }
+      _error = null;
     });
   }
 
   Future<void> _pickTags() async {
-    final selected = await showVeriModalSheet<List<String>>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (context) => SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(context).height * 0.6,
-          ),
-          child: TagSelectorSheet(tags: _availableTags, selectedIds: _tagIds),
-        ),
-      ),
+    final selected = await showTagSelectorSheet(
+      context,
+      tags: _availableTags,
+      selectedIds: _tagIds,
     );
     if (selected != null && mounted) {
       setState(
@@ -287,6 +288,19 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
           ..addAll(selected),
       );
     }
+  }
+
+  void _changeType(EntryType type) {
+    if (_type == type) return;
+    final categories = _categoriesForType(type);
+    setState(() {
+      _type = type;
+      if (type != EntryType.expense) _discountAmount = 0;
+      _categoryId =
+          categories.where((c) => c.isUncategorized).firstOrNull?.id ?? '';
+      _collapsedCategoryId = null;
+      _error = null;
+    });
   }
 
   Future<void> _saveAndClose() async {
@@ -353,7 +367,9 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
     final selectedCat = allCategories
         .where((c) => c.id == _categoryId)
         .firstOrNull;
-    final selectedTopId = selectedCat?.parentId ?? selectedCat?.id ?? '';
+    final selectedTopId = selectedCat == null
+        ? ''
+        : rootIdOf(allCategories, selectedCat.id);
     final accountName = widget.data.accounts[_accountId] ?? l10n.noAccountLabel;
     final amountColor = _type == EntryType.income
         ? veriSemantic(context, veriIncome)
@@ -370,199 +386,200 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.sizeOf(context).height * 0.72,
       ),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-        decoration: BoxDecoration(
-          color: tokens.cardColor,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: tokens.borderColor),
-          boxShadow: tokens.cardShadow,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withValues(
-                              alpha: 0.12,
-                            ),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            widget.draft['sourceLabel'] as String? ??
-                                l10n.autoCapturePreviewTitle,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            widget.preview
-                                ? l10n.autoCapturePreviewBody
-                                : l10n.autoCaptureManualConfirm,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.56,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        child: VeriCard(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Row(
+                        spacing: 8,
+                        children: <Widget>[
+                          Flexible(
+                            flex: 2,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: ShapeDecoration(
+                                color: theme.colorScheme.primaryContainer,
+                                shape: const StadiumBorder(),
+                              ),
+                              child: Text(
+                                widget.draft['sourceLabel'] as String? ??
+                                    l10n.autoCapturePreviewTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: theme.colorScheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: tokens.surfaceAltColor,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            widget.data.bookName,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: <Widget>[
-                        for (final candidate in const <EntryType>[
-                          EntryType.expense,
-                          EntryType.income,
-                          EntryType.transfer,
-                        ]) ...<Widget>[
-                          ChoiceChip(
-                            label: Text(candidate.label(l10n)),
-                            selected: _type == candidate,
-                            onSelected: (_) {
-                              if (_type == candidate) return;
-                              final list = _categoriesForType(candidate);
-                              setState(() {
-                                _type = candidate;
-                                if (candidate != EntryType.expense) {
-                                  _discountAmount = 0;
-                                }
-                                _categoryId =
-                                    list
-                                        .where((c) => c.isUncategorized)
-                                        .firstOrNull
-                                        ?.id ??
-                                    '';
-                                _collapsedCategoryId = null;
-                              });
-                            },
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        const Spacer(),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(10),
-                          onTap: _editAmount,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
+                          Expanded(
+                            flex: 2,
                             child: Text(
-                              amountText,
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                color: amountColor,
-                                fontWeight: FontWeight.w800,
+                              widget.preview
+                                  ? l10n.autoCapturePreviewBody
+                                  : l10n.autoCaptureManualConfirm,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.56,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    EntryCategoryGrid(
-                      categories: topCategories,
-                      allCategories: allCategories,
-                      selectedId: _categoryId,
-                      selectedTopId: selectedTopId,
-                      collapsedId: _collapsedCategoryId,
-                      iconGrid: true,
-                      accent: amountColor,
-                      allLabel: l10n.allLabel,
-                      onToggleBranch: (id, expanded) {
-                        setState(() {
-                          _collapsedCategoryId = expanded ? id : null;
-                        });
-                      },
-                      onSelected: (id) {
-                        setState(() {
-                          _categoryId = id;
-                          _collapsedCategoryId = null;
-                        });
-                      },
-                      onOpenAll: _pickCategory,
-                    ),
-                  ],
+                          Flexible(
+                            child: Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: ShapeDecoration(
+                                  color: tokens.surfaceAltColor,
+                                  shape: const StadiumBorder(),
+                                ),
+                                child: Text(
+                                  widget.data.bookName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        spacing: 8,
+                        children: <Widget>[
+                          Expanded(
+                            flex: 3,
+                            child: VeriSegmentedControl<EntryType>(
+                              values: const [
+                                EntryType.expense,
+                                EntryType.income,
+                                EntryType.transfer,
+                              ],
+                              selected: _type,
+                              labelOf: (type) => type.label(l10n),
+                              accentOf: (_) => amountColor,
+                              onChanged: _changeType,
+                              compact: true,
+                            ),
+                          ),
+                          Flexible(
+                            flex: 2,
+                            child: Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(
+                                  tokens.innerRadius,
+                                ),
+                                onTap: _editAmount,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 2,
+                                  ),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      amountText,
+                                      style: theme.textTheme.headlineSmall
+                                          ?.copyWith(
+                                            color: amountColor,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      EntryCategoryGrid(
+                        categories: topCategories,
+                        allCategories: allCategories,
+                        selectedId: _categoryId,
+                        selectedTopId: selectedTopId,
+                        collapsedId: _collapsedCategoryId,
+                        iconGrid: true,
+                        accent: amountColor,
+                        allLabel: l10n.allLabel,
+                        onToggleBranch: (id, expanded) {
+                          setState(() {
+                            _collapsedCategoryId = expanded ? id : null;
+                          });
+                        },
+                        onSelected: (id) {
+                          setState(() {
+                            _categoryId = id;
+                            _collapsedCategoryId = null;
+                          });
+                        },
+                        onOpenAll: _pickCategory,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
-              decoration: BoxDecoration(
-                color: tokens.surfaceAltColor,
-                borderRadius: BorderRadius.circular(veriRadiusMd),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  ChipTheme(
-                    data: theme.chipTheme.copyWith(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                      avatarBoxConstraints: const BoxConstraints.tightFor(
-                        width: 16,
-                        height: 16,
-                      ),
-                    ),
-                    child: Wrap(
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                decoration: BoxDecoration(
+                  color: tokens.surfaceAltColor,
+                  borderRadius: BorderRadius.circular(tokens.innerRadius),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Wrap(
                       spacing: 6,
-                      runSpacing: 2,
-                      children: <Widget>[
+                      runSpacing: 5,
+                      children: [
                         if (_type == EntryType.transfer)
-                          ActionChip(
+                          EntryMetadataPill(
+                            compact: true,
+                            icon: Icons.move_to_inbox_outlined,
                             label: Text(
                               widget.data.accounts[_toAccountId] ??
                                   l10n.transferInAccount,
                             ),
-                            onPressed: () => _pickAccount(destination: true),
+                            onTap: () => _pickAccount(destination: true),
                           ),
-                        ActionChip(
-                          avatar: const Icon(
-                            Icons.account_balance_wallet_outlined,
-                            size: 14,
-                          ),
+                        EntryMetadataPill(
+                          compact: true,
+                          icon: Icons.account_balance_wallet_outlined,
                           label: Text(accountName),
-                          onPressed: () => _pickAccount(),
+                          onTap: _pickAccount,
                         ),
-                        ActionChip(
-                          avatar: const Icon(Icons.sell_outlined, size: 14),
+                        EntryMetadataPill(
+                          compact: true,
+                          icon: Icons.sell_outlined,
+                          selected: _tagIds.isNotEmpty,
                           label: Text(
                             _tagIds.isEmpty
                                 ? l10n.tagLabel
@@ -571,14 +588,13 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
                                 ? _platformTag!.label
                                 : l10n.entryTagCount(_tagIds.length),
                           ),
-                          onPressed: _pickTags,
+                          onTap: _pickTags,
                         ),
-                        if (_type == EntryType.expense) ...<Widget>[
-                          ActionChip(
-                            avatar: const Icon(
-                              Icons.local_offer_outlined,
-                              size: 14,
-                            ),
+                        if (_type == EntryType.expense) ...[
+                          EntryMetadataPill(
+                            compact: true,
+                            icon: Icons.percent_rounded,
+                            selected: _discountAmount > 0,
                             label: Text(
                               _discountAmount > 0
                                   ? l10n.entryDiscountValue(
@@ -586,82 +602,121 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
                                     )
                                   : l10n.entryDiscountLabel,
                             ),
-                            onPressed: _editDiscount,
+                            onTap: _editDiscount,
                           ),
-                          FilterChip(
+                          EntryMetadataPill(
+                            compact: true,
+                            icon: Icons.receipt_long_outlined,
                             label: Text(l10n.badgeReimbursable),
                             selected: _reimbursable,
-                            onSelected: (v) {
-                              setState(() => _reimbursable = v);
-                            },
+                            toggle: true,
+                            onTap: () =>
+                                setState(() => _reimbursable = !_reimbursable),
                           ),
-                          FilterChip(
+                          EntryMetadataPill(
+                            compact: true,
+                            icon: Icons.money_off_outlined,
                             label: Text(l10n.excludedFromBudget),
                             selected: _excludedFromBudget,
-                            onSelected: (v) {
-                              setState(() => _excludedFromBudget = v);
-                            },
+                            toggle: true,
+                            onTap: () => setState(
+                              () => _excludedFromBudget = !_excludedFromBudget,
+                            ),
                           ),
                         ],
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: <Widget>[
-                      Text(
-                        '${l10n.commonNote}: ',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(
-                            alpha: 0.6,
+                    Divider(height: 16, color: tokens.borderColor),
+                    Row(
+                      children: <Widget>[
+                        Text(
+                          l10n.commonNote,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: TextField(
-                          controller: _noteController,
-                          maxLines: 1,
-                          textInputAction: TextInputAction.done,
-                          decoration: InputDecoration(
-                            hintText: l10n.noteHint,
-                            filled: false,
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            disabledBorder: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _noteController,
+                            maxLines: 1,
+                            textInputAction: TextInputAction.done,
+                            decoration: InputDecoration(
+                              hintText: l10n.noteHint,
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (_error != null) Text(_error!, style: theme.textTheme.bodySmall),
-            const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _saving ? null : () => widget.onClose(false),
-                    child: Text(l10n.commonCancel),
-                  ),
+                      ],
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  flex: 2,
-                  child: FilledButton(
-                    onPressed: _saving ? null : _saveAndClose,
-                    child: Text(
-                      widget.preview ? l10n.closeLabel : l10n.commonSave,
+              ),
+              if (_error case final error?) ...[
+                const SizedBox(height: 8),
+                Semantics(
+                  liveRegion: true,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(tokens.innerRadius),
+                    ),
+                    child: Row(
+                      spacing: 8,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 16,
+                          color: theme.colorScheme.onErrorContainer,
+                        ),
+                        Expanded(
+                          child: Text(
+                            error,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onErrorContainer,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ],
-            ),
-          ],
+              const SizedBox(height: 12),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _saving ? null : () => widget.onClose(false),
+                      child: Text(l10n.commonCancel),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton(
+                      onPressed: _saving ? null : _saveAndClose,
+                      child: Text(
+                        widget.preview ? l10n.closeLabel : l10n.commonSave,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -89,7 +89,13 @@ void main() {
     await tester.tap(find.byTooltip('上一周'));
     await tester.pumpAndSettle();
     expect(periodArrow(tester, '上一周').onPressed, isNull);
-    expect(find.textContaining('总收入：350'), findsOneWidget);
+    final totalIncome = find
+        .ancestor(of: find.text('总收入'), matching: find.byType(Column))
+        .first;
+    expect(
+      find.descendant(of: totalIncome, matching: find.text('350')),
+      findsOneWidget,
+    );
     expect(find.text('资产汇总'), findsNothing);
     await tester.tap(find.byKey(const Key('reports_period_label')));
     await tester.pumpAndSettle();
@@ -98,15 +104,15 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('reports_period_jump')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('总收入：0'), findsOneWidget);
+    expect(
+      find.descendant(of: totalIncome, matching: find.text('0')),
+      findsOneWidget,
+    );
     await tester.ensureVisible(find.text('每日收支'));
     // 页面上「收入」还出现在图例里，这里只点口径切换控件里的那一个。
     await tester.tap(
       find
-          .descendant(
-            of: find.byType(VeriEntryTypeToggle),
-            matching: find.text('收入'),
-          )
+          .descendant(of: toggleForCard('每日收支'), matching: find.text('收入'))
           .first,
     );
     await tester.pumpAndSettle();
@@ -348,14 +354,13 @@ void main() {
     }
 
     // 页面上「收入」还出现在图例里，这里只点口径切换控件里的那一个。
-    await tester.tap(
-      find
-          .descendant(
-            of: find.byType(VeriEntryTypeToggle),
-            matching: find.text('收入'),
-          )
-          .first,
+    final income = find.descendant(
+      of: toggleForCard('收支热力'),
+      matching: find.text('收入'),
     );
+    await tester.ensureVisible(income);
+    await tester.pumpAndSettle();
+    await tester.tap(income);
     await tester.pumpAndSettle();
     // 这个账本只有支出：切到「收入」后热力图应变成空态。
     expect(find.text('暂无收入数据'), findsOneWidget);

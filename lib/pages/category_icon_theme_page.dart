@@ -75,23 +75,6 @@ class _CategoryIconThemePageState extends State<CategoryIconThemePage> {
                     child: Column(
                       children: [
                         _PresetOptionRow(
-                          icon: Icons.category_outlined,
-                          title: l10n.categoryIconThemeBuiltin,
-                          active:
-                              _themes.ready &&
-                              _themes.preset == CategoryIconPreset.builtin,
-                          activeLabel: l10n.categoryIconThemeActive,
-                          onTap: canAct
-                              ? () => _run(
-                                  () => _themes.selectPreset(
-                                    CategoryIconPreset.builtin,
-                                  ),
-                                  l10n.saveFailed,
-                                )
-                              : null,
-                        ),
-                        const Divider(height: 1),
-                        _PresetOptionRow(
                           icon: Icons.draw_outlined,
                           title: l10n.categoryIconThemeLine,
                           presetPreview: CategoryIconPreset.line,

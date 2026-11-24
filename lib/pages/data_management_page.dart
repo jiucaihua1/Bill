@@ -18,6 +18,7 @@ import '../app/backup/webdav_config.dart';
 import '../app/common_widgets.dart';
 import '../app/currency_math.dart';
 import '../app/data_file_port.dart';
+import '../app/external_network_guard.dart';
 import '../app/feedback.dart';
 import '../app/haptics.dart';
 import '../app/ledger_math.dart';
@@ -32,6 +33,45 @@ part 'data_management_dialogs.dart';
 
 const List<int> _backupIntervalOptions = <int>[1, 3, 6, 12, 24, 48, 72];
 const List<int> _backupRetentionOptions = <int>[3, 5, 10, 20, 50];
+
+Future<T?> _withManualWebdav<T>(
+  BuildContext context,
+  WebdavConfig config,
+  WebdavOperation operation,
+  Future<T> Function(WebdavAuthorization?) run,
+) async {
+  if (VeriFinScope.of(context).externalNetworkEnabled) return run(null);
+  final l10n = AppLocalizations.of(context);
+  final target = Uri.tryParse(normalizeCollectionUrl(config.url));
+  if (target == null ||
+      target.host.isEmpty ||
+      (target.scheme != 'http' && target.scheme != 'https')) {
+    throw WebdavException(l10n.externalNetworkInvalidWebdavUrl);
+  }
+  final allowed = await showConfirmDialog(
+    context,
+    title: l10n.webdavNetworkPermissionTitle,
+    message: l10n.webdavNetworkPermissionBody(target.host),
+    confirmLabel: l10n.webdavNetworkAllowOnce,
+  );
+  if (!allowed || !context.mounted) return null;
+  final authorization = ExternalNetworkGuard.authorizeWebdavOnce(
+    target,
+    operation,
+  );
+  try {
+    return await run(authorization);
+  } finally {
+    authorization.revoke();
+  }
+}
+
+String _webdavFailureReason(AppLocalizations l10n, Object error) =>
+    switch (error) {
+      ExternalNetworkDisabled() => l10n.externalNetworkDisabled,
+      WebdavOriginMismatch() => l10n.webdavOriginMismatch,
+      _ => '$error',
+    };
 
 class DataManagementPage extends StatefulWidget {
   const DataManagementPage({super.key});
@@ -975,9 +1015,11 @@ class _DataManagementPageState extends State<DataManagementPage> {
     VeriFinController controller,
   ) async {
     final existing = controller.webdavConfig;
-    final saved = await showDialog<WebdavConfig>(
+    final saved = await showVeriModalSheet<WebdavConfig>(
       context: context,
-      builder: (context) => _WebdavEditDialog(existing: existing),
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => _WebdavEditSheet(existing: existing),
     );
     if (saved != null && saved.isConfigured) {
       if (!context.mounted) return;
@@ -1029,46 +1071,52 @@ class _DataManagementPageState extends State<DataManagementPage> {
   ) async {
     final feedback = VeriFeedbackHost.of(context);
     final l10n = AppLocalizations.of(context);
+    final config = controller.webdavConfig;
     String? uploadedName;
     try {
       // 上传可能上 GB：打包 + 上传全程显示进度并可取消。
-      final uploaded = await _runWithProgress<bool>(
+      final uploaded = await _withManualWebdav<bool>(
         context,
-        controller,
-        l10n.uploadingWebdav,
-        (isCancelled) async {
-          final now = DateTime.now();
-          final prepared = await BackupService.prepare(
-            json: controller.exportDataJson(),
-            store: controller.attachmentStore,
-            cacheDirectory: await controller.ensureBackupCacheDirectory(),
-            passphrase: controller.backupPassphrase,
-            now: now,
-            auto: false,
-            onProgress: controller.reportBackupProgress,
-            isCancelled: isCancelled,
+        config,
+        WebdavOperation.upload,
+        (authorization) async {
+          final result = await _runWithProgress<bool>(
+            context,
+            controller,
+            l10n.uploadingWebdav,
+            (isCancelled) async {
+              final now = DateTime.now();
+              final prepared = await BackupService.prepare(
+                json: controller.exportDataJson(),
+                store: controller.attachmentStore,
+                cacheDirectory: await controller.ensureBackupCacheDirectory(),
+                passphrase: controller.backupPassphrase,
+                now: now,
+                auto: false,
+                onProgress: controller.reportBackupProgress,
+                isCancelled: isCancelled,
+              );
+              try {
+                await webdavUploadFile(
+                  config,
+                  prepared.filename,
+                  prepared.cachePath,
+                  isCancelled: isCancelled,
+                  authorization: authorization,
+                );
+                controller.recordBackupTime(now);
+                uploadedName = prepared.filename;
+                return true;
+              } finally {
+                await BackupService.deletePrepared(prepared);
+              }
+            },
           );
-          try {
-            await webdavUploadFile(
-              controller.webdavConfig,
-              prepared.filename,
-              prepared.cachePath,
-              isCancelled: isCancelled,
-            );
-            controller.recordBackupTime(now);
-            uploadedName = prepared.filename;
-            return true;
-          } finally {
-            await BackupService.deletePrepared(prepared);
-          }
+          if (result == null && context.mounted) _notifyCancelled(context);
+          return result ?? false;
         },
       );
-      if (uploaded == null) {
-        if (context.mounted) {
-          _notifyCancelled(context);
-        }
-        return;
-      }
+      if (uploaded != true) return;
       unawaited(
         feedback.showMessage(
           message: l10n.uploadedFile(uploadedName ?? ''),
@@ -1080,7 +1128,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
       controller.logger?.error('WebDAV 上传失败', source: 'webdav', error: error);
       unawaited(
         feedback.showMessage(
-          message: l10n.uploadFailed('$error'),
+          message: l10n.uploadFailed(_webdavFailureReason(l10n, error)),
           tone: VeriFeedbackTone.error,
           duration: VeriFeedbackDuration.long,
           priority: VeriFeedbackPriority.high,
@@ -1094,16 +1142,47 @@ class _DataManagementPageState extends State<DataManagementPage> {
     BuildContext context,
     VeriFinController controller,
   ) async {
+    final config = controller.webdavConfig;
+    final l10n = AppLocalizations.of(context);
+    final feedback = VeriFeedbackHost.of(context);
+    try {
+      await _withManualWebdav<void>(
+        context,
+        config,
+        WebdavOperation.restore,
+        (authorization) => _restoreAuthorizedWebdav(
+          context,
+          controller,
+          config,
+          authorization,
+        ),
+      );
+    } catch (error) {
+      unawaited(
+        feedback.showMessage(
+          message: l10n.readFailed(_webdavFailureReason(l10n, error)),
+          tone: VeriFeedbackTone.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _restoreAuthorizedWebdav(
+    BuildContext context,
+    VeriFinController controller,
+    WebdavConfig config,
+    WebdavAuthorization? authorization,
+  ) async {
     final feedback = VeriFeedbackHost.of(context);
     final l10n = AppLocalizations.of(context);
     List<WebdavRemoteFile> files;
     try {
-      files = await webdavList(controller.webdavConfig);
+      files = await webdavList(config, authorization: authorization);
     } catch (error) {
       controller.logger?.error('WebDAV 读取失败', source: 'webdav', error: error);
       unawaited(
         feedback.showMessage(
-          message: l10n.readFailed('$error'),
+          message: l10n.readFailed(_webdavFailureReason(l10n, error)),
           tone: VeriFeedbackTone.error,
           duration: VeriFeedbackDuration.long,
           priority: VeriFeedbackPriority.high,
@@ -1191,10 +1270,11 @@ class _DataManagementPageState extends State<DataManagementPage> {
           );
           try {
             await webdavDownloadToFile(
-              controller.webdavConfig,
+              config,
               chosen.href,
               cachePath,
               isCancelled: isCancelled,
+              authorization: authorization,
             );
             if (!context.mounted) {
               return false;
@@ -1245,7 +1325,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
       controller.logger?.error('WebDAV 恢复失败', source: 'webdav', error: error);
       unawaited(
         feedback.showMessage(
-          message: l10n.restoreFailedError('$error'),
+          message: l10n.restoreFailedError(_webdavFailureReason(l10n, error)),
           tone: VeriFeedbackTone.error,
           duration: VeriFeedbackDuration.long,
           priority: VeriFeedbackPriority.high,

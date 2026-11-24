@@ -55,7 +55,7 @@ void main() {
       300,
       scrollable: firstVerticalScrollable(),
     );
-    await tester.tap(find.byType(BudgetPanel));
+    tester.widget<BudgetPanel>(find.byType(BudgetPanel)).onTap();
     await tester.pumpAndSettle();
 
     // 总览页标题为「预算」，只读；配置走右上角设置齿轮。
@@ -69,7 +69,7 @@ void main() {
     await tester.tap(find.text('默认月预算'));
     await tester.pumpAndSettle();
     expect(find.text('设置默认月预算'), findsOneWidget);
-    for (final key in <String>['2', '4', '00']) {
+    for (final key in <String>['2', '4', '0', '0']) {
       await tester.tap(find.byKey(Key('number_key_$key')));
     }
     await tester.tap(find.byKey(const Key('number_pad_ok')));
@@ -77,16 +77,16 @@ void main() {
 
     // 设餐饮默认预算 600。
     await tester.scrollUntilVisible(
-      find.text('餐饮'),
+      find.text('食品餐饮'),
       200,
       scrollable: firstVerticalScrollable(),
     );
-    await tester.tap(find.text('餐饮'));
+    await tester.tap(find.text('食品餐饮'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('设置').last);
     await tester.pumpAndSettle();
-    expect(find.text('设置餐饮默认预算'), findsOneWidget);
-    for (final key in <String>['6', '00']) {
+    expect(find.text('设置食品餐饮默认预算'), findsOneWidget);
+    for (final key in <String>['6', '0', '0']) {
       await tester.tap(find.byKey(Key('number_key_$key')));
     }
     await tester.tap(find.byKey(const Key('number_pad_ok')));
@@ -102,12 +102,20 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
 
-    // 返回总览再回主页：BudgetPanel 应显示沿用默认的「预算 2400」。
+    // 返回首页后，预算卡应显示沿用的默认金额。
     Navigator.of(tester.element(find.byType(BudgetOverviewPage))).pop();
     await tester.pumpAndSettle();
 
-    expect(find.byType(BudgetPanel), findsOneWidget);
-    expect(find.text('预算 2400'), findsOneWidget);
+    final budget = find.byType(BudgetPanel);
+    expect(tester.widget<BudgetPanel>(budget).budget, 2400);
+    expect(
+      find.descendant(of: budget, matching: find.text('预算')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: budget, matching: find.text('2400')),
+      findsWidgets,
+    );
   });
 
   testWidgets('category budget list renders as a collapsible tree', (
@@ -135,11 +143,11 @@ void main() {
 
     // 分类树默认折叠：父分类「餐饮」可见，子分类「午餐」隐藏。
     await tester.scrollUntilVisible(
-      find.text('餐饮'),
+      find.text('食品餐饮'),
       200,
       scrollable: firstVerticalScrollable(),
     );
-    expect(find.text('餐饮'), findsOneWidget);
+    expect(find.text('食品餐饮'), findsOneWidget);
     expect(find.text('午餐'), findsNothing);
 
     // 展开父分类后子分类进入组件树（展开后可能在视口外，用 skipOffstage 断言存在）。
@@ -174,14 +182,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('餐饮'),
+      find.text('食品餐饮'),
       250,
       scrollable: firstVerticalScrollable(),
     );
-    await tester.ensureVisible(find.text('餐饮'));
+    await tester.ensureVisible(find.text('食品餐饮'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('餐饮'));
+    await tester.tap(find.text('食品餐饮'));
     await tester.pumpAndSettle();
     expect(find.text('设置'), findsOneWidget);
     expect(find.text('清空预算'), findsOneWidget);
@@ -189,7 +197,7 @@ void main() {
     await tester.tap(find.text('设置'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('number_key_C')));
-    for (final key in <String>['9', '00']) {
+    for (final key in <String>['9', '0', '0']) {
       await tester.tap(find.byKey(Key('number_key_$key')));
     }
     await tester.tap(find.byKey(const Key('number_pad_ok')));
@@ -197,9 +205,9 @@ void main() {
     expect(controller.categoryBudget(july, 'dining'), 900);
     expect(controller.defaultCategoryBudget('dining'), 0);
 
-    await tester.ensureVisible(find.text('餐饮'));
+    await tester.ensureVisible(find.text('食品餐饮'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('餐饮'));
+    await tester.tap(find.text('食品餐饮'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('清空预算'));
     await tester.pumpAndSettle();
@@ -228,14 +236,14 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('餐饮'),
+      find.text('食品餐饮'),
       250,
       scrollable: firstVerticalScrollable(),
     );
-    await tester.ensureVisible(find.text('餐饮'));
+    await tester.ensureVisible(find.text('食品餐饮'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('餐饮'));
+    await tester.tap(find.text('食品餐饮'));
     await tester.pumpAndSettle();
     expect(find.text('设置'), findsOneWidget);
     expect(find.text('清空预算'), findsOneWidget);
@@ -290,7 +298,7 @@ void main() {
       scrollable: firstVerticalScrollable(),
     );
 
-    expect(find.text('餐饮超出 25'), findsOneWidget);
+    expect(find.text('食品餐饮超出 25'), findsOneWidget);
     tester.widget<BudgetPanel>(find.byType(BudgetPanel)).onTap();
     await tester.pumpAndSettle();
 
@@ -316,11 +324,11 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
-      find.text('餐饮已超支'),
+      find.text('食品餐饮已超支'),
       200,
       scrollable: firstVerticalScrollable(),
     );
-    expect(find.text('餐饮已超支'), findsOneWidget);
+    expect(find.text('食品餐饮已超支'), findsOneWidget);
     expect(find.textContaining('已超出 25'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('上月 40'),
@@ -395,7 +403,7 @@ void main() {
     final controller = await makeController();
     final month = DateTime(2026, 7);
     final diningId = controller.categories
-        .firstWhere((c) => c.label == '餐饮')
+        .firstWhere((c) => c.key == 'dining')
         .id;
     controller.addCategory(
       type: EntryType.expense,

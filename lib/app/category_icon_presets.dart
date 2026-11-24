@@ -3,17 +3,19 @@ library;
 
 /// Active category icon preset mode.
 enum CategoryIconPreset {
-  /// Default Material [IconData] icons.
-  builtin,
+  /// Multi-color flat/duotone SVG assets.
+  colored,
 
   /// Monochrome thin-line SVG assets tinted by category/type accent color.
   line,
 
-  /// Multi-color flat/duotone SVG assets.
-  colored,
-
   /// Curated emoji glyphs for every category.
-  emoji,
+  emoji;
+
+  static const defaultPreset = colored;
+
+  static CategoryIconPreset fromStorage(Object? value) =>
+      values.asNameMap()[value] ?? defaultPreset;
 }
 
 /// Maps Chinese category names (from user bills & default seeds) to preset keys.
@@ -270,7 +272,6 @@ String? categoryPresetSvgAsset(CategoryIconPreset preset, String presetKey) {
       return 'assets/category_icons/line/$presetKey.svg';
     case CategoryIconPreset.colored:
       return 'assets/category_icons/colored/$presetKey.svg';
-    case CategoryIconPreset.builtin:
     case CategoryIconPreset.emoji:
       return null;
   }

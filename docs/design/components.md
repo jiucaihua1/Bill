@@ -112,8 +112,10 @@
 | 名称 | 类型 | 位置 | 用途 / 关键点 |
 |---|---|---|---|
 | `showNumberPadSheet` | Sheet 函数 | `sheets.dart` | **四行数字键盘弹窗**，整格「清空」在左下，「确认」在右下。支持四则算式、结果预览、可选负数与零、金额上限。数字默认按电话顺序，可在设置中切换计算器顺序。货币金额按 `currencyCode` 的 ISO minor unit 限制小数位，汇率输入使用 `maxFractionDigits:10`。按键和确认触感统一走 `VeriHaptics` |
-| `NumberPadSheet` | Widget | `entry_sheets.dart` | 经 `showNumberPadSheet` 打开通用金额弹层。手动记账页使用 `.inline` 固定四行数字键盘，底部「再记」保存并开始下一笔，「完成」保存并返回 |
+| `NumberPadSheet` | Widget | `entry_sheets.dart` | 经 `showNumberPadSheet` 打开通用金额弹层。手动记账页使用 `.inline` 固定四行数字键盘，底部「再记」保存并开始下一笔，「完成」保存并返回。通用键区以轻底托承托 14dp 圆角键，数字和小数点同色，运算符使用次级色，确认用主题主色。金额使用等宽数字，点按定位光标、长按选中，数字键和退格作用于当前位置 |
+| `EntryMetadataPill` | Widget | `entry_sheets.dart` | 手动记账、自动记账确认和标签选择共用的轻量胶囊。点击项使用细描边，选中状态由主题底色区分，二态选项通过 `toggle` 提供辅助功能状态 |
 | `showEntryDiscountSheet` | Sheet 函数 | `sheets.dart` | 支出表单、交易详情和自动记账确认共用的优惠金额键盘。输入零可清除优惠，实付金额至少保留一个最小货币单位 |
+| `showTagSelectorSheet` | Sheet 函数 | `sheets.dart` | 手动记账和自动确认窗共用标签弹层外壳。应用内 `pickEntryTags` 提供新建操作，独立确认窗可以直接传入标签快照 |
 | `showCurrencyPickerSheet` | Sheet 函数 | `sheets.dart` | 可搜索的离线 ISO 4217 法定货币选择器（代码/中英文名/符号，支持常用/业务优先币种与排除项）；取消返回 `null` |
 | `evaluateAmountExpression` / `amountExpressionHasOperator` | 纯函数 | `calc_expression.dart` | 算式求值（不完整返回 null，结果已规整到分）/ 是否含运算符 |
 | `CurrencyCatalog` | 静态目录 | `currency_catalog.dart` | 离线 ISO 4217 法定货币定义、常用币种排序与中英文搜索；业务层不得另建货币清单 |
@@ -169,7 +171,9 @@
 | `bindAutoSaveText` | 纯函数 | `app/auto_save.dart` | 把 `TextEditingController` 接到自动保存：输入法组合期间不触发，组合结束后按防抖提交；返回移除监听的函数 |
 | `AutoSaveFailureBanner` | Widget | `common_widgets.dart` | 自动保存失败的页内提示（只有失败时出现），提供重试；成功与保存中不占版面 |
 | `AutoSavePopScope` | Widget | `common_widgets.dart` | 自动保存页的返回守卫：无未落盘改动时直接退出；有改动先 `flush()`，成功才退出，失败才询问是否放弃修改并离开。与 `UnsavedChangesGuard` 的三选一对话框不同 |
-| `showTextInputDialog` | Dialog 函数 | `sheets.dart` | **统一文本输入**；`allowEmpty`、`keyboardType`；返回 trim 后 `String?` |
+| `VeriFormSheet` | Widget | `sheets.dart` | 底部表单内容框架，跟随输入法避让，内容可滚动，窄屏时动作可换行。经 `showVeriModalSheet` 打开 |
+| `showTextInputDialog` / `showCardNumberDialog` | Sheet 函数 | `sheets.dart` | 共用底部表单抽屉。文本输入返回 trim 后的值，卡号输入返回卡号、后四位及跟随选项 |
+| `confirmResetAllData` | Dialog 函数 | `sheets.dart` | 初始化两步确认，第二步必须匹配当前可刷新的四位验证码。仅返回是否确认，由调用者执行清空 |
 | `showOptionSheet<T>` | Sheet 函数 | `sheets.dart` | 动态、较长或需 `sectionOf` 分区的通用单选底部弹窗；2–8 项静态受控单选优先用 `AnchoredMenuChoice<T>`；返回 `T?` |
 | `showVeriModalSheet<T>` | Sheet 函数 | `sheets.dart` | 领域弹窗的统一 chrome 入口；页面需要自定义内容时使用它，不得直接调用 `showModalBottomSheet`；支持拖拽把手、滚动控制、安全区、表面色和泛型返回值 |
 | `showLedgerBookEditorSheet` | Sheet 函数 | `sheets.dart` | 新建账本统一表单，同时收集名称与本位币，返回命名 record；取消返回 `null` |

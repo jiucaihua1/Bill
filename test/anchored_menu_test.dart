@@ -85,7 +85,7 @@ void main() {
     expect(tester.getSize(settingsInk).height, 44);
     expect(
       tester.widget<InkWell>(rootItemInk).borderRadius,
-      BorderRadius.circular(veriRadiusLg),
+      BorderRadius.circular(veriRadiusMd),
     );
     expect(tester.widget<Text>(find.text('切换视图')).style?.fontSize, 13);
     expect(tester.widget<Text>(find.text('卡片视图')).style?.fontSize, 11);
@@ -101,7 +101,15 @@ void main() {
         .whereType<Color>();
     expect(
       panelMaterials,
-      contains(Color.lerp(veriSurfaceLight, Colors.black, 0.28 * 0.62)),
+      contains(
+        Color.lerp(
+          VeriStyleTokens.of(
+            tester.element(find.text('列表视图')),
+          ).raisedSurfaceColor,
+          Colors.black,
+          0.28 * 0.62,
+        ),
+      ),
     );
     expect(find.text('列表视图'), findsOneWidget);
     expect(find.text('卡片视图'), findsNWidgets(3));

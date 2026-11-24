@@ -57,9 +57,13 @@ void main() {
   testWidgets('note auto-selects the category learned from history', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 1600);
+    addTearDown(tester.view.reset);
     final store = LocalKeyValueStore();
     final controller = await makeController(store);
     final bookId = controller.activeBook.id;
+    final lunchId = controller.categories.firstWhere((c) => c.label == '午餐').id;
     // 历史：多笔「打车」都记在交通分类下。
     for (var i = 0; i < 4; i++) {
       controller.addEntry(
@@ -93,24 +97,26 @@ void main() {
     );
 
     // 用户手动改选餐饮后，不再被自动识别覆盖。
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('entry_category_dining')),
-      -200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    // 没有可用账户时编辑页顶部的空状态更高，先确保餐饮芯片完全进入视口再点击。
-    await tester.ensureVisible(find.byKey(const Key('entry_category_dining')));
+    FocusManager.instance.primaryFocus?.unfocus();
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('entry_category_dining')));
-    await tester.pump();
+    final lunch = find.text('午餐');
+    if (lunch.evaluate().isEmpty) {
+      final dining = find.byKey(const Key('entry_category_dining'));
+      await tester.ensureVisible(dining);
+      await tester.pumpAndSettle();
+      await tester.tap(dining);
+      await tester.pumpAndSettle();
+    }
+    await tester.ensureVisible(lunch);
+    await tester.pumpAndSettle();
+    await tester.tap(lunch);
+    await tester.pumpAndSettle();
+    expect(find.byKey(Key('entry_category_selected_$lunchId')), findsOneWidget);
     await _ensureNoteVisible(tester);
     await tester.enterText(find.byKey(const Key('entry_note_field')), '打车回家');
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
-    expect(
-      find.byKey(const Key('entry_category_selected_dining')),
-      findsOneWidget,
-    );
+    expect(find.byKey(Key('entry_category_selected_$lunchId')), findsOneWidget);
   });
 
   testWidgets('re-entering a learned amount infers type, category and note', (
@@ -119,7 +125,10 @@ void main() {
     final store = LocalKeyValueStore();
     final controller = await makeController(store);
     final bookId = controller.activeBook.id;
-    // 历史：88 元都记为收入·利息·备注「利息」。
+    final salaryId = controller.categories
+        .firstWhere((c) => c.key == 'salary')
+        .id;
+    // 历史：88 元都记为收入·工资·备注「工资」。
     for (var i = 0; i < 2; i++) {
       controller.addEntry(
         LedgerEntry(
@@ -127,9 +136,9 @@ void main() {
           bookId: bookId,
           type: EntryType.income,
           amount: 88,
-          categoryId: 'interest',
+          categoryId: salaryId,
           accountId: '',
-          note: '利息',
+          note: '工资',
           occurredAt: DateTime(2026, 7, i + 1, 9),
         ),
       );
@@ -138,20 +147,19 @@ void main() {
     await pumpApp(tester, store);
     await tapBottomTab(tester, 0);
 
-    // 再次输入 88 → 类型应自动切到收入、分类利息、备注回填「利息」。
+    // 再次输入 88 → 类型应自动切到收入、分类工资、备注回填「工资」。
     await tester.tap(find.byKey(const Key('quick_entry_fab')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('number_key_8')));
     await tester.pump();
     await tester.tap(find.byKey(const Key('number_key_8')));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('number_pad_ok')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('entry_type_selected_income')), findsOneWidget);
 
     expect(
-      find.byKey(const Key('entry_category_selected_interest')),
+      find.byKey(Key('entry_category_selected_$salaryId')),
       findsOneWidget,
     );
 
@@ -159,7 +167,7 @@ void main() {
     final note = tester.widget<TextField>(
       find.byKey(const Key('entry_note_field')),
     );
-    expect(note.controller?.text, '利息');
+    expect(note.controller?.text, '工资');
   });
 
   testWidgets('auto-suggest fills nothing once the setting is turned off', (
@@ -170,7 +178,10 @@ void main() {
     // 默认开启：老用户升级后行为不变。
     expect(controller.autoSuggestEnabled, isTrue);
     final bookId = controller.activeBook.id;
-    // 与上一个用例同样的历史（88 元 → 收入·利息·备注「利息」）。
+    final salaryId = controller.categories
+        .firstWhere((c) => c.key == 'salary')
+        .id;
+    // 与上一个用例同样的历史（88 元 → 收入·工资·备注「工资」）。
     for (var i = 0; i < 2; i++) {
       controller.addEntry(
         LedgerEntry(
@@ -178,9 +189,9 @@ void main() {
           bookId: bookId,
           type: EntryType.income,
           amount: 88,
-          categoryId: 'interest',
+          categoryId: salaryId,
           accountId: '',
-          note: '利息',
+          note: '工资',
           occurredAt: DateTime(2026, 7, i + 1, 9),
         ),
       );
@@ -197,7 +208,6 @@ void main() {
     await tester.pump();
     await tester.tap(find.byKey(const Key('number_key_8')));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('number_pad_ok')));
     await tester.pumpAndSettle();
 
     // 关掉后一切保持默认：类型仍是支出，备注仍为空。
@@ -210,7 +220,7 @@ void main() {
       find.byKey(const Key('entry_note_field')),
     );
     expect(note.controller?.text, isEmpty);
-    expect(find.byKey(const Key('entry_category_interest')), findsNothing);
+    expect(find.byKey(Key('entry_category_selected_$salaryId')), findsNothing);
   });
 
   // 历史里有金额相近的退款条目时，自动识别不能把草稿翻成「退款」类型：退款没有任何
@@ -259,7 +269,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('number_key_5')));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('number_pad_ok')));
     await tester.pumpAndSettle();
 
     // 页面正常渲染（不白屏），且类型没被翻成退款。

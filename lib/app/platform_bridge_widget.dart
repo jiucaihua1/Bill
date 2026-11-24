@@ -35,6 +35,10 @@ class AppWidgetBridge {
     required int heightDp,
     String bookId = '',
     String appearance = 'system',
+    double backgroundOpacity = 1,
+    WidgetTypography typography = defaultWidgetTypography,
+    String? leftMetric,
+    String? rightMetric,
     bool sample = false,
   }) async {
     try {
@@ -44,6 +48,10 @@ class AppWidgetBridge {
         'heightDp': heightDp,
         'bookId': bookId,
         'appearance': appearance,
+        'backgroundOpacity': backgroundOpacity,
+        ...encodeWidgetTypography(typography),
+        'leftMetric': leftMetric,
+        'rightMetric': rightMetric,
         'sample': sample,
       });
     } on MissingPluginException {

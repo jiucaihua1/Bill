@@ -156,9 +156,9 @@ void main() {
     controller.dispose();
 
     await pumpApp(tester, store);
-    await tester.tap(find.text('最近交易'));
+    await openTransactionsFromHome(tester);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('餐饮').first);
+    await tester.tap(find.text('食品餐饮').first);
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(
@@ -212,9 +212,9 @@ void main() {
     controller.dispose();
 
     await pumpApp(tester, store);
-    await tester.tap(find.text('最近交易'));
+    await openTransactionsFromHome(tester);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('餐饮').first);
+    await tester.tap(find.text('食品餐饮').first);
     await tester.pumpAndSettle();
 
     await tester.scrollUntilVisible(

@@ -279,7 +279,11 @@ void main() {
       await pumpPage(tester, controller);
 
       // 点「大数字」槽位打开选择弹窗（先滚到可见）。
-      await tester.ensureVisible(find.text('大数字'));
+      await tester.scrollUntilVisible(
+        find.text('大数字'),
+        180,
+        scrollable: firstVerticalScrollable(),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('大数字'));
       await tester.pumpAndSettle();
