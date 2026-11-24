@@ -64,6 +64,7 @@ object AutoBillParser {
     private const val DRAFT_TTL_MS = 15 * 60 * 1000L
     private const val DRAFT_LIMIT = 16
     private const val RECENT_BILL_MS = 6_000L
+    private const val DETAIL_FRESHNESS_MS = 35_000L
     private const val RECENT_WECHAT_PURCHASE_MS = 35_000L
     private const val WECHAT_DETAIL_TIME_TOLERANCE_MS = 15_000L
     private const val DRAFT_PREFIX = "pending_bill."
@@ -233,7 +234,7 @@ object AutoBillParser {
                 val time = detail.occurredAt
                 // A fresh notification must not attach to an older open receipt.
                 if (detail.type != "expense" || notice.amount != detail.amount ||
-                    time == null || System.currentTimeMillis() - time !in 0L..AutoBillRules.BANK_WINDOW_MS
+                    time == null || System.currentTimeMillis() - time !in 0L..DETAIL_FRESHNESS_MS
                 ) return null
                 WalletRemarkTrace.input(notice.target, "notification_ocr_detail", text, "parsed", detail)
                 return detail
@@ -481,12 +482,8 @@ object AutoBillParser {
         val compact = text.lineSequence().map(::compactOcrLine).joinToString("\n")
         val bill = purchaseBill(amount, compact, note = "微信支付", sourceLabel = "微信自动识别")
         if (!bill.merchant.isNullOrBlank()) return bill
-        val name = if (personalQrResult) {
-            amountText?.let { WalletBillFields.wechatCheckoutName(it, amount, personalQr = true) }
-                ?: WalletBillFields.wechatCheckoutName(text, amount, personalQr = true)
-        } else {
-            WalletBillFields.wechatCheckoutName(text, amount)
-        }
+        val name = amountText?.takeIf { personalQrResult }?.let { WalletBillFields.wechatCheckoutName(it, amount) }
+            ?: WalletBillFields.wechatCheckoutName(text, amount)
         return bill.copy(merchant = name)
     }
 
@@ -794,7 +791,7 @@ object AutoBillParser {
         if (!allowMissingOrder && (a.orderNumber != null || b.orderNumber != null)) return false
         if (a.occurredAt != null && b.occurredAt != null) return a.occurredAt == b.occurredAt
         val detailTime = a.occurredAt ?: b.occurredAt ?: return true
-        return now - detailTime in 0L..AutoBillRules.BANK_WINDOW_MS
+        return now - detailTime in 0L..DETAIL_FRESHNESS_MS
     }
 
     internal fun isShoppingApp(pkg: String): Boolean = pkg == PKG_PDD || pkg == PKG_JD

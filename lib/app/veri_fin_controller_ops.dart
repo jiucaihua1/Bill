@@ -1455,6 +1455,17 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
 
   bool get multiCurrencyEnabled => _multiCurrencyEnabled;
 
+  /// IDs of locally confirmed captures, in confirmation order. Account values
+  /// come from live ledger entries so edits and deletions take effect immediately.
+  List<String> autoBillAccountHistory(String source) =>
+      _readAutoBillAccountHistory(_activeBookId, source);
+
+  List<String> _readAutoBillAccountHistory(String bookId, String source) {
+    if (source.isEmpty) return const [];
+    final raw = _store.read('$_autoBillAccountHistoryKey.$bookId.$source');
+    return raw == null || raw.isEmpty ? const [] : raw.split('\n');
+  }
+
   Future<void> setMultiCurrencyEnabled(bool enabled) async {
     if (_multiCurrencyEnabled == enabled) return;
     _multiCurrencyEnabled = enabled;
@@ -2123,6 +2134,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     String? rememberRateCurrencyCode,
     double? rememberRateToBase,
     DateTime? rememberRateEffectiveDate,
+    String? autoCaptureSourcePackage,
   }) async {
     final currentIndex = _entries.indexWhere((item) => item.id == entry.id);
     if ((isNew && currentIndex != -1) || (!isNew && currentIndex == -1)) {
@@ -2350,6 +2362,21 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       _exchangeRates
         ..clear()
         ..addAll(nextRates);
+    }
+    if (isNew &&
+        autoCaptureSourcePackage != null &&
+        autoCaptureSourcePackage.isNotEmpty) {
+      final confirmed = _readAutoBillAccountHistory(
+        entry.bookId,
+        autoCaptureSourcePackage,
+      );
+      _store.write(
+        '$_autoBillAccountHistoryKey.${entry.bookId}.$autoCaptureSourcePackage',
+        [
+          entry.id,
+          ...confirmed.where((id) => id != entry.id).take(31),
+        ].join('\n'),
+      );
     }
     // 行列已提交成功，这时才删除被移除附件的文件；失败时文件保留、由孤儿回收兜底。
     if (removedAttachmentIds.isNotEmpty) {

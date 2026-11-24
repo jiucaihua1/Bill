@@ -675,6 +675,7 @@ class _VeriFinShellState extends State<VeriFinShell> {
               initialDraft: draft,
               draftReviewHint: reviewHint,
               suggestedPlatformTag: platformTag,
+              autoCaptureSourcePackage: raw['sourcePackage'] as String?,
             ),
           ),
         );

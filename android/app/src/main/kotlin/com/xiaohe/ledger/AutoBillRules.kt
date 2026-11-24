@@ -5,7 +5,7 @@ import kotlin.math.roundToLong
 
 /** Shared draft metadata and pairing for all Android capture sources. */
 internal object AutoBillRules {
-    const val BANK_WINDOW_MS = 35_000L
+    private const val BANK_WINDOW_MS = 75_000L
     private const val SHOPPING_WINDOW_MS = 120_000L
     private const val MAX_RECENT = 64
 

@@ -95,6 +95,8 @@ const String _reminderKey = 'verifin.reminder.v1';
 const String _fabActionKey = 'verifin.fab_action.v1';
 const String _numberPadLayoutKey = 'verifin.number_pad_layout.v1';
 const String _defaultAccountKey = 'verifin.default_account.v1';
+const String _autoBillAccountHistoryKey =
+    'verifin.auto_bill_account_history.v1';
 const String _budgetCycleKey = 'verifin.budget_cycle.v1';
 const String _currencyFractionStyleKey = 'verifin.currency_fraction_style.v1';
 

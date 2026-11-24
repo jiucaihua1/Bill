@@ -200,6 +200,7 @@ class AutoBillOverlayBridge {
     final account = args['accountId'];
     final destination = args['toAccountId'];
     final note = args['note'];
+    final source = args['sourcePackage'];
     final tags = args['tagIds'];
     final suggestedTag = args['suggestedTagLabel'];
     final type = switch (args['type']) {
@@ -249,8 +250,7 @@ class AutoBillOverlayBridge {
     final normalized = normalizeCurrencyAmount(amount, 'CNY');
     if (normalized <= 0) return false;
     var finalNote = note.trim();
-    if (type == EntryType.expense &&
-        args['sourcePackage'] == 'com.tencent.mm') {
+    if (type == EntryType.expense && source == 'com.tencent.mm') {
       try {
         final supplement = await _channel.invokeMapMethod<Object?, Object?>(
           'wechatNoteSupplement',
@@ -276,6 +276,7 @@ class AutoBillOverlayBridge {
     }
     final result = await controller.saveEntryAggregateDraftResult(
       isNew: true,
+      autoCaptureSourcePackage: source is String ? source : null,
       suggestedTagLabel: suggestedTag as String?,
       entry: LedgerEntry(
         id: entryId,

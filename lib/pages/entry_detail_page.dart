@@ -38,6 +38,7 @@ class EntryDetailPage extends StatefulWidget {
     this.initialDiscountAmount = 0,
     this.draftReviewHint,
     this.suggestedPlatformTag,
+    this.autoCaptureSourcePackage,
   }) : draftEntry = null,
        draftExtraAccounts = null,
        draftExtraCategories = null,
@@ -50,6 +51,7 @@ class EntryDetailPage extends StatefulWidget {
       initialDraft = null,
       draftReviewHint = null,
       suggestedPlatformTag = null,
+      autoCaptureSourcePackage = null,
       draftEntry = null,
       draftExtraAccounts = null,
       draftExtraCategories = null,
@@ -76,6 +78,7 @@ class EntryDetailPage extends StatefulWidget {
        initialDraft = null,
        draftReviewHint = null,
        suggestedPlatformTag = null,
+       autoCaptureSourcePackage = null,
        inlineNumberPad = false;
 
   final double initialAmount;
@@ -87,6 +90,7 @@ class EntryDetailPage extends StatefulWidget {
   final AiEntryDraft? initialDraft;
   final String? draftReviewHint;
   final Tag? suggestedPlatformTag;
+  final String? autoCaptureSourcePackage;
 
   /// 草稿编辑模式下要编辑的交易；非空即进入「返回草稿不落库」模式。
   final LedgerEntry? draftEntry;
@@ -2523,6 +2527,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
     final result = await controller.saveEntryAggregateDraftResult(
       entry: draft,
       isNew: true,
+      autoCaptureSourcePackage: _config.autoCaptureSourcePackage,
       suggestedTagLabel: _tagIds.contains(AutoBillSuggestions.draftTagId)
           ? _config.suggestedPlatformTag?.label
           : null,

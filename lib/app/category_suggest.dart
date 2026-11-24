@@ -102,8 +102,9 @@ class _Scored {
 ///
 /// [expenseCategoryIds]/[incomeCategoryIds] 用于把推断出的分类校验到对应类型的清单；
 /// [note]/[amount]/[currencyCode]/[hour] 为当前正在录入的备注、金额、原币与小时（0–23）。
+/// [minimumNoteSimilarity] 大于零时，只有达到备注阈值的历史才参与打分。
 EntrySuggestion suggestEntry({
-  required List<LedgerEntry> history,
+  required Iterable<LedgerEntry> history,
   required Set<String> expenseCategoryIds,
   required Set<String> incomeCategoryIds,
   required String note,
@@ -111,6 +112,7 @@ EntrySuggestion suggestEntry({
   required String currencyCode,
   required int hour,
   EntryType? forcedType,
+  double minimumNoteSimilarity = 0,
 }) {
   final noteTokens = _tokenize(note);
 
@@ -133,6 +135,7 @@ EntrySuggestion suggestEntry({
     final noteSim = noteTokens.isEmpty
         ? 0.0
         : _similarity(noteTokens, _tokenize(entry.note));
+    if (noteSim < minimumNoteSimilarity) continue;
     final amountAffinity = entry.currencyCode == currencyCode
         ? _amountAffinity(amount, entry.amount)
         : 0.0;

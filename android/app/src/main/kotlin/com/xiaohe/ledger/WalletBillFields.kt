@@ -21,14 +21,22 @@ internal object WalletBillFields {
     private val checkoutAmount = Regex("""¥\s*($MONEY)|($MONEY)\s*元|(\d[\d,]*\.\d{2})""")
     private val payeeAndAmount = Regex("""(.+?)\s*(¥.+)""")
     private val checkoutPaymentLabel = Regex("""付\s*款\s*方\s*式(?:(?:\s*:\s*|\s+)(.+))?""")
-    private val checkoutDiscountLabel = Regex("""碰一下立减|优惠(?:金额)?""")
-    private val checkoutDiscount = Regex("""(?:碰一下立减|优惠(?:金额)?):?([\-−]¥?($MONEY))?""")
-    private val checkoutDeduction = Regex("""[\-−]¥?($MONEY)""")
+    private val checkoutDiscountLabel = Regex(
+        """(?:碰一下立减|随机立减|银行卡立减|商家优惠|优惠|红包|消费券|满减|积分抵扣|立减)(?:金额)?""",
+    )
+    private val checkoutDiscount = Regex("""(${checkoutDiscountLabel.pattern}):?[\-−]?¥?($MONEY)元?""")
+    private val checkoutDeduction = Regex("""(?:.*?[^\d.,])?[\-−]¥?($MONEY)元?""")
     private val maskedWechatName = Regex("""(.+?)\s*\(\s*(?:\*\s*)+\p{L}+\s*\)""")
     private val decimalDot = Regex("""(?<=\d)[·•。](?=\d)""")
     private val cjkSpacing = Regex("""(?<=\p{IsHan})\s+(?=\p{IsHan})""")
     private val checkoutStatuses = setOf("支付成功", "付款成功", "支付完成")
     private val checkoutLabels = checkoutStatuses + setOf("付款方式", "回首页", "完成", "账单详情")
+    private val wechatCheckoutLabels = checkoutLabels + setOf(
+        "微信支付", "返回商家", "返回商户", "返回", "确认", "关闭", "查看详情", "已支付", "已付款",
+        "交易成功", "付款金额", "支付金额", "实付金额", "支付方式", "查看账单", "收银台",
+        "商户名称", "商户全称", "商家名称", "收款方",
+    )
+    private val statusAdornment = Regex("""^[^\p{L}]+|[^\p{L}]+$""")
 
     data class WechatDetail(val amount: Double, val paidAt: Long, val merchant: String, val product: String)
 
@@ -88,15 +96,13 @@ internal object WalletBillFields {
         )
     }
 
-    fun wechatCheckoutName(text: String, amount: Double, personalQr: Boolean = false): String? {
+    fun wechatCheckoutName(text: String, amount: Double): String? {
         val lines = linesOf(text)
         val amountRow = lines.indices.singleOrNull { checkoutAmountOf(lines[it]) == amount } ?: return null
         val nameRow = if (lines.getOrNull(amountRow - 1) == "¥") amountRow - 2 else amountRow - 1
         val name = lines.getOrNull(nameRow) ?: return null
-        if (personalQr) return maskedWechatName.matchEntire(name)?.groupValues?.get(1)?.let(::recipient)
-        // Merchant receipt header: payment status, merchant name, actual amount.
-        if (lines.getOrNull(nameRow - 1)?.replace(cjkSpacing, "") != "支付成功") return null
-        return recipient(name)?.takeUnless { it == "微信支付" || it == "返回商家" }
+        val displayName = maskedWechatName.matchEntire(name)?.groupValues?.get(1) ?: name
+        return recipient(displayName)?.takeUnless { it.replace(statusAdornment, "") in wechatCheckoutLabels }
     }
 
     fun alipayCheckout(text: String): ParsedBill? {
@@ -113,30 +119,35 @@ internal object WalletBillFields {
         if (valueRow == -1) return null
         val amount = checkoutAmountOf(header[valueRow]) ?: return null
         val rows = header.drop(valueRow + 1)
+        val labeledPayee = field(rows, *purchaseMerchantLabels)?.let(::recipient)
         val receiptCharges = rows.mapIndexedNotNull { index, line ->
+            val compact = line.filterNot(Char::isWhitespace).replace(decimalDot, ".")
+            if (checkoutDeduction.matches(compact) || checkoutDiscount.matches(compact)) {
+                return@mapIndexedNotNull null
+            }
             val combined = payeeAndAmount.matchEntire(line)
             val payee = if (combined != null) combined.groupValues[1] else
                 rows.getOrNull(index - if (rows.getOrNull(index - 1) == "¥") 2 else 1)
-            val name = payee?.let(::recipient) ?: return@mapIndexedNotNull null
-            if (checkoutDiscountLabel.matches(name)) return@mapIndexedNotNull null
+            val name = when (payee?.filterNot(Char::isWhitespace)?.trimEnd(':')) {
+                "原价", "原金额", "订单金额" -> labeledPayee
+                else -> payee?.let(::recipient)
+            } ?: return@mapIndexedNotNull null
+            if (checkoutDiscountLabel.matches(name.trimEnd(':'))) return@mapIndexedNotNull null
             val charge = checkoutAmountOf(combined?.groupValues?.get(2) ?: line)
                 ?: return@mapIndexedNotNull null
             name to cents(charge)
         }.distinct()
         val net = cents(amount)
-        val deduction = rows.mapIndexedNotNull { index, line ->
-            val label = checkoutDiscount.matchEntire(line.filterNot(Char::isWhitespace))
-                ?: return@mapIndexedNotNull null
-            val value = label.groups[2]?.value
-                ?: rows.getOrNull(index + 1)?.filterNot(Char::isWhitespace)?.let {
-                    checkoutDeduction.matchEntire(it)?.groupValues?.get(1)
-                }
+        val deductions = rows.mapNotNull { line ->
+            val compact = line.filterNot(Char::isWhitespace).replace(decimalDot, ".")
+            val value = checkoutDiscount.matchEntire(compact)?.groupValues?.get(2)
+                ?: checkoutDeduction.matchEntire(compact)?.groupValues?.get(1)
             value?.let(::money)?.let(::cents)
-        }.singleOrNull()?.takeIf { discount ->
-            receiptCharges.any { (_, charge) -> charge == net + discount }
-        } ?: 0L
-        val payee = receiptCharges.filter { (_, charge) -> charge == net + deduction }
-            .singleOrNull()?.first
+        }.toSet()
+        val discounted = receiptCharges.singleOrNull { (_, charge) -> charge - net in deductions }
+        val payee = discounted?.first ?: receiptCharges.singleOrNull { (_, charge) -> charge == net }?.first
+            ?: labeledPayee
+        val deduction = discounted?.let { (_, charge) -> charge - net } ?: 0L
         return ParsedBill(
             amount, "expense", "支付宝支付", "支付宝自动识别",
             merchant = payee, paymentMethod = method, bankLast4 = last4(method),
