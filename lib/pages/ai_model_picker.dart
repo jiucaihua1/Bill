@@ -88,6 +88,7 @@ class _AiModelPickerBodyState extends State<_AiModelPickerBody> {
               TextField(
                 key: const Key('ai_model_search_field'),
                 controller: _search,
+                autofillHints: null,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search),
                   hintText: l10n.aiProviderModelSearchHint,

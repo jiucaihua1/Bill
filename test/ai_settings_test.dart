@@ -60,6 +60,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    tester.testTextInput.log.clear();
     await tester.enterText(
       _textField('请求地址（Base URL）'),
       'https://example.com/v1',
@@ -67,6 +68,10 @@ void main() {
     await tester.enterText(_textField('API Key（可选）'), 'secret');
     final modelField = _textField('模型');
     await tester.enterText(modelField, 'model');
+    expect(
+      tester.testTextInput.log.map((call) => call.method),
+      isNot(contains('TextInput.requestAutofill')),
+    );
     // An earlier debounce can expire while the next word is being composed.
     tester.testTextInput.updateEditingValue(
       const TextEditingValue(

@@ -579,6 +579,8 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                       TextField(
                         controller: _baseUrlController,
                         readOnly: !_provider.isCustom,
+                        // An empty hints list still starts Android autofill on focus.
+                        autofillHints: null,
                         keyboardType: TextInputType.url,
                         autocorrect: false,
                         decoration: _configInputDecoration(
@@ -596,6 +598,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                         const SizedBox(height: 10),
                         TextField(
                           controller: _modelListUrlController,
+                          autofillHints: null,
                           keyboardType: TextInputType.url,
                           autocorrect: false,
                           decoration: _configInputDecoration(
@@ -607,9 +610,11 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                       const SizedBox(height: 10),
                       TextField(
                         controller: _apiKeyController,
+                        autofillHints: null,
                         obscureText: _obscureKey,
                         autocorrect: false,
                         enableSuggestions: false,
+                        enableIMEPersonalizedLearning: false,
                         decoration: _configInputDecoration(
                           label: l10n.aiProviderApiKeyLabel,
                           suffixIcon: IconButton(
@@ -626,6 +631,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                       const SizedBox(height: 10),
                       TextField(
                         controller: _modelController,
+                        autofillHints: null,
                         autocorrect: false,
                         decoration: _configInputDecoration(
                           label: l10n.aiProviderModelLabel,
@@ -665,6 +671,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                           key: const Key('ai_tool_mode_field'),
                           controller: _toolModeController,
                           readOnly: true,
+                          autofillHints: null,
                           showCursor: false,
                           enableInteractiveSelection: false,
                           onTap: _testing ? null : openMenu,

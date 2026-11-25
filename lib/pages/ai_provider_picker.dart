@@ -310,6 +310,7 @@ class _AiProviderPickerBodyState extends State<_AiProviderPickerBody> {
               TextField(
                 key: const Key('ai_provider_search_field'),
                 controller: _search,
+                autofillHints: null,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search),
                   hintText: l10n.aiProviderSearchHint,
