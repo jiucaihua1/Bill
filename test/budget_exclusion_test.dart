@@ -5,6 +5,7 @@ import 'package:xiaohe/app/budget_status.dart';
 import 'package:xiaohe/app/common_widgets.dart';
 import 'package:xiaohe/app/ledger_math.dart';
 import 'package:xiaohe/app/models.dart';
+import 'package:xiaohe/app/report_analysis.dart';
 import 'package:xiaohe/app/veri_fin_scope.dart';
 import 'package:xiaohe/local_storage/local_storage.dart';
 import 'package:xiaohe/pages/budget_pages.dart';
@@ -48,15 +49,27 @@ void main() {
   useTestDatabases();
 
   group('纯函数口径', () {
-    test('budgetExpenseTotal 排除标记的支出，sumByType 不受影响', () {
+    test('预算与收支分别按交易的统计口径取数', () {
+      final passThrough = _expense(
+        id: 'c',
+        amount: 80,
+      ).copyWith(excludedFromStatistics: true);
+      final returned = passThrough.copyWith(id: 'd', type: EntryType.income);
       final entries = <LedgerEntry>[
         _expense(id: 'a', amount: 100),
         _expense(id: 'b', amount: 50, excluded: true),
+        passThrough,
+        returned,
       ];
 
       expect(budgetExpenseTotal(entries), 100);
-      // 实际发生的支出照常算：钱确实花出去了。
       expect(sumByType(entries, EntryType.expense), 150);
+      expect(sumByType(entries, EntryType.income), 0);
+      final report = reportSummary(entries);
+      expect(report.expenseCount, 2);
+      expect(report.incomeCount, 0);
+      expect(accountDeltaForEntry(passThrough, 'cash'), -80);
+      expect(accountDeltaForEntry(returned, 'cash'), 80);
     });
 
     test('countsTowardBudget 只认支出且未被标记', () {
@@ -86,11 +99,16 @@ void main() {
       expect(accountDeltaForEntry(entry, 'cash'), -100);
     });
 
-    test('按日预算排除标记，桌面小组件「今日支出」不排除', () {
+    test('按日预算与桌面小组件「今日支出」使用各自的统计口径', () {
       final day = DateTime(2026, 7, 4);
       final entries = <LedgerEntry>[
         _expense(id: 'a', amount: 30, occurredAt: day),
         _expense(id: 'b', amount: 20, excluded: true, occurredAt: day),
+        _expense(
+          id: 'c',
+          amount: 80,
+          occurredAt: day,
+        ).copyWith(excludedFromStatistics: true),
       ];
 
       expect(dayBudgetExpenseTotal(entries, day), 30);
@@ -99,16 +117,27 @@ void main() {
   });
 
   group('交易筛选选项', () {
-    test('全部 / 计入预算 / 不计入预算', () {
+    test('全部 / 计入预算 / 不计入预算 / 不计入收支', () {
       final plain = _expense(id: 'a', amount: 1);
       final excluded = _expense(id: 'b', amount: 1, excluded: true);
 
-      expect(BudgetScopeFilter.all.matches(plain), isTrue);
-      expect(BudgetScopeFilter.all.matches(excluded), isTrue);
-      expect(BudgetScopeFilter.included.matches(plain), isTrue);
-      expect(BudgetScopeFilter.included.matches(excluded), isFalse);
-      expect(BudgetScopeFilter.excluded.matches(plain), isFalse);
-      expect(BudgetScopeFilter.excluded.matches(excluded), isTrue);
+      expect(TransactionScopeFilter.all.matches(plain), isTrue);
+      expect(TransactionScopeFilter.all.matches(excluded), isTrue);
+      expect(TransactionScopeFilter.inBudget.matches(plain), isTrue);
+      expect(TransactionScopeFilter.inBudget.matches(excluded), isFalse);
+      expect(TransactionScopeFilter.outOfBudget.matches(plain), isFalse);
+      expect(TransactionScopeFilter.outOfBudget.matches(excluded), isTrue);
+      final passThrough = plain.copyWith(excludedFromStatistics: true);
+      expect(TransactionScopeFilter.inBudget.matches(passThrough), isFalse);
+      expect(TransactionScopeFilter.outOfBudget.matches(passThrough), isTrue);
+      expect(
+        TransactionScopeFilter.excludedFromStatistics.matches(passThrough),
+        isTrue,
+      );
+      expect(
+        TransactionScopeFilter.excludedFromStatistics.matches(excluded),
+        isFalse,
+      );
     });
   });
 
@@ -275,7 +304,7 @@ void main() {
       );
     });
 
-    testWidgets('交易列表徽标与「预算」筛选', (tester) async {
+    testWidgets('交易列表徽标与预算、收支筛选', (tester) async {
       final controller = await makeController();
       final now = DateTime.now();
       controller
@@ -296,13 +325,43 @@ void main() {
       expect(find.byType(TransactionTile), findsNWidgets(2));
       expect(find.text('不计入预算'), findsOneWidget);
 
-      // 用「预算」筛选胶囊切到「计入预算」：只剩未标记的那笔。
-      // 「计入预算」只出现在菜单里，不会和徽标文案混淆。
-      await tester.tap(find.widgetWithText(FilterPill, '预算'));
+      await tester.tap(find.widgetWithText(FilterPill, '收支'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('计入预算'));
       await tester.pumpAndSettle();
       expect(find.byType(TransactionTile), findsOneWidget);
+
+      controller
+        ..addEntry(
+          _expense(
+            id: 'c',
+            amount: 25,
+            occurredAt: now,
+          ).copyWith(excludedFromStatistics: true),
+        )
+        ..addEntry(
+          _expense(id: 'd', amount: 10, occurredAt: now).copyWith(
+            type: EntryType.income,
+            categoryId: controller.categoriesForType(EntryType.income).first.id,
+            excludedFromStatistics: true,
+          ),
+        );
+      await tester.pumpAndSettle();
+      // 同一菜单切换口径时，新的选项取代此前的预算筛选。
+      await tester.tap(find.widgetWithText(FilterPill, '计入预算'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('不计入收支'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widgetList<TransactionTile>(find.byType(TransactionTile))
+            .map((tile) => tile.entry.id),
+        unorderedEquals(['c', 'd']),
+      );
+      await tester.tap(find.byTooltip('清空筛选'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TransactionTile), findsNWidgets(4));
+      expect(find.widgetWithText(FilterPill, '收支'), findsOneWidget);
     });
   });
 }

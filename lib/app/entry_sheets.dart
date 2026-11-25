@@ -133,10 +133,12 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
   @override
   Widget build(BuildContext context) {
     // 页内备注由系统键盘编辑。只在金额与键盘区处理底部遮挡，分类网格只读取宽度和字号。
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final bottomInset = _inline
         ? MediaQuery.viewPaddingOf(context).bottom
-        : math.max(keyboardInset, MediaQuery.paddingOf(context).bottom);
+        : math.max(
+            MediaQuery.viewInsetsOf(context).bottom,
+            MediaQuery.paddingOf(context).bottom,
+          );
     final tokens = VeriStyleTokens.of(context);
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
@@ -332,12 +334,9 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
               SizedBox(height: _inline ? 8 : 12),
               TextFieldTapRegion(
                 groupId: _amountFocus,
-                child: _buildKeyTray(
-                  context,
-                  keyboardOverlap: _inline
-                      ? math.max(0.0, keyboardInset - bottomInset)
-                      : 0.0,
-                ),
+                child: _inline
+                    ? _InlineKeyTray(child: _buildKeyTray(context))
+                    : _buildKeyTray(context),
               ),
             ],
           ),
@@ -357,29 +356,15 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
     );
   }
 
-  Widget _buildKeyTray(
-    BuildContext context, {
-    required double keyboardOverlap,
-  }) {
+  Widget _buildKeyTray(BuildContext context) {
     final tokens = VeriStyleTokens.of(context);
     final keys = LayoutBuilder(
       builder: (context, constraints) {
         const spacing = 6.0;
         final cellWidth = (constraints.maxWidth - spacing * 3) / 4;
-        return _buildKeys(
-          context,
-          cellWidth,
-          spacing,
-          keyboardOverlap: keyboardOverlap,
-        );
+        return _buildKeys(context, cellWidth, spacing);
       },
     );
-    if (keyboardOverlap > 0) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: keys,
-      );
-    }
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Color.lerp(tokens.cardColor, tokens.surfaceAltColor, 0.68),
@@ -390,22 +375,11 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
     );
   }
 
-  Widget _buildKeys(
-    BuildContext context,
-    double width,
-    double spacing, {
-    required double keyboardOverlap,
-  }) {
+  Widget _buildKeys(BuildContext context, double width, double spacing) {
     final height = math.min(
       width * 0.75,
       (MediaQuery.sizeOf(context).height * 0.065).clamp(28.0, 54.0),
     );
-    if (keyboardOverlap > 0) {
-      // 输入法开始展开时仍占住原数字键区，备注不会先下坠、再被系统键盘推上去。
-      return SizedBox(
-        height: math.max(height * 4 + spacing * 3 + 16, keyboardOverlap),
-      );
-    }
     Widget cell(String value, {double? cellWidth}) => SizedBox(
       width: cellWidth ?? width,
       height: height,
@@ -644,6 +618,27 @@ class _NumberPadSheetState extends State<NumberPadSheet> {
     final fixed = value.toStringAsFixed(fractionDigits);
     if (!fixed.contains('.')) return fixed;
     return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+}
+
+/// 仅在系统键盘的遮挡范围变动时重排占位，数字键始终留在组件树中。
+class _InlineKeyTray extends StatelessWidget {
+  const _InlineKeyTray({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final overlap =
+        MediaQuery.viewInsetsOf(context).bottom -
+        MediaQuery.viewPaddingOf(context).bottom;
+    return Stack(
+      alignment: Alignment.topCenter,
+      children: [
+        SizedBox(height: math.max(0.0, overlap)),
+        IgnorePointer(ignoring: overlap > 0, child: child),
+      ],
+    );
   }
 }
 
@@ -958,9 +953,170 @@ class _CategoryPickerRow {
   bool get isHeader => headerType != null;
 }
 
-/// 记账时给交易多选标签的底部弹窗。展示已有标签的 FilterChip 供多选，
-/// 并可即时新建标签。点「完成」返回选中的标签 id 列表（取消返回 null）。
-/// Lightweight action or selection used by entry metadata and its pickers.
+/// 收入只显示收支开关。排除收支的支出同时排除预算。
+class EntryStatisticsToggles extends StatelessWidget {
+  const EntryStatisticsToggles({
+    super.key,
+    required this.type,
+    required this.scope,
+    required this.onChanged,
+  });
+
+  final EntryType type;
+  final EntryStatisticsScope scope;
+  final ValueChanged<EntryStatisticsScope> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final selected = scope.forType(type);
+    final expense = type == EntryType.expense;
+    final excludesStatistics =
+        selected == EntryStatisticsScope.excludeStatistics;
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        if (expense)
+          EntryTogglePill(
+            key: const Key('entry_exclude_budget'),
+            label: l10n.excludedFromBudget,
+            selected: selected != EntryStatisticsScope.normal,
+            tooltip: selected == EntryStatisticsScope.normal
+                ? null
+                : !excludesStatistics
+                ? l10n.excludedFromBudgetHint
+                : l10n.excludedFromStatisticsHint,
+            onTap: !excludesStatistics
+                ? () => onChanged(
+                    selected == EntryStatisticsScope.normal
+                        ? EntryStatisticsScope.excludeBudget
+                        : EntryStatisticsScope.normal,
+                  )
+                : null,
+          ),
+        EntryTogglePill(
+          key: const Key('entry_exclude_statistics'),
+          label: l10n.entryExcludeStatistics,
+          selected: excludesStatistics,
+          onTap: () => onChanged(
+            !excludesStatistics
+                ? EntryStatisticsScope.excludeStatistics
+                : expense
+                ? EntryStatisticsScope.excludeBudget
+                : EntryStatisticsScope.normal,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 保持记账属性在同一行，允许横向滚动查看后续操作。
+class EntryMetadataStrip extends StatelessWidget {
+  const EntryMetadataStrip({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      primary: false,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 6,
+        children: children,
+      ),
+    );
+  }
+}
+
+/// 交易属性区的紧凑开关或选择按钮。
+class EntryTogglePill extends StatelessWidget {
+  const EntryTogglePill({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.toggle = true,
+    this.tooltip,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+  final bool toggle;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final tokens = VeriStyleTokens.of(context);
+    final radius = BorderRadius.circular(tokens.innerRadius);
+    final foreground = selected ? scheme.primary : scheme.onSurfaceVariant;
+    final ink = onTap == null ? foreground.withValues(alpha: 0.45) : foreground;
+    final pill = Material(
+      color: selected
+          ? scheme.primary.withValues(alpha: 0.11)
+          : tokens.surfaceAltColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: radius,
+        side: BorderSide(
+          color: selected
+              ? scheme.primary.withValues(alpha: 0.35)
+              : Colors.transparent,
+        ),
+      ),
+      child: Semantics(
+        toggled: toggle ? selected : null,
+        selected: toggle ? null : selected,
+        enabled: onTap != null,
+        button: !toggle,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 36),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 5,
+                children: [
+                  Icon(
+                    selected
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    size: 15,
+                    color: ink,
+                  ),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: ink,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    final message = tooltip;
+    return message == null ? pill : Tooltip(message: message, child: pill);
+  }
+}
+
 class EntryMetadataPill extends StatelessWidget {
   const EntryMetadataPill({
     super.key,
@@ -1139,6 +1295,338 @@ class _TagSelectorSheetState extends State<TagSelectorSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class EntryCategoryGrid extends StatelessWidget {
+  const EntryCategoryGrid({
+    super.key,
+    required this.categories,
+    required this.allCategories,
+    required this.selectedId,
+    required this.selectedTopId,
+    required this.accent,
+    required this.onSelected,
+    this.onOpenAll,
+    this.allLabel,
+    this.collapsedId,
+    this.onToggleBranch,
+    this.iconGrid = false,
+    this.branchBelowGrid = false,
+  });
+
+  final List<Category> categories;
+  final List<Category> allCategories;
+  final String selectedId;
+  final String selectedTopId;
+  final Color accent;
+  final ValueChanged<String> onSelected;
+  final VoidCallback? onOpenAll;
+  final String? allLabel;
+  final String? collapsedId;
+  final void Function(String id, bool expanded)? onToggleBranch;
+  final bool iconGrid;
+  final bool branchBelowGrid;
+
+  Iterable<Widget> _rows(
+    List<Widget> tiles,
+    int columns, {
+    int? expandedIndex,
+    Widget? inlineBranch,
+  }) sync* {
+    for (var start = 0; start < tiles.length; start += columns) {
+      if (start > 0) yield const SizedBox(height: 6);
+      yield Row(
+        children: [
+          for (var column = 0; column < columns; column++) ...[
+            if (column > 0) const SizedBox(width: 8),
+            Expanded(
+              child: start + column < tiles.length
+                  ? tiles[start + column]
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ],
+      );
+      if (inlineBranch != null &&
+          expandedIndex != null &&
+          expandedIndex >= start &&
+          expandedIndex < start + columns) {
+        yield const SizedBox(height: 6);
+        yield inlineBranch;
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final textScale = MediaQuery.textScalerOf(context);
+    final columns = iconGrid && textScale.scale(11) <= 12.5
+        ? screenWidth >= 350
+              ? 5
+              : 4
+        : 3;
+    final categoryChildren = <String, List<Category>>{};
+    for (final category in allCategories) {
+      final parentId = category.parentId;
+      if (parentId != null) {
+        categoryChildren
+            .putIfAbsent(parentId, () => <Category>[])
+            .add(category);
+      }
+    }
+    final selectedPath = [
+      ...ancestorIds(allCategories, selectedId).reversed,
+      selectedId,
+    ];
+    final openLevels = [
+      for (final id in selectedPath.takeWhile((id) => id != collapsedId))
+        if (categoryChildren[id] case final children?) (id, children),
+    ];
+    final byId = categoryIndex(allCategories);
+    final l10n = AppLocalizations.of(context);
+
+    Widget tile(Category category) {
+      final hasChildren = categoryChildren.containsKey(category.id);
+      final onPath = selectedPath.contains(category.id);
+      final expanded = openLevels.any((level) => level.$1 == category.id);
+      final toggleBranch = onToggleBranch;
+      return _EntryCategoryTile(
+        key: ValueKey(category.id),
+        category: category,
+        selected: category.id == selectedId,
+        onPath: onPath,
+        expanded: hasChildren ? expanded : null,
+        iconGrid: iconGrid,
+        accent: accent,
+        onTap: hasChildren && onPath && toggleBranch != null
+            ? () => toggleBranch(category.id, expanded)
+            : () => onSelected(category.id),
+      );
+    }
+
+    return Column(
+      key: const Key('entry_category_grid'),
+      children: [
+        ..._rows(
+          [
+            ...categories.map(tile),
+            if (!iconGrid && onOpenAll != null && allLabel != null)
+              _EntryAllCategoryTile(label: allLabel!, onTap: onOpenAll!),
+          ],
+          columns,
+          expandedIndex: branchBelowGrid
+              ? categories.length - 1
+              : categories.indexWhere((c) => c.id == selectedTopId),
+          inlineBranch: openLevels.isEmpty
+              ? null
+              : DecoratedBox(
+                  key: Key('entry_category_branch_$selectedTopId'),
+                  decoration: BoxDecoration(
+                    color: VeriStyleTokens.of(context).surfaceAltColor,
+                    borderRadius: BorderRadius.circular(
+                      VeriStyleTokens.of(context).innerRadius,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      children: [
+                        for (final (parentId, children) in openLevels) ...[
+                          if (parentId != selectedTopId)
+                            const Divider(height: 16),
+                          Semantics(
+                            container: true,
+                            explicitChildNodes: true,
+                            label: l10n.entryCategoryBranchTitle(
+                              byId[parentId]!.label,
+                            ),
+                            child: Column(
+                              children: _rows(
+                                children.map(tile).toList(),
+                                columns,
+                              ).toList(),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EntryCategoryTile extends StatelessWidget {
+  const _EntryCategoryTile({
+    super.key,
+    required this.category,
+    required this.selected,
+    required this.onPath,
+    required this.expanded,
+    required this.iconGrid,
+    required this.accent,
+    required this.onTap,
+  });
+
+  final Category category;
+  final bool selected;
+  final bool onPath;
+  final bool? expanded;
+  final bool iconGrid;
+  final Color accent;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final tokens = VeriStyleTokens.of(context);
+    final border = onPath
+        ? BorderSide(color: accent.withValues(alpha: 0.72), width: 1.4)
+        : (iconGrid && !tokens.pillHasBorder
+              ? BorderSide.none
+              : BorderSide(color: tokens.borderColor));
+    final OutlinedBorder shape = iconGrid
+        ? RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(tokens.innerRadius),
+            side: border,
+          )
+        : StadiumBorder(side: border);
+    final glyph = CategoryGlyph(
+      iconCode: category.iconCode,
+      categoryName: category.label,
+      size: iconGrid ? 22 : 16,
+      color: accent,
+    );
+    final label = Text(
+      category.label,
+      textAlign: TextAlign.center,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.labelMedium?.copyWith(
+        color: onPath ? accent : scheme.onSurface,
+        fontWeight: onPath ? FontWeight.w800 : FontWeight.w600,
+      ),
+    );
+    final branchIcon = expanded == null
+        ? null
+        : Icon(
+            expanded! ? Icons.expand_more : Icons.chevron_right,
+            size: 12,
+            color: onPath
+                ? accent
+                : scheme.onSurfaceVariant.withValues(alpha: 0.45),
+          );
+    return Semantics(
+      key: selected ? Key('entry_category_selected_${category.id}') : null,
+      selected: selected,
+      expanded: expanded,
+      button: true,
+      child: Material(
+        key: Key('entry_category_capsule_${category.id}'),
+        color: onPath
+            ? Color.alphaBlend(accent.withValues(alpha: 0.10), tokens.cardColor)
+            : (iconGrid ? Colors.transparent : tokens.cardColor),
+        shape: shape,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: Key('entry_category_${category.id}'),
+          customBorder: shape,
+          onTap: onTap,
+          child: Container(
+            constraints: BoxConstraints(minHeight: iconGrid ? 52 : 44),
+            padding: EdgeInsets.symmetric(
+              horizontal: iconGrid ? 3 : 7,
+              vertical: iconGrid ? 4 : 6,
+            ),
+            alignment: Alignment.center,
+            child: iconGrid
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          glyph,
+                          if (branchIcon != null)
+                            Positioned(
+                              right: -13,
+                              bottom: 0,
+                              child: branchIcon,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      label,
+                    ],
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      glyph,
+                      const SizedBox(width: 4),
+                      Flexible(child: label),
+                      ?branchIcon,
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EntryAllCategoryTile extends StatelessWidget {
+  const _EntryAllCategoryTile({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerLow,
+      shape: const StadiumBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: const Key('entry_category_all'),
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Icon(
+                  Icons.grid_view_rounded,
+                  size: 16,
+                  color: scheme.onSurface.withValues(alpha: 0.48),
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: scheme.onSurface.withValues(alpha: 0.56),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

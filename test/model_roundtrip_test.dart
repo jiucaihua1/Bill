@@ -62,6 +62,7 @@ void main() {
   final entryDiscounted = entryMinimal.copyWith(
     id: 'entry-discounted',
     discountAmount: 0.25,
+    excludedFromStatistics: true,
   );
   final entryFixtures = [entryFull, entryMinimal, entryDiscounted];
 

@@ -93,10 +93,10 @@ void main() {
     await controller.deleteEntry('stale-entry');
     await tester.pumpAndSettle();
 
-    final excludedSwitch = find.text('不计入预算');
-    await tester.ensureVisible(excludedSwitch);
+    final budget = find.byKey(const Key('entry_exclude_budget'));
+    await tester.ensureVisible(budget);
     await tester.pumpAndSettle();
-    await tester.tap(excludedSwitch);
+    await tester.tap(budget);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 

@@ -117,6 +117,15 @@ class VeriFeedbackController {
     _buffer.clear();
   }
 
+  void dismissByKey(String dedupeKey) {
+    _host?._clearByKey(dedupeKey);
+    _buffer.removeWhere((entry) {
+      if (entry.request.dedupeKey != dedupeKey) return false;
+      _complete(entry.completer, VeriFeedbackResult.cleared);
+      return true;
+    });
+  }
+
   void _attach(_VeriFeedbackHostState host) {
     if (_disposed) return;
     final existing = _host;
@@ -332,6 +341,24 @@ class _VeriFeedbackHostState extends State<VeriFeedbackHost>
     } else {
       clear();
     }
+  }
+
+  void _clearByKey(String dedupeKey) {
+    bool matches(_FeedbackEntry entry) => entry.request.dedupeKey == dedupeKey;
+    if (!_visible.any(matches) && !_pending.any(matches)) return;
+    setState(() {
+      bool clear(_FeedbackEntry entry) {
+        if (!matches(entry)) return false;
+        _complete(entry.completer, VeriFeedbackResult.cleared);
+        return true;
+      }
+
+      _visible.removeWhere(clear);
+      _pending.removeWhere(clear);
+      while (_visible.length < widget.maxVisible && _pending.isNotEmpty) {
+        _visible.add(_pending.removeAt(0));
+      }
+    });
   }
 
   @override

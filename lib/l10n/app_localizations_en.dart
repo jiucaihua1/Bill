@@ -227,10 +227,23 @@ class AppLocalizationsEn extends AppLocalizations {
       'Marking changes no amount: this expense still counts toward account balances and income/expense stats, it just stops using up your budget.';
 
   @override
-  String get budgetScopeFilterName => 'Budget';
+  String get entryExcludeStatistics => 'Exclude from totals';
 
   @override
-  String get budgetScopeFilterTitle => 'Budget inclusion';
+  String get entryStatisticsNormal => 'Include normally';
+
+  @override
+  String get excludedFromStatistics => 'Exclude from income and expense totals';
+
+  @override
+  String get excludedFromStatisticsHint =>
+      'Keeps the transaction and its effect on account balances. Excludes it from income, expense and budget totals.';
+
+  @override
+  String get excludedStatisticsFilter => 'Excluded from totals';
+
+  @override
+  String get transactionScopeFilterName => 'Income & expenses';
 
   @override
   String get budgetScopeAll => 'All';
@@ -1448,6 +1461,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get entrySaveAndContinue => 'Save & add';
 
   @override
+  String get entrySavedSuccessfully => 'Transaction saved';
+
+  @override
   String get entrySaveReasonAmount => 'Enter an amount first';
 
   @override
@@ -1465,6 +1481,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get refundSaveReasonOverCap =>
       'Refund can\'t exceed the refundable amount';
+
+  @override
+  String get entryNoteInlineLabel => 'Note:';
 
   @override
   String entryTagCount(int count) {

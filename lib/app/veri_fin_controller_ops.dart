@@ -3992,39 +3992,59 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
 
   /// 移动分类到新的父分类下（[newParentId] 为 null 表示移到顶级）。
   /// 拦截：非当前账本、系统分类、指向自身、成环（移到自己的后代下）、跨类型/跨账本。
-  bool moveCategory(String categoryId, String? newParentId) {
+  Future<MoveCategoryResult> moveCategory(
+    String categoryId,
+    String? newParentId,
+  ) async {
     if (categoryId == newParentId) {
-      return false;
+      return MoveCategoryResult.invalid;
     }
     final index = _categories.indexWhere((c) => c.id == categoryId);
     if (index == -1) {
-      return false;
+      return MoveCategoryResult.invalid;
     }
     final category = _categories[index];
     if (category.bookId != _activeBookId || category.isBalanceAdjust) {
-      return false;
+      return MoveCategoryResult.invalid;
     }
     if (category.parentId == newParentId) {
-      return false;
+      return MoveCategoryResult.invalid;
     }
     if (newParentId != null) {
       final parent = _categories.where((c) => c.id == newParentId).firstOrNull;
       if (parent == null ||
           parent.bookId != category.bookId ||
           parent.type != category.type) {
-        return false;
+        return MoveCategoryResult.invalid;
       }
       // 不能移动到自己的后代之下，否则会成环。
       if (isDescendantOf(_categories, newParentId, categoryId)) {
-        return false;
+        return MoveCategoryResult.invalid;
       }
     }
-    // 从原位置摘出并追加到末尾，成为新父级下的最后一个同级。
-    _categories.removeAt(index);
-    _categories.add(category.copyWith(parentId: newParentId));
-    _persistCategories();
+    final normalized = normalizedCategoryLabel(category.label);
+    final duplicate = _categories.any(
+      (sibling) =>
+          sibling.id != categoryId &&
+          sibling.bookId == category.bookId &&
+          sibling.type == category.type &&
+          sibling.parentId == newParentId &&
+          normalizedCategoryLabel(sibling.label) == normalized,
+    );
+    if (duplicate) return MoveCategoryResult.duplicate;
+
+    final next = List<Category>.of(_categories)
+      ..removeAt(index)
+      ..add(category.copyWith(parentId: newParentId));
+    final saved = await _runTrackedWrite(
+      () => _repository.saveCategories(next),
+    );
+    if (!saved) return MoveCategoryResult.persistenceFailure;
+    _categories
+      ..clear()
+      ..addAll(next);
     notifyListeners();
-    return true;
+    return MoveCategoryResult.success;
   }
 
   Future<RenameResult> renameCategory(String categoryId, String label) async {

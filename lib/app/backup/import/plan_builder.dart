@@ -703,6 +703,7 @@ ImportPlan buildImportPlanFromRecords({
       occurredAt: record.date,
       refundedBaseAmount: refundedBase,
       excludedFromBudget: record.excludedFromBudget,
+      excludedFromStatistics: record.excludedFromStatistics,
       tagIds: tagIds,
     );
     entries.add(entry);

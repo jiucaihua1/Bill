@@ -46,10 +46,6 @@ ParsedImport parseYimuBill(Uint8List bytes) {
       continue;
     }
     final flags = cellAt(row, cols['其他']);
-    if (flags.contains('不计入收支')) {
-      errors.add(ImportRowError(line: line, message: '原账单标为不计入收支，已跳过以保留统计口径'));
-      continue;
-    }
     final date = parseImportDate(cellAt(row, cols['日期']));
     if (date == null) {
       errors.add(ImportRowError(line: line, message: '日期格式无效'));
@@ -66,6 +62,7 @@ ParsedImport parseYimuBill(Uint8List bytes) {
         note: cellAt(row, cols['备注']),
         refunded: parseImportFee(refund),
         excludedFromBudget: flags.contains('不计入预算'),
+        excludedFromStatistics: flags.contains('不计入收支'),
         tags: splitTagLabels(cellAt(row, cols['标签'])),
         sourceLine: line,
       ),

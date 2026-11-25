@@ -218,10 +218,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get excludedFromBudgetHint => '标记本身不改变金额：这笔仍计入账户余额与收支统计，只是不占用预算。';
 
   @override
-  String get budgetScopeFilterName => '预算';
+  String get entryExcludeStatistics => '不计入收支';
 
   @override
-  String get budgetScopeFilterTitle => '预算计入';
+  String get entryStatisticsNormal => '正常计入';
+
+  @override
+  String get excludedFromStatistics => '不计入收支统计';
+
+  @override
+  String get excludedFromStatisticsHint => '保留这笔流水和账户余额变化，收支统计和预算均不计入。';
+
+  @override
+  String get excludedStatisticsFilter => '不计入收支';
+
+  @override
+  String get transactionScopeFilterName => '收支';
 
   @override
   String get budgetScopeAll => '全部';
@@ -1413,6 +1425,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get entrySaveAndContinue => '再记';
 
   @override
+  String get entrySavedSuccessfully => '记账成功';
+
+  @override
   String get entrySaveReasonAmount => '请先输入金额';
 
   @override
@@ -1426,6 +1441,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get refundSaveReasonOverCap => '退款金额不能超过剩余可退';
+
+  @override
+  String get entryNoteInlineLabel => '备注：';
 
   @override
   String entryTagCount(int count) {

@@ -296,6 +296,7 @@ class AutoBillOverlayBridge {
         reimbursable: type == EntryType.expense && args['reimbursable'] == true,
         excludedFromBudget:
             type == EntryType.expense && args['excludedFromBudget'] == true,
+        excludedFromStatistics: args['excludedFromStatistics'] == true,
       ),
     );
     if (result.isSuccess) {

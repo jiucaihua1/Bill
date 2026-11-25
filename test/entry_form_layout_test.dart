@@ -127,7 +127,7 @@ void main() {
     );
   });
 
-  testWidgets('更多信息在属性条下展开且不遮挡键盘', (tester) async {
+  testWidgets('记账属性使用单行横滑布局且不遮挡键盘', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(393, 852);
     addTearDown(tester.view.reset);
@@ -142,8 +142,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('更多信息'), findsOneWidget);
-    expect(find.byKey(const Key('entry_metadata_datetime')), findsOneWidget);
+    expect(find.text('更多信息'), findsNothing);
+    final date = find.byKey(const Key('entry_metadata_datetime'));
+    expect(date, findsOneWidget);
     expect(find.byKey(const Key('entry_metadata_tags')), findsOneWidget);
     expect(
       find.descendant(
@@ -152,33 +153,65 @@ void main() {
       ),
       findsOneWidget,
     );
-    final more = find.byKey(const Key('quick_entry_more_info'));
-    expect(find.byKey(const Key('entry_metadata_reimbursable')), findsNothing);
-    await tester.tap(more);
-    await tester.pumpAndSettle();
-    expect(
+    final strip = find.byKey(const Key('quick_entry_metadata_strip'));
+    final statistics = find.widgetWithText(EntryTogglePill, '不计入收支');
+    final budget = find.widgetWithText(EntryTogglePill, '不计入预算');
+    final currency = find.byKey(const Key('entry_currency_button'));
+    for (final action in [
+      statistics,
+      budget,
       find.byKey(const Key('entry_metadata_reimbursable')),
-      findsOneWidget,
-    );
+      find.byKey(const Key('entry_metadata_attachments')),
+      currency,
+    ]) {
+      expect(find.descendant(of: strip, matching: action), findsOneWidget);
+      expect(
+        tester.getCenter(action).dy,
+        closeTo(tester.getCenter(date).dy, 1),
+      );
+    }
     expect(
-      find.byKey(const Key('entry_metadata_excluded_budget')),
-      findsOneWidget,
-    );
-    expect(find.byKey(const Key('entry_metadata_attachments')), findsOneWidget);
-    expect(find.byKey(const Key('entry_currency_button')), findsOneWidget);
-    final details = find.byKey(const Key('quick_entry_more_details'));
-    expect(
-      tester.getTopLeft(details).dy,
-      greaterThan(tester.getBottomLeft(more).dy),
-    );
-    expect(
-      tester.getBottomLeft(details).dy,
+      tester.getBottomLeft(strip).dy,
       lessThan(tester.getTopLeft(find.byKey(const Key('number_key_1'))).dy),
     );
+    expect(currency.hitTestable(), findsNothing);
+    await tester.drag(strip, const Offset(-340, 0));
+    await tester.pumpAndSettle();
+    expect(currency.hitTestable(), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('entry_metadata_tags')));
+    final tags = find.byKey(const Key('entry_metadata_tags'));
+    await tester.ensureVisible(tags);
+    await tester.pumpAndSettle();
+    await tester.tap(tags);
     await tester.pumpAndSettle();
     expect(find.byType(TagSelectorSheet), findsOneWidget);
+
+    Navigator.of(tester.element(find.byType(TagSelectorSheet))).pop();
+    await tester.pumpAndSettle();
+
+    final numberKey = find.byKey(const Key('number_key_1'));
+    final keyElement = tester.element(numberKey);
+    await tester.tap(find.byKey(const Key('entry_note_field')));
+    await tester.pump();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pump();
+    expect(tester.element(numberKey), same(keyElement));
+    expect(numberKey.hitTestable(), findsNothing);
+    tester.view.resetViewInsets();
+    await tester.pump();
+    expect(tester.element(numberKey), same(keyElement));
+    expect(numberKey.hitTestable(), findsOneWidget);
+
+    final from = find.byKey(const Key('account_dropdown'));
+    final to = find.byKey(const Key('to_account_dropdown'));
+    for (final tab in ['转账', '债务']) {
+      await tester.tap(find.text(tab));
+      await tester.pumpAndSettle();
+      expect(tester.widget<SelectField>(from).labelOutside, isTrue);
+      expect(tester.widget<SelectField>(to).labelOutside, isTrue);
+      expect(tester.getTopLeft(from).dx, tester.getTopLeft(to).dx);
+      expect(tester.getBottomLeft(from).dy, lessThan(tester.getTopLeft(to).dy));
+    }
   });
 
   testWidgets('紧凑附件条展示多张图片和小型删除按钮', (tester) async {

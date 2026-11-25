@@ -221,6 +221,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.page!.round(), 0);
     expect(find.text('日常账本'), findsOneWidget);
+
+    final exitHint = find.text('再次返回退出程序');
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(exitHint, findsOneWidget);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(exitHint, findsNothing);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(exitHint, findsOneWidget);
   });
 
   testWidgets('跨多页点按同样滚动过去，并落在目标页', (WidgetTester tester) async {

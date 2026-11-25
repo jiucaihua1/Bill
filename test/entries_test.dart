@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaohe/app/app_theme.dart';
 import 'package:xiaohe/app/common_widgets.dart';
+import 'package:xiaohe/app/currency_math.dart';
 import 'package:xiaohe/app/entry_sheets.dart';
 import 'package:xiaohe/app/models.dart';
 import 'package:xiaohe/app/veri_fin_scope.dart';
@@ -141,7 +142,12 @@ void main() {
     );
 
     await tester.tap(find.byKey(const Key('save_entry_button')));
+    await tester.pump();
+    // Advance the return transition without settling the feedback countdown.
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('记账成功'), findsOneWidget);
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('number_pad_display')), findsNothing);
 
     await tester.scrollUntilVisible(
       find.text('最近交易'),
@@ -241,7 +247,7 @@ void main() {
   testWidgets('opens and deletes an entry from the transaction detail page', (
     WidgetTester tester,
   ) async {
-    await pumpApp(tester);
+    final controller = await pumpApp(tester);
     await addTestAccount(tester, '现金账户');
     await tapBottomTab(tester, 0);
 
@@ -255,8 +261,109 @@ void main() {
     expect(find.text('支出'), findsAtLeastNWidgets(1));
     expect(find.text('账户'), findsOneWidget);
     expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    final entryDate = controller.entries.single.occurredAt;
+    expect(
+      find.text('${entryDate.year}年${entryDate.month}月${entryDate.day}日'),
+      findsOneWidget,
+    );
 
-    await tester.tap(find.byIcon(Icons.delete_outline));
+    // 详情页改分类时，一级分类集中在同一个网格里，选子分类后回到详情。
+    await tester.tap(find.text('食品餐饮'));
+    await tester.pumpAndSettle();
+    final grid = find.byType(EntryCategoryGrid);
+    expect(grid, findsOneWidget);
+    expect(find.byType(CategoryPickerSheet), findsNothing);
+    final shopping = find.descendant(of: grid, matching: find.text('购物消费'));
+    final dining = find.descendant(of: grid, matching: find.text('食品餐饮'));
+    expect(tester.getTopLeft(shopping).dy, tester.getTopLeft(dining).dy);
+    final health = find.descendant(of: grid, matching: find.text('健康医疗'));
+    await tester.tap(health);
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: grid, matching: find.text('午餐')), findsNothing);
+    await tester.tap(find.descendant(of: grid, matching: find.text('买药')));
+    await tester.pumpAndSettle();
+    expect(grid, findsNothing);
+    expect(find.text('买药'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(
+      controller.categoryById(controller.entries.single.categoryId).label,
+      '买药',
+    );
+
+    final note = find.byKey(const Key('transaction_note_field'));
+    final statistics = find.byKey(const Key('entry_exclude_statistics'));
+    final budget = find.byKey(const Key('entry_exclude_budget'));
+    await tester.scrollUntilVisible(
+      statistics,
+      180,
+      scrollable: firstVerticalScrollable(),
+    );
+    await tester.ensureVisible(statistics);
+    await tester.pumpAndSettle();
+    final noteLabel = find.text('备注：');
+    final tagRow = find.byType(EntryTagField);
+    final reimbursement = find.widgetWithText(EntryTogglePill, '标记待报销');
+    expect(tester.widget<TextField>(note).maxLines, 1);
+    expect(tester.getCenter(noteLabel).dy, tester.getCenter(note).dy);
+    expect(tester.getCenter(note).dy, lessThan(tester.getCenter(tagRow).dy));
+    expect(tester.getCenter(tagRow).dy, lessThan(tester.getCenter(budget).dy));
+    expect(tester.getCenter(statistics).dy, tester.getCenter(budget).dy);
+    expect(tester.getCenter(reimbursement).dy, tester.getCenter(budget).dy);
+
+    final shoppingTagId = controller.addTag('网购');
+    final householdTagId = controller.addTag('家庭');
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(tagRow);
+    await tester.pumpAndSettle();
+    await tester.tap(tagRow);
+    await tester.pumpAndSettle();
+    final tagPicker = find.byType(TagSelectorSheet);
+    final shoppingTag = find.descendant(
+      of: tagPicker,
+      matching: find.text('网购'),
+    );
+    final householdTag = find.descendant(
+      of: tagPicker,
+      matching: find.text('家庭'),
+    );
+    await tester.tap(shoppingTag);
+    await tester.pumpAndSettle();
+    await tester.tap(householdTag);
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: tagPicker, matching: find.text('完成')));
+    await tester.pumpAndSettle();
+    for (final name in ['网购', '家庭']) {
+      final tag = find.descendant(of: tagRow, matching: find.text(name));
+      expect(tag, findsOneWidget);
+      expect(tester.getCenter(tag).dy, tester.getCenter(tagRow).dy);
+    }
+    await tester.ensureVisible(statistics);
+    await tester.pumpAndSettle();
+    expect(tester.widget<EntryTogglePill>(statistics).selected, isFalse);
+    expect(tester.widget<EntryTogglePill>(budget).selected, isFalse);
+    await tester.tap(statistics);
+    await tester.pumpAndSettle();
+    expect(tester.widget<EntryTogglePill>(statistics).selected, isTrue);
+    final pausedBudget = tester.widget<EntryTogglePill>(budget);
+    expect(pausedBudget.selected, isTrue);
+    expect(pausedBudget.onTap, isNull);
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    final edited = controller.entries.single;
+    expect(edited.statisticsScope, EntryStatisticsScope.excludeStatistics);
+    expect(edited.amount, 45);
+    expect(edited.tagIds, unorderedEquals([shoppingTagId, householdTagId]));
+
+    final delete = find.byIcon(Icons.delete_outline);
+    await tester.scrollUntilVisible(
+      delete,
+      -200,
+      scrollable: firstVerticalScrollable(),
+    );
+    await tester.ensureVisible(delete);
+    await tester.pumpAndSettle();
+    await tester.tap(delete);
     await tester.pumpAndSettle();
     await tester.tap(find.text('删除').last);
     await tester.pumpAndSettle();
@@ -334,6 +441,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('交易明细'), findsOneWidget);
+    expect(
+      find.textContaining('${now.year}年${now.month}月${now.day}日'),
+      findsOneWidget,
+    );
     expect(find.text(dining.label), findsOneWidget);
     expect(find.text(transport.label), findsOneWidget);
 
@@ -752,12 +863,8 @@ void main() {
     await tapBottomTab(tester, 0);
     await createQuickEntry(tester);
 
-    // 记账表单在「更多信息」中打开标签选择器，勾选「必要」，完成。
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('entry_metadata_tags')),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
+    // 记账属性条打开标签选择器，勾选「必要」，完成。
+    await tester.ensureVisible(find.byKey(const Key('entry_metadata_tags')));
     await tester.tap(find.byKey(const Key('entry_metadata_tags')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('必要'));
@@ -967,26 +1074,26 @@ void main() {
     expect(find.text('小食'), findsNothing);
   });
 
-  testWidgets('transfer entry shows a fee field and records it', (
+  testWidgets('transfer entry shows a fee field and current balances', (
     WidgetTester tester,
   ) async {
     final store = LocalKeyValueStore();
     final controller = await makeController(store);
-    Account acc(String id, String name) => Account(
+    Account acc(String id, String name, double balance) => Account(
       id: id,
       bookId: controller.activeBook.id,
       name: name,
       type: AccountType.cash,
       groupId: null,
-      initialBalance: 500,
+      initialBalance: balance,
       iconCode: 'cash',
       note: '',
       includeInAssets: true,
       hidden: false,
     );
     controller
-      ..addAccount(acc('from-fee', '转出'))
-      ..addAccount(acc('to-fee', '转入'))
+      ..addAccount(acc('from-fee', '转出', 500))
+      ..addAccount(acc('to-fee', '转入', 1200))
       ..dispose();
 
     await pumpApp(tester, store);
@@ -997,6 +1104,34 @@ void main() {
     await tester.tap(find.text('转账'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('fee_field')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('account_dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('转出').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('to_account_dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('转入').last);
+    await tester.pumpAndSettle();
+
+    final fromBalance = find.text(formatUserMoney(500, 'CNY'));
+    final toBalance = find.text(formatUserMoney(1200, 'CNY'));
+    expect(find.text('当前余额'), findsNWidgets(2));
+    expect(fromBalance, findsOneWidget);
+    expect(toBalance, findsOneWidget);
+    expect(
+      tester.getTopLeft(fromBalance).dy,
+      lessThan(tester.getTopLeft(toBalance).dy),
+    );
+    expect(
+      tester.getTopLeft(fromBalance).dx,
+      greaterThan(
+        tester.getTopRight(find.byKey(const Key('account_dropdown'))).dx,
+      ),
+    );
+    await tester.tap(find.byKey(const Key('number_key_1')));
+    await tester.pumpAndSettle();
+    expect(fromBalance, findsOneWidget);
+    expect(toBalance, findsOneWidget);
   });
 
   test('addEntry keeps entries sorted latest first', () async {

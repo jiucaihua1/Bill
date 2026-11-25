@@ -500,17 +500,41 @@ abstract class AppLocalizations {
   /// **'标记本身不改变金额：这笔仍计入账户余额与收支统计，只是不占用预算。'**
   String get excludedFromBudgetHint;
 
-  /// No description provided for @budgetScopeFilterName.
+  /// No description provided for @entryExcludeStatistics.
   ///
   /// In zh, this message translates to:
-  /// **'预算'**
-  String get budgetScopeFilterName;
+  /// **'不计入收支'**
+  String get entryExcludeStatistics;
 
-  /// No description provided for @budgetScopeFilterTitle.
+  /// No description provided for @entryStatisticsNormal.
   ///
   /// In zh, this message translates to:
-  /// **'预算计入'**
-  String get budgetScopeFilterTitle;
+  /// **'正常计入'**
+  String get entryStatisticsNormal;
+
+  /// No description provided for @excludedFromStatistics.
+  ///
+  /// In zh, this message translates to:
+  /// **'不计入收支统计'**
+  String get excludedFromStatistics;
+
+  /// No description provided for @excludedFromStatisticsHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'保留这笔流水和账户余额变化，收支统计和预算均不计入。'**
+  String get excludedFromStatisticsHint;
+
+  /// No description provided for @excludedStatisticsFilter.
+  ///
+  /// In zh, this message translates to:
+  /// **'不计入收支'**
+  String get excludedStatisticsFilter;
+
+  /// No description provided for @transactionScopeFilterName.
+  ///
+  /// In zh, this message translates to:
+  /// **'收支'**
+  String get transactionScopeFilterName;
 
   /// No description provided for @budgetScopeAll.
   ///
@@ -2726,6 +2750,12 @@ abstract class AppLocalizations {
   /// **'再记'**
   String get entrySaveAndContinue;
 
+  /// No description provided for @entrySavedSuccessfully.
+  ///
+  /// In zh, this message translates to:
+  /// **'记账成功'**
+  String get entrySavedSuccessfully;
+
   /// No description provided for @entrySaveReasonAmount.
   ///
   /// In zh, this message translates to:
@@ -2755,6 +2785,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'退款金额不能超过剩余可退'**
   String get refundSaveReasonOverCap;
+
+  /// No description provided for @entryNoteInlineLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'备注：'**
+  String get entryNoteInlineLabel;
 
   /// No description provided for @entryTagCount.
   ///

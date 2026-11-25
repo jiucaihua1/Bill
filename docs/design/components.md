@@ -103,6 +103,10 @@
 |---|---|---|---|
 | `showCategoryPickerSheet` | Sheet 函数 | `sheets.dart` | **多级分类选择弹窗**（展开/收起层级树，**按 支出/收入/转账 分区并各带类型标题**，图标按 `colorForType` 上色，区内保持列表顺序）；`allLabel` 非空加「全部」→ 返回 `categoryPickerAll`；`topLevelLabel` 加「移到顶级」→ 返回 `categoryPickerTopLevel`（「全部」「移到顶级」用中性主题色）。**选分类一律用它**，不要裸包 `showModalBottomSheet` |
 | `CategoryPickerSheet` | Widget | `entry_sheets.dart` | 上面 helper 的内部 widget（一般经 `showCategoryPickerSheet`）；`categoryPickerAll` / `categoryPickerTopLevel` 哨兵常量在此 |
+| `EntryCategoryGrid` | Widget | `entry_sheets.dart` | 手动记账、自动确认和交易详情共用的横排分类网格。交易详情通过 `showCategoryPickerSheet(useGrid: true)` 展示，一级分类集中排列，当前分支展开在下方。 |
+| `EntryStatisticsToggles` | Widget | `entry_sheets.dart` | 记账、交易详情和自动确认共用的排除开关。仅支出显示「不计入预算」，选中「不计入收支」时同时排除预算。 |
+| `EntryMetadataStrip` | Widget | `entry_sheets.dart` | 快速记账与交易详情用的单行横滑属性栏。 |
+| `EntryTogglePill` | Widget | `entry_sheets.dart` | 交易属性的紧凑开关或选择按钮，提供选中和禁用状态，标签仍打开多选器。 |
 | `showCategoryIconPickerSheet` | Sheet 函数 | `sheets.dart` | 分类图标（内置网格 + emoji 快选 + 自由输入） |
 | `categoryById` / `categoryByIdFrom` / `categoriesFor` | 纯函数 | `model_lookup.dart` | 取分类 / 按类型过滤 |
 | 分类树工具集 | 纯函数 | `category_tree.dart` | `categoryIndex` `rootCategories` `childrenOf` `hasChildren` `ancestorIds` `rootIdOf` `descendantIds` `isDescendantOf` `depthOf` `pathLabel` `flattenTree`（均带环检测）；`CategoryNode` 携带 depth |
@@ -134,7 +138,7 @@
 | `groupEntriesByDate` / `relativeDay` | 纯函数 | `common_widgets.dart` | 按日分组、日期倒序 / 相对今天；`DateEntryGroup` 分组模型 |
 | `CalendarPreview` | Widget | `common_widgets.dart` | 月历预览（内建月份切换、非当前月份显示「本月」回跳按钮 + 日收支）；必传 `currencyCode`；单币种账本隐藏单位时右下角不再显示轻量单位提示，并**连同前置 6dp 间距整块不构建**（`if (!textCurrencyUnitHidden)`，见维护约定），多币种账本照常显示 |
 | `VeriCalendarHeatmap` | Widget | `common_widgets_heatmap.dart` | 月历热力图：12 个月各一张迷你日历，按天着色（值越大越深，无记录为浅底）。固定尺寸格子 + `RepaintBoundary`，格子尺寸按可用宽度一次算出（默认 4 列），领空格不生成 Widget；调用方传 `year` / `dailyValues` / 深浅两色 / 月份文案。配套纯函数 `heatmapDayIndexOfYear` 把日期映射成 `dailyValues` 下标（**必须走 `calendarDaysBetween`**，`difference().inDays` 在夏令时地区会少算一天）。看板「收支热力」卡用它 |
-| `EntryTagField` | Widget | `common_widgets.dart` | 记账表单标签行 |
+| `EntryTagField` | Widget | `common_widgets.dart` | 单笔详情的标签行，可横滑查看各标签名称，点击打开多选。 |
 | `AttachmentsEditor` | Widget | `attachments_editor.dart` | 多图片附件横向缩略图、全屏查看和逐张删除；默认自带标题与拍照/相册添加入口，记账页的轻量元数据布局通过 `showHeader:false` / `showAddButton:false` 只复用缩略图条，添加入口由页面标签触发 |
 | `TagSelectorSheet` / `pickEntryTags` | Widget / Sheet 函数 | `entry_sheets.dart` / `sheets.dart` | 交易标签多选（即时新建）/ 接 controller 的弹窗封装。**标签同样是账本内数据**（`Tag.bookId`）：列表取 `controller.tags`（当前账本），跨账本数据用 `tagsForBook(bookId)` |
 | `RefundSection` / `showRefundSheet` | Widget / Sheet 函数 | `refund_editor.dart` | 支出详情页的受控「退款」区（列退款明细+净支出+添加）/ 添加·编辑退款弹窗（金额截剩余可退、到账账户、已到账开关+到账日期、发起日期、备注、删除）；默认剩余可退金额按原币 minor unit 归一化；Sheet 确认只把退款草稿交回父交易，父交易页自动保存时与本体、附件原子提交。待退款清单独立编辑时由调用方在 Sheet 确认后提交 |
@@ -144,7 +148,7 @@
 
 | 名称 | 类型 | 位置 | 用途 |
 |---|---|---|---|
-| `SelectField` | Widget | `common_widgets.dart` | 下拉选择字段；`leading` 可传自定义前置（如账户图标），`suffixIcon` 可替换默认箭头提供清除等局部操作 |
+| `SelectField` | Widget | `common_widgets.dart` | 下拉选择字段。支持账户图标或自定义尾部操作；转账与债务面板使用 `labelOutside` 将标签置于字段上方。 |
 | `SectionLabel` | Widget | `common_widgets.dart` | 分组小标题（分区 `VeriCard` 上方的灰色标签，设置页/账户详情页分模块用） |
 | `SettingsRow` | Widget | `common_widgets.dart` | 设置行（图标+标题+trailing 文本+chevron）；`leading` 可传账户图标等自定义前置，`contentColor` 可上色（如危险操作红色） |
 | `CompactSwitchRow` | Widget | `common_widgets.dart` | 紧凑开关行（整行可点，不只点开关）；`onChanged:null` 保留原生禁用语义，表示当前平台/状态不可用 |

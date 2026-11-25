@@ -413,7 +413,10 @@ void main() {
     )!;
     expect(expenseAdjust.isBalanceAdjust, isTrue);
     expect(await controller.deleteCategory(expenseAdjust.id), isFalse);
-    expect(controller.moveCategory(expenseAdjust.id, null), isFalse);
+    expect(
+      await controller.moveCategory(expenseAdjust.id, null),
+      MoveCategoryResult.invalid,
+    );
 
     controller.addLedgerBook('旅行');
     final travelBookId = controller.activeBook.id;

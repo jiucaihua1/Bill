@@ -9,6 +9,7 @@ import '../app/common_widgets.dart';
 import '../app/currency_catalog.dart';
 import '../app/currency_math.dart';
 import '../app/entry_currency_draft.dart';
+import '../app/entry_sheets.dart';
 import '../app/feedback.dart';
 import '../app/haptics.dart';
 import '../app/model_lookup.dart';
@@ -58,7 +59,7 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
   late List<String> _tagIds;
   late double _fee;
   late bool _reimbursable;
-  late bool _excludedFromBudget;
+  late EntryStatisticsScope _statisticsScope;
   late final TextEditingController _noteController;
   late List<LedgerEntry> _refunds;
   late List<Attachment> _attachments;
@@ -93,7 +94,7 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
     _tagIds = List<String>.of(entry.tagIds);
     _fee = entry.fee;
     _reimbursable = entry.reimbursable;
-    _excludedFromBudget = entry.excludedFromBudget;
+    _statisticsScope = entry.statisticsScope;
     _noteController = TextEditingController(text: entry.note);
     _refunds = List<LedgerEntry>.of(controller.refundsForEntry(entry.id));
     _attachments = List<Attachment>.of(
@@ -155,6 +156,8 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
       EntryType.transfer => formattedAmount,
       EntryType.refund => '+$formattedAmount',
     };
+    final l10n = AppLocalizations.of(context);
+    final dayHint = relativeDay(l10n, _occurredAt);
 
     return AutoSavePopScope(
       autoSave: _autoSave,
@@ -410,9 +413,10 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
                               flex: 3,
                               child: _CompactMetaCell(
                                 icon: Icons.calendar_today_outlined,
-                                label: AppLocalizations.of(context).dateLabel,
-                                value:
-                                    '${AppLocalizations.of(context).dateMonthDay(_occurredAt)} · ${relativeDay(AppLocalizations.of(context), _occurredAt)}',
+                                label: dayHint.isEmpty
+                                    ? l10n.dateLabel
+                                    : '${l10n.dateLabel} · $dayHint',
+                                value: l10n.dateYearMonthDay(_occurredAt),
                                 onTap: _pickDate,
                               ),
                             ),
@@ -429,69 +433,62 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
                           ],
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: <Widget>[
-                            SizedBox(
-                              width: 78,
-                              child: Text(
-                                AppLocalizations.of(context).commonNote,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface
-                                          .withValues(alpha: 0.62),
-                                    ),
-                              ),
-                            ),
-                            Expanded(
-                              child: TextField(
-                                controller: _noteController,
-                                textAlign: TextAlign.end,
-                                maxLines: 1,
-                                textInputAction: TextInputAction.done,
-                                decoration: InputDecoration(
-                                  hintText: AppLocalizations.of(
+                      const SizedBox(height: 6),
+                      Row(
+                        spacing: 6,
+                        children: [
+                          Text(
+                            l10n.entryNoteInlineLabel,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(
                                     context,
-                                  ).noteHint,
-                                  filled: false,
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  disabledBorder: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.zero,
+                                  ).colorScheme.onSurfaceVariant,
                                 ),
-                                onChanged: (_) => _touch(),
+                          ),
+                          Expanded(
+                            child: TextField(
+                              key: const Key('transaction_note_field'),
+                              controller: _noteController,
+                              maxLines: 1,
+                              textInputAction: TextInputAction.done,
+                              decoration: InputDecoration(
+                                hintText: l10n.noteHint,
+                                filled: false,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                isDense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 10,
+                                ),
                               ),
+                              onChanged: (_) => _touch(),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      DetailInfoRow(
-                        label: AppLocalizations.of(context).tagLabel,
-                        value: _tagLabels(controller).isEmpty
-                            ? AppLocalizations.of(context).entryAddTags
-                            : _tagLabels(controller).join('、'),
-                        placeholder: _tagLabels(controller).isEmpty,
+                      EntryTagField(
+                        tagIds: _tagIds,
+                        tagLabelOf: (id) => controller.tagById(id)?.label,
                         onTap: _pickTags,
                       ),
-                      if (_type == EntryType.expense) ...<Widget>[
+                      if (EntryStatisticsScope.supports(_type)) ...[
                         const SizedBox(height: 6),
-                        Row(
+                        EntryMetadataStrip(
                           children: <Widget>[
-                            Expanded(
-                              child: _CompactTogglePill(
-                                label: AppLocalizations.of(
-                                  context,
-                                ).markReimbursable,
+                            EntryStatisticsToggles(
+                              type: _type,
+                              scope: _statisticsScope,
+                              onChanged: (scope) {
+                                setState(() => _statisticsScope = scope);
+                                _touch();
+                              },
+                            ),
+                            if (_type == EntryType.expense)
+                              EntryTogglePill(
+                                label: l10n.markReimbursable,
                                 selected: _reimbursable,
-                                activeColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary,
                                 onTap: () {
                                   setState(
                                     () => _reimbursable = !_reimbursable,
@@ -499,41 +496,9 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
                                   _touch();
                                 },
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _CompactTogglePill(
-                                label: AppLocalizations.of(
-                                  context,
-                                ).excludedFromBudget,
-                                selected: _excludedFromBudget,
-                                activeColor: Theme.of(
-                                  context,
-                                ).colorScheme.secondary,
-                                onTap: () {
-                                  setState(
-                                    () => _excludedFromBudget =
-                                        !_excludedFromBudget,
-                                  );
-                                  _touch();
-                                },
-                              ),
-                            ),
                           ],
                         ),
                       ],
-                      if (_type == EntryType.expense && _excludedFromBudget)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 6, bottom: 2),
-                          child: Text(
-                            AppLocalizations.of(context).excludedFromBudgetHint,
-                            style: Theme.of(context).textTheme.labelSmall
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurface
-                                      .withValues(alpha: 0.62),
-                                ),
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -1101,8 +1066,9 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
       context,
       categories: VeriFinScope.of(context).categoriesForType(_type),
       selectedId: _categoryId,
+      useGrid: true,
     );
-    if (selected != null && mounted) {
+    if (selected != null && mounted && selected != _categoryId) {
       setState(() => _categoryId = selected);
       _touch();
     }
@@ -1390,7 +1356,11 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
           ? normalizeCurrencyAmount(_fee, _currencyCode)
           : 0,
       reimbursable: _type == EntryType.expense && _reimbursable,
-      excludedFromBudget: _type == EntryType.expense && _excludedFromBudget,
+      excludedFromBudget:
+          _statisticsScope.forType(_type) == EntryStatisticsScope.excludeBudget,
+      excludedFromStatistics:
+          _statisticsScope.forType(_type) ==
+          EntryStatisticsScope.excludeStatistics,
       refundedBaseAmount: _type == EntryType.expense
           ? _refunds
                 .where((refund) => refund.isSettledRefund)
@@ -1438,13 +1408,6 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
       _autoSave.discardPending();
       Navigator.of(context).pop();
     }
-  }
-
-  List<String> _tagLabels(VeriFinController controller) {
-    return <String>[
-      for (final id in _tagIds)
-        if (controller.tagById(id) case final Tag tag) tag.label,
-    ];
   }
 
   Future<void> _pickTags() async {
@@ -1584,73 +1547,6 @@ class _CompactMetaCell extends StatelessWidget {
                       ),
                     ),
                   ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CompactTogglePill extends StatelessWidget {
-  const _CompactTogglePill({
-    required this.label,
-    required this.selected,
-    required this.activeColor,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final Color activeColor;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = VeriStyleTokens.of(context);
-    final fg = selected
-        ? activeColor
-        : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65);
-    return Material(
-      color: selected
-          ? activeColor.withValues(alpha: 0.11)
-          : tokens.surfaceAltColor,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected
-                  ? activeColor.withValues(alpha: 0.35)
-                  : Colors.transparent,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Icon(
-                selected
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked_rounded,
-                size: 15,
-                color: fg,
-              ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: fg,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  ),
                 ),
               ),
             ],

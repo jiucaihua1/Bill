@@ -18,7 +18,7 @@ class AppDatabase {
   final Database db;
 
   static const String defaultDatabaseName = 'verifin.db';
-  static const int schemaVersion = 21;
+  static const int schemaVersion = 22;
 
   /// 打开（或创建）数据库。测试通过 [factory]/[path] 注入 ffi 与内存路径；
   /// 真实平台留空则由 [resolveDatabaseFactory]/[resolveDatabasePath] 决定。
@@ -78,6 +78,7 @@ class AppDatabase {
         19: _migrateToV19,
         20: _migrateToV20,
         21: _migrateToV21,
+        22: _migrateToV22,
       };
 
   /// 只读暴露迁移注册表，供迁移矩阵测试把库推进到任意中间版本。生产代码勿用。
@@ -815,6 +816,18 @@ class AppDatabase {
     );
   }
 
+  static Future<void> _migrateToV22(Database db) async {
+    if (!await _tableExists(db, 'entries') ||
+        await _columnsExist(db, 'entries', const [
+          'excluded_from_statistics',
+        ])) {
+      return;
+    }
+    await db.execute(
+      'ALTER TABLE entries ADD COLUMN excluded_from_statistics INTEGER NOT NULL DEFAULT 0',
+    );
+  }
+
   /// v10 起的分类唯一约束：同一父级（顶级按空串归一）下不允许同 label+type 的
   /// 重复分类。**这是历史定义，只被 v10 迁移段使用**（那时的表还没有 book_id）；
   /// v19 会先 DROP 这个索引再建下面的账本作用域版本，两者同名。
@@ -959,6 +972,7 @@ class AppDatabase {
       fee REAL NOT NULL DEFAULT 0,
       reimbursable INTEGER NOT NULL DEFAULT 0,
       excluded_from_budget INTEGER NOT NULL DEFAULT 0,
+      excluded_from_statistics INTEGER NOT NULL DEFAULT 0,
       subscription_mark TEXT NOT NULL DEFAULT 'automatic',
       refunded_amount REAL NOT NULL DEFAULT 0,
       refund_of TEXT,

@@ -92,7 +92,7 @@ void _runContract(String name, Future<LedgerRepository> Function() openRepo) {
           'e2',
           DateTime(2026, 2, 1, 9),
           note: '较新',
-        ).copyWith(discountAmount: 2.5),
+        ).copyWith(discountAmount: 2.5, excludedFromStatistics: true),
         _entry('e1', DateTime(2026, 1, 1, 8), note: '较旧'),
       ];
       final books = <LedgerBook>[

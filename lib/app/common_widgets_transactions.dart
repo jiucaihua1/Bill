@@ -257,12 +257,12 @@ class TransactionTile extends StatelessWidget {
                           ),
                         // 与报销徽标不同，这个标记与报销状态互不影响，可以同时出现。
                         // 用中性色：它是用户主动做的分类，不是需要关注的异常状态。
-                        if (entry.type == EntryType.expense &&
-                            entry.excludedFromBudget)
+                        if (entry.statisticsScope !=
+                            EntryStatisticsScope.normal)
                           _EntryBadge(
-                            text: AppLocalizations.of(
-                              context,
-                            ).excludedFromBudget,
+                            text: entry.statisticsScope.label(
+                              AppLocalizations.of(context),
+                            ),
                             color: Theme.of(
                               context,
                             ).colorScheme.onSurfaceVariant,
@@ -486,9 +486,13 @@ class DateGroupHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final fullDate = l10n.dateYearMonthDay(date);
+    final dayHint = relativeDay(l10n, date);
     final dayTotal = entries.fold<double>(
       0,
-      (sum, entry) => sum + signedAmount(entry),
+      (sum, entry) =>
+          entry.excludedFromStatistics ? sum : sum + signedAmount(entry),
     );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -496,7 +500,7 @@ class DateGroupHeader extends StatelessWidget {
         children: <Widget>[
           Expanded(
             child: Text(
-              '${AppLocalizations.of(context).dateMonthDay(date)}  ${relativeDay(AppLocalizations.of(context), date)}',
+              dayHint.isEmpty ? fullDate : '$fullDate  $dayHint',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: Theme.of(
                   context,

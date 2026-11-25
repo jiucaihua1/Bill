@@ -155,6 +155,7 @@ class SelectField extends StatelessWidget {
     this.icon,
     this.leading,
     this.suffixIcon,
+    this.labelOutside = false,
     required this.onTap,
   }) : assert(icon != null || leading != null, '需要提供 icon 或 leading');
 
@@ -167,18 +168,26 @@ class SelectField extends StatelessWidget {
 
   /// 自定义尾部操作；未提供时显示默认下拉箭头。
   final Widget? suffixIcon;
+  final bool labelOutside;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    final field = Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(veriRadiusMd),
         onTap: onTap,
         child: InputDecorator(
           decoration: InputDecoration(
-            labelText: label,
+            labelText: labelOutside ? null : label,
+            isDense: labelOutside ? true : null,
+            prefixIconConstraints: labelOutside
+                ? const BoxConstraints(minWidth: 34, minHeight: 44)
+                : null,
+            suffixIconConstraints: labelOutside
+                ? const BoxConstraints(minWidth: 28, minHeight: 44)
+                : null,
             prefixIcon: leading == null
                 ? Icon(icon)
                 : Center(widthFactor: 1, heightFactor: 1, child: leading),
@@ -194,6 +203,21 @@ class SelectField extends StatelessWidget {
           ),
         ),
       ),
+    );
+    if (!labelOutside) return field;
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 6),
+        field,
+      ],
     );
   }
 }
@@ -344,7 +368,7 @@ Future<T> runWithLoadingDialog<T>({
   }
 }
 
-/// 记账表单里的「标签」行：展示已选标签 chip（空时提示点击添加），整行可点击打开多选。
+/// 交易标签行，依次显示标签名，整行可打开多选。
 class EntryTagField extends StatelessWidget {
   const EntryTagField({
     super.key,
@@ -361,6 +385,8 @@ class EntryTagField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final labels = <String>[
       for (final id in tagIds)
         if (tagLabelOf(id) case final String label) label,
@@ -373,62 +399,54 @@ class EntryTagField extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 8,
             children: <Widget>[
-              Icon(
-                Icons.label_outline,
-                size: 20,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.6),
+              Text(
+                l10n.tagLabel,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
-              const SizedBox(width: 12),
               Expanded(
                 child: labels.isEmpty
                     ? Text(
-                        AppLocalizations.of(context).entryAddTags,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: 0.5),
+                        l10n.entryAddTags,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       )
-                    : Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: <Widget>[
-                          for (final label in labels)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
+                    : SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        primary: false,
+                        child: Row(
+                          spacing: 6,
+                          children: <Widget>[
+                            for (final label in labels)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: ShapeDecoration(
+                                  color: theme.colorScheme.primaryContainer,
+                                  shape: const StadiumBorder(),
+                                ),
+                                child: Text(
+                                  label,
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                               ),
-                              decoration: BoxDecoration(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.primary.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                label,
-                                style: Theme.of(context).textTheme.labelMedium
-                                    ?.copyWith(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                              ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
               ),
               Icon(
                 Icons.chevron_right,
                 size: 20,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.4),
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ],
           ),

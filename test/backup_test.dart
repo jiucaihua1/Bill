@@ -321,6 +321,8 @@ void main() {
       ..addCategory(type: EntryType.expense, label: '咖啡', iconCode: 'dining');
     final coffeeIndex = source
         .categoriesForType(EntryType.expense)
+        .where((category) => category.isRoot)
+        .toList()
         .indexWhere((category) => category.label == '咖啡');
     source.reorderCategories(EntryType.expense, null, coffeeIndex, 0);
 
@@ -417,10 +419,10 @@ void main() {
       expect(data['exchangeRates'], hasLength(1));
       expect(data['currencyFractionStyle'], isNotNull);
       expect(data['moneyUnitStyle'], 'symbol');
-      expect(data['themeColor'], <String, Object?>{
-        'mode': 'defaultColor',
-        'color': 0xFF346EDB,
-      });
+      expect(
+        data['themeColor'],
+        jsonDecode(source.themeColorPreference.encode()),
+      );
       expect(data['hideUnitInSingleCurrency'], isTrue);
 
       final target = await makeController();
@@ -660,6 +662,12 @@ void main() {
     );
     expect(excluded.excludedFromBudget, isTrue);
     expect(reimbursed.excludedFromBudget, isFalse);
+    expect(
+      controller.entries
+          .firstWhere((entry) => entry.id == 'entry_20260702_004')
+          .statisticsScope,
+      EntryStatisticsScope.excludeStatistics,
+    );
     // 分类预算键里嵌的是分类 id（导入后重新随机生成），按导入后的 餐饮 id 取。
     expect(
       controller.categoryBudget(DateTime(2026, 7), coffee.parentId!),
@@ -698,7 +706,6 @@ void main() {
     expect(controller.enabledPanelIds(PanelPageKind.home), <String>[
       'trend',
       'budget',
-      'recent',
     ]);
     expect(controller.enabledPanelIds(PanelPageKind.reportsMonthly), <String>[
       // summary / category_stats 是样例备份没有的面板：归一化按它们在目录里的

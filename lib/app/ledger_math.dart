@@ -113,6 +113,7 @@ double sumByType(Iterable<LedgerEntry> entries, EntryType type) {
 /// 统计图中单笔条目的金额。转账的本位币金额按设计恒为 0，展示统计时使用
 /// 原始转出金额，否则“转账”筛选会出现全 0 的图表和列表。
 double statAmountForEntry(LedgerEntry entry) {
+  if (entry.excludedFromStatistics) return 0;
   return switch (entry.type) {
     EntryType.expense => entry.netBaseAmount,
     EntryType.income || EntryType.refund => entry.baseAmount,
@@ -120,12 +121,10 @@ double statAmountForEntry(LedgerEntry entry) {
   };
 }
 
-/// 该交易是否计入**预算**口径：支出，且未标记「不计入预算」。
-///
-/// 预算口径与「实际发生」口径是两件事——账户余额、收支统计与报表算的是钱有没有
-/// 动，标记「不计入预算」的借款/垫付照样要算进去，它们不走这个判定。
+/// 只有选择正常统计口径的支出计入预算。
 bool countsTowardBudget(LedgerEntry entry) =>
-    entry.type == EntryType.expense && !entry.excludedFromBudget;
+    entry.type == EntryType.expense &&
+    entry.statisticsScope == EntryStatisticsScope.normal;
 
 /// 预算口径的支出合计：排除标记为「不计入预算」的交易。
 ///
@@ -328,7 +327,7 @@ List<double> monthlyExpenseValues(Iterable<LedgerEntry> entries) {
   final values = List<double>.filled(12, 0);
   for (final entry in entries) {
     if (entry.type == EntryType.expense && entry.occurredAt.year == now.year) {
-      values[entry.occurredAt.month - 1] += entry.netBaseAmount;
+      values[entry.occurredAt.month - 1] += statAmountForEntry(entry);
     }
   }
   return values;

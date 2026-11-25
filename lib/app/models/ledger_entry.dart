@@ -109,6 +109,29 @@ extension type const SubscriptionMark._(String storageValue) {
   }
 }
 
+enum EntryStatisticsScope {
+  normal,
+  excludeBudget,
+  excludeStatistics;
+
+  static bool supports(EntryType type) =>
+      type == EntryType.expense || type == EntryType.income;
+
+  EntryStatisticsScope forType(EntryType type) =>
+      !supports(type) || (this == excludeBudget && type != EntryType.expense)
+      ? normal
+      : this;
+
+  static EntryStatisticsScope fromStorage(Object? value) =>
+      values.where((scope) => scope.name == value).firstOrNull ?? normal;
+
+  String label(AppLocalizations l10n) => switch (this) {
+    normal => l10n.entryStatisticsNormal,
+    excludeBudget => l10n.excludedFromBudget,
+    excludeStatistics => l10n.excludedFromStatistics,
+  };
+}
+
 class LedgerEntry {
   const LedgerEntry({
     required this.id,
@@ -130,6 +153,7 @@ class LedgerEntry {
     this.fee = 0,
     this.reimbursable = false,
     this.excludedFromBudget = false,
+    bool excludedFromStatistics = false,
     this.subscriptionMark = SubscriptionMark.automatic,
     double? refundedBaseAmount,
     double? refundedAmount,
@@ -140,6 +164,9 @@ class LedgerEntry {
            toAccountAmount ??
            (toAccountId == null || toAccountId == '' ? null : amount),
        baseAmount = baseAmount ?? (type == EntryType.transfer ? 0 : amount),
+       excludedFromStatistics =
+           (type == EntryType.expense || type == EntryType.income) &&
+           excludedFromStatistics,
        refundedBaseAmount = refundedBaseAmount ?? refundedAmount ?? 0;
 
   final String id;
@@ -179,12 +206,18 @@ class LedgerEntry {
   /// 报销/退款到账通过关联的退款条目（[EntryType.refund]）冲抵原交易。
   final bool reimbursable;
 
-  /// 是否标记为「不计入预算」（仅支出有意义）。仅作标记，不影响金额。
-  /// 预算口径（预算页、首页与看板预算卡、按日预算、桌面小组件预算、
-  /// AI `budgetStatus` 工具）聚合时跳过该笔——借款、垫付这类钱确实花出去了、
-  /// 但不该占用本月消费额度的支出。**收支统计、账户余额与报表不受影响**，
-  /// 它们算的是「实际发生」，与预算口径是两件事。
+  /// 仅排除预算口径（仅支出有意义）。
   final bool excludedFromBudget;
+
+  /// 收支及预算聚合均跳过。流水、账户余额与退款关系仍按原金额处理。
+  final bool excludedFromStatistics;
+
+  EntryStatisticsScope get statisticsScope => excludedFromStatistics
+      ? EntryStatisticsScope.excludeStatistics
+      : type == EntryType.expense && excludedFromBudget
+      ? EntryStatisticsScope.excludeBudget
+      : EntryStatisticsScope.normal;
+
   final SubscriptionMark subscriptionMark;
 
   /// 已被退款 / 报销回款冲抵的金额（仅支出有意义）——**派生缓存**，
@@ -246,6 +279,7 @@ class LedgerEntry {
     double? fee,
     bool? reimbursable,
     bool? excludedFromBudget,
+    bool? excludedFromStatistics,
     SubscriptionMark? subscriptionMark,
     double? refundedBaseAmount,
     double? refundedAmount,
@@ -280,6 +314,8 @@ class LedgerEntry {
       fee: fee ?? this.fee,
       reimbursable: reimbursable ?? this.reimbursable,
       excludedFromBudget: excludedFromBudget ?? this.excludedFromBudget,
+      excludedFromStatistics:
+          excludedFromStatistics ?? this.excludedFromStatistics,
       subscriptionMark: (type ?? this.type) == EntryType.expense
           ? subscriptionMark ?? this.subscriptionMark
           : SubscriptionMark.automatic,
@@ -311,6 +347,7 @@ class LedgerEntry {
       if (fee != 0) 'fee': fee,
       if (reimbursable) 'reimbursable': true,
       if (excludedFromBudget) 'excludedFromBudget': true,
+      if (excludedFromStatistics) 'excludedFromStatistics': true,
       if (subscriptionMark != SubscriptionMark.automatic)
         'subscriptionMark': subscriptionMark.storageValue,
       if (refundedBaseAmount != 0) 'refundedBaseAmount': refundedBaseAmount,
@@ -351,6 +388,7 @@ class LedgerEntry {
       fee: (json['fee'] as num?)?.toDouble() ?? 0,
       reimbursable: json['reimbursable'] as bool? ?? false,
       excludedFromBudget: json['excludedFromBudget'] as bool? ?? false,
+      excludedFromStatistics: json['excludedFromStatistics'] == true,
       subscriptionMark: SubscriptionMark.fromStorage(json['subscriptionMark']),
       refundedBaseAmount:
           (json['refundedBaseAmount'] as num?)?.toDouble() ??

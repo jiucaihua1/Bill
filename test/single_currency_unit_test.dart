@@ -154,6 +154,7 @@ void main() {
         TransactionsPage(initialDate: DateTime(2026, 9, 10)),
       );
 
+      expect(find.widgetWithText(FilterPill, '2026年9月10日'), findsOneWidget);
       expect(find.textContaining('单位：'), findsNothing);
     });
 

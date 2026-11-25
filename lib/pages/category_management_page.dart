@@ -35,6 +35,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
   late EntryType _type = widget.initialType;
   late final AutoSave _autoSave = AutoSave(save: _saveOrder);
   bool _sorting = false;
+  bool _finishingSorting = false;
   List<Category> _draftCategories = <Category>[];
 
   // 收起的父分类 id；首次进入时默认收起所有有子分类的父节点。
@@ -84,7 +85,7 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
                       HeaderAction(
                         icon: Icons.check,
                         tooltip: AppLocalizations.of(context).panelSortDone,
-                        onPressed: _finishSorting,
+                        onPressed: _finishingSorting ? null : _finishSorting,
                       )
                     else
                       HeaderAction(
@@ -146,12 +147,12 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
       itemCount: siblings.length,
       // 一次拖动只给两次触感：抓住 + 落下（与资产/面板排序一致）。
       onReorderStart: (_) {
-        if (_sorting) {
+        if (_sorting && !_finishingSorting) {
           VeriHaptics.tap();
         }
       },
       onReorderItem: (oldIndex, newIndex) {
-        if (_sorting) {
+        if (_sorting && !_finishingSorting) {
           VeriHaptics.tap();
           _reorderDraft(parentId, oldIndex, newIndex);
         }
@@ -229,10 +230,16 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
     });
   }
 
-  void _finishSorting() {
+  Future<void> _finishSorting() async {
+    setState(() => _finishingSorting = true);
+    final saved = await _autoSave.flush();
+    if (!mounted) return;
     setState(() {
-      _sorting = false;
-      _draftCategories = <Category>[];
+      _finishingSorting = false;
+      if (saved) {
+        _sorting = false;
+        _draftCategories = <Category>[];
+      }
     });
   }
 
@@ -468,16 +475,24 @@ class _CategoryManagementPageState extends State<CategoryManagementPage> {
     if (!mounted || selected == null) {
       return;
     }
-    final moved = controller.moveCategory(
-      category.id,
-      selected == categoryPickerTopLevel ? null : selected,
+    final moved = await runWithLoadingDialog(
+      context: context,
+      task: () => controller.moveCategory(
+        category.id,
+        selected == categoryPickerTopLevel ? null : selected,
+      ),
     );
-    if (!moved && mounted) {
+    if (!mounted) return;
+    final message = switch (moved) {
+      MoveCategoryResult.duplicate => l10n.categoryNameDuplicate,
+      MoveCategoryResult.invalid => l10n.cannotMoveHere,
+      _ => null,
+    };
+    if (message != null) {
       unawaited(
-        VeriFeedbackHost.of(context).showMessage(
-          message: l10n.cannotMoveHere,
-          tone: VeriFeedbackTone.warning,
-        ),
+        VeriFeedbackHost.of(
+          context,
+        ).showMessage(message: message, tone: VeriFeedbackTone.warning),
       );
     }
   }

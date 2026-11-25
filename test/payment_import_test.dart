@@ -368,6 +368,7 @@ void main() {
             accountId: account.id,
             note: 'lunch, with comma',
             occurredAt: DateTime(2026, 7, 1, 12, 30),
+            excludedFromStatistics: true,
           ),
         ],
         accounts: <Account>[account],
@@ -386,6 +387,7 @@ void main() {
       expect(entry.accountAmount, 72);
       expect(entry.baseAmount, 72);
       expect(entry.note, 'lunch, with comma');
+      expect(entry.statisticsScope, EntryStatisticsScope.excludeStatistics);
       expect(plan.newAccounts.single.currencyCode, 'CNY');
     });
 
@@ -1005,10 +1007,9 @@ void main() {
       expect(phone.netAmount, 0);
     });
 
-    test('真·0 元空记录被静默忽略（不导入也不报错）', () {
-      // R6：净额 0、无退款无优惠，是一木里的空记录 → 归一化阶段直接跳过。
+    test('真·0 元空记录被跳过，其他行照常导入', () {
       expect(plan.entries.any((e) => e.note == '阿巴阿巴'), isFalse);
-      expect(plan.errorCount, 0);
+      expect(plan.errors.single.message, contains('净额与退款均为零'));
       expect(plan.importedCount, 6); // 其它 6 行正常导入。
     });
   });

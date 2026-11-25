@@ -119,6 +119,8 @@ flutter test integration_test/ -d <device-id> --flavor diagnostic
 按目标 pid 保存本次 logcat，避免把其他应用日志混入结论。日志和截图放在被忽略的
 `build/`，不提交账目、凭证或原始敏感内容。图形问题分离绘制路径复现。
 
+排查记账备注键盘时，使用 `--dart-define=IME_DIAGNOSTICS=true` 构建（个人版封装脚本参数为 `-ImeDiagnostics`）。开关默认关闭。点击备注弹出键盘后，「软件日志」按 `ime.quick_entry_note` 或 `ime.entry_note` 记录从点击回调到焦点、首个底部遮挡和最后一次遮挡变化的毫秒数。每次交互最多写一条本地日志，未收到的信号显示为 `unobserved`。底部遮挡是 Flutter 收到的窗口指标，可与 Android `ImeTracker` 的展开完成时间对照。日志只包含耗时。
+
 需要持续亮屏时，先记录 `adb shell settings get global stay_on_while_plugged_in`，
 可临时 `adb shell svc power stayon usb`；任务结束恢复原值，不改变用户永久息屏习惯。
 若连接电脑仍自动息屏，先看 `adb shell dumpsys battery`：某些 USB-PD 连接会被识别为 AC 而不是 USB，

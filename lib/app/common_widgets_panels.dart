@@ -391,6 +391,7 @@ class _CalendarPreviewState extends State<CalendarPreview> {
     final incomeByDay = <int, double>{};
     final expenseByDay = <int, double>{};
     for (final entry in widget.entries) {
+      if (entry.excludedFromStatistics) continue;
       final at = entry.occurredAt;
       if (at.year != _visibleMonth.year || at.month != _visibleMonth.month) {
         continue;

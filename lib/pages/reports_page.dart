@@ -988,10 +988,16 @@ class _PeriodSummaryPanel extends StatelessWidget {
     final expense = sumByType(entries, EntryType.expense);
     final net = income - expense;
     final incomeCount = entries
-        .where((entry) => entry.type == EntryType.income)
+        .where(
+          (entry) =>
+              entry.type == EntryType.income && !entry.excludedFromStatistics,
+        )
         .length;
     final expenseCount = entries
-        .where((entry) => entry.type == EntryType.expense)
+        .where(
+          (entry) =>
+              entry.type == EntryType.expense && !entry.excludedFromStatistics,
+        )
         .length;
     final zeroColor = Theme.of(
       context,

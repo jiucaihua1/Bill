@@ -108,6 +108,17 @@
         "excludedFromBudget": true
       },
       {
+        "id": "entry_20260702_004",
+        "bookId": "default",
+        "type": "income",
+        "amount": 68.0,
+        "categoryId": "living",
+        "accountId": "acc_wechat",
+        "note": "收到同事的代购款",
+        "occurredAt": "2026-07-02T20:30:00.000",
+        "excludedFromStatistics": true
+      },
+      {
         "id": "entry_20260701_001",
         "bookId": "default",
         "type": "expense",

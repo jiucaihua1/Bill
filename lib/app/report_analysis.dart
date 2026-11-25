@@ -102,6 +102,7 @@ ReportSummary reportSummary(Iterable<LedgerEntry> entries) {
   var incomeCount = 0;
   var expenseCount = 0;
   for (final entry in entries) {
+    if (entry.excludedFromStatistics) continue;
     switch (entry.type) {
       case EntryType.income:
         income += entry.netAmount;
@@ -210,7 +211,7 @@ List<ReportCategoryStat> reportCategoryStats(
   final totals = <String, double>{};
   final counts = <String, int>{};
   for (final entry in entries) {
-    if (entry.type != type) {
+    if (entry.type != type || entry.excludedFromStatistics) {
       continue;
     }
     final rootId = rootIdOf(categories, entry.categoryId);
@@ -250,7 +251,7 @@ List<ReportCategoryStat> reportCategoryStatsByOwn(
   final totals = <String, double>{};
   final counts = <String, int>{};
   for (final entry in entries) {
-    if (entry.type != type) {
+    if (entry.type != type || entry.excludedFromStatistics) {
       continue;
     }
     final categoryId = categoryIdOf == null
@@ -327,7 +328,7 @@ List<ReportTagStat> reportTagStats(
   final counts = <String, int>{};
   var dimensionTotal = 0.0;
   for (final entry in entries) {
-    if (entry.type != type) {
+    if (entry.type != type || entry.excludedFromStatistics) {
       continue;
     }
     dimensionTotal += entry.netAmount;
@@ -424,7 +425,7 @@ ReportTrend _dailyTrend(
     index[_dayKey(day.year, day.month, day.day)] = i;
   }
   for (final entry in entries) {
-    if (entry.type != type) {
+    if (entry.type != type || entry.excludedFromStatistics) {
       continue;
     }
     final date = entry.occurredAt;
@@ -467,7 +468,7 @@ ReportTrend _monthlyTrend(
   final startDay = range.start;
   final endExclusive = addCalendarDays(range.end, 1);
   for (final entry in entries) {
-    if (entry.type != type) {
+    if (entry.type != type || entry.excludedFromStatistics) {
       continue;
     }
     final date = entry.occurredAt;

@@ -292,6 +292,8 @@ enum EntryValidationCode {
 
 enum RenameResult { success, invalid, duplicate, persistenceFailure }
 
+enum MoveCategoryResult { success, invalid, duplicate, persistenceFailure }
+
 sealed class EntrySaveResult {
   const EntrySaveResult();
 

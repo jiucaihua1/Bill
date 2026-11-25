@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show FlutterView;
 
 import 'package:anchored_menu/anchored_menu.dart';
 import 'package:flutter/foundation.dart' show listEquals;
@@ -28,6 +29,8 @@ import 'assets_pages.dart';
 import 'attachments_editor.dart';
 import 'category_management_page.dart';
 import 'sheets.dart';
+
+const _diagnoseNoteKeyboard = bool.fromEnvironment('IME_DIAGNOSTICS');
 
 class EntryDetailPage extends StatefulWidget {
   const EntryDetailPage({
@@ -190,12 +193,13 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
   // 支出可标记「待报销」；新建时不涉及回款冲抵，退款金额建后在编辑页填写。
   bool _reimbursable = false;
   // 支出可标记「不计入预算」（借款、垫付等）：只脱离预算口径，收支统计照旧。
-  bool _excludedFromBudget = false;
+  EntryStatisticsScope _statisticsScope = EntryStatisticsScope.normal;
   List<String> _tagIds = <String>[];
   // 新增交易时先把附件字节落盘（stageNewAttachment），保存时只提交元数据。
   final List<Attachment> _pendingAttachments = <Attachment>[];
   final TextEditingController _noteController = TextEditingController();
   final FocusNode _noteFocus = FocusNode();
+  _NoteKeyboardTiming? _noteKeyboardTiming;
 
   // 自动识别：用户未手动改动某字段前，按历史（金额/备注/时段）自动填充类型、分类、
   // 标签、备注；某字段一旦被用户改过就不再覆盖它。AI 草稿模式（initialDraft）下整体
@@ -207,7 +211,6 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
   // 用户是否手动选过账户：选过就不再被「该分类上次用过的账户」覆盖。
   bool _accountTouched = false;
   bool _creatingDebtAccount = false;
-  bool _quickDetailsExpanded = false;
   // 防重复提交：极快双击「保存」可能在 pop 生效前触发两次、落两条交易。
   bool _saving = false;
   bool _saved = false;
@@ -259,7 +262,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
       _baseAmount = editing.baseAmount;
       _conversionSource = editing.conversionSource;
       _reimbursable = editing.reimbursable;
-      _excludedFromBudget = editing.excludedFromBudget;
+      _statisticsScope = editing.statisticsScope;
       _tagIds = List<String>.of(editing.tagIds);
       _noteController.text = editing.note;
     }
@@ -331,6 +334,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
   @override
   void dispose() {
     _suggestDebounce?.cancel();
+    _noteKeyboardTiming?.cancel();
     _noteFocus.dispose();
     _noteController.dispose();
     super.dispose();
@@ -815,6 +819,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
       onOpenAll: () => unawaited(_showAllCategories()),
       allLabel: AppLocalizations.of(context).allLabel,
     );
+    final keyboardLogger = _diagnoseNoteKeyboard ? controller.logger : null;
     final noteField = TextField(
       key: const Key('entry_note_field'),
       controller: _noteController,
@@ -822,6 +827,18 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
       maxLines: 1,
       textInputAction: TextInputAction.done,
       onChanged: _onNoteChanged,
+      onTap: keyboardLogger == null
+          ? null
+          : () {
+              (_noteKeyboardTiming ??= _NoteKeyboardTiming(
+                view: View.of(context),
+                focus: _noteFocus,
+                report: (message) => keyboardLogger.info(
+                  message,
+                  source: quick ? 'ime.quick_entry_note' : 'ime.entry_note',
+                ),
+              )).start();
+            },
       onTapOutside: (_) => FocusScope.of(context).unfocus(),
       decoration: InputDecoration(
         labelText: quick ? null : l10n.commonNote,
@@ -878,6 +895,98 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
       compact: quick,
       onTap: _pickTags,
     );
+    final statisticsToggles = EntryStatisticsScope.supports(_type)
+        ? EntryStatisticsToggles(
+            type: _type,
+            scope: _statisticsScope,
+            onChanged: (scope) => setState(() => _statisticsScope = scope),
+          )
+        : null;
+    final extraMetadata = <Widget>[
+      if (quickTransfer && _debtDirection == null && roots.isNotEmpty)
+        EntryMetadataPill(
+          key: const Key('quick_transfer_category'),
+          icon: Icons.category_outlined,
+          compact: quick,
+          label: Text(l10n.commonCategory),
+          onTap: _showAllCategories,
+        ),
+      if (_type == EntryType.expense)
+        Tooltip(
+          message: l10n.reimbursableHint,
+          child: EntryMetadataPill(
+            key: const Key('entry_metadata_reimbursable'),
+            toggle: true,
+            compact: quick,
+            icon: Icons.receipt_long_outlined,
+            label: Text(l10n.badgeReimbursable),
+            selected: _reimbursable,
+            onTap: () => setState(() => _reimbursable = !_reimbursable),
+          ),
+        ),
+      if (!_isDraft)
+        AnchoredMenuAnchor(
+          entries: <AnchoredMenuEntry>[
+            AnchoredMenuItem(
+              id: 'entry_attachment_camera',
+              icon: Icons.photo_camera_outlined,
+              title: AppLocalizations.of(context).attachTakePhoto,
+              enabled: attachmentPickingSupported,
+              onPressed: () => unawaited(_addAttachment(fromCamera: true)),
+            ),
+            AnchoredMenuItem(
+              id: 'entry_attachment_gallery',
+              icon: Icons.photo_library_outlined,
+              title: AppLocalizations.of(context).attachFromGallery,
+              enabled: attachmentPickingSupported,
+              onPressed: () => unawaited(_addAttachment(fromCamera: false)),
+            ),
+          ],
+          semanticLabel: AppLocalizations.of(context).attachTitle,
+          builder: (context, openMenu, menuOpen) => EntryMetadataPill(
+            key: const Key('entry_metadata_attachments'),
+            icon: Icons.add_photo_alternate_outlined,
+            compact: quick,
+            label: Text(
+              _pendingAttachments.isEmpty
+                  ? AppLocalizations.of(context).attachTitle
+                  : AppLocalizations.of(
+                      context,
+                    ).entryAttachmentCount(_pendingAttachments.length),
+            ),
+            selected: _pendingAttachments.isNotEmpty || menuOpen,
+            onTap: attachmentPickingSupported ? openMenu : null,
+          ),
+        ),
+      if (controller.multiCurrencyEnabled)
+        EntryMetadataPill(
+          key: const Key('entry_currency_button'),
+          icon: Icons.currency_exchange_rounded,
+          compact: quick,
+          label: Text(_currencyCode ?? controller.activeBook.baseCurrencyCode),
+          selected:
+              (_currencyCode ?? controller.activeBook.baseCurrencyCode) !=
+              controller.activeBook.baseCurrencyCode,
+          onTap: _type == EntryType.transfer ? null : _pickCurrency,
+        ),
+    ];
+    final attachmentsEditor = !_isDraft && _pendingAttachments.isNotEmpty
+        ? AttachmentsEditor(
+            attachments: _pendingAttachments,
+            store: VeriFinScope.of(context).attachmentStore,
+            onAddBytes: (bytes) async {
+              final attachment = await VeriFinScope.of(
+                context,
+              ).stageNewAttachment(entryId: _entryId, bytes: bytes);
+              if (!mounted) return;
+              setState(() => _pendingAttachments.add(attachment));
+            },
+            onRemoveIndex: (index) =>
+                setState(() => _pendingAttachments.removeAt(index)),
+            showHeader: false,
+            showAddButton: false,
+          )
+        : null;
     final details = <Widget>[
       if (hasAccounts && _type == EntryType.transfer && !quick) ...<Widget>[
         SelectField(
@@ -976,127 +1085,16 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
         spacing: 7,
         runSpacing: 7,
         children: <Widget>[
-          if (!quick) ...[
-            dateTimeChip,
-            if (_type == EntryType.expense) discountChip,
-            tagsChip,
-          ],
-          if (quickTransfer && _debtDirection == null && roots.isNotEmpty)
-            EntryMetadataPill(
-              key: const Key('quick_transfer_category'),
-              icon: Icons.category_outlined,
-              label: Text(l10n.commonCategory),
-              onTap: _showAllCategories,
-            ),
-          if (_type == EntryType.expense)
-            EntryMetadataPill(
-              key: const Key('entry_metadata_reimbursable'),
-              toggle: true,
-              icon: Icons.receipt_long_outlined,
-              label: Text(AppLocalizations.of(context).badgeReimbursable),
-              selected: _reimbursable,
-              onTap: () => setState(() => _reimbursable = !_reimbursable),
-            ),
-          if (_type == EntryType.expense)
-            EntryMetadataPill(
-              key: const Key('entry_metadata_excluded_budget'),
-              toggle: true,
-              icon: Icons.money_off_outlined,
-              label: Text(AppLocalizations.of(context).excludedFromBudget),
-              selected: _excludedFromBudget,
-              onTap: () =>
-                  setState(() => _excludedFromBudget = !_excludedFromBudget),
-            ),
-          if (!_isDraft)
-            AnchoredMenuAnchor(
-              entries: <AnchoredMenuEntry>[
-                AnchoredMenuItem(
-                  id: 'entry_attachment_camera',
-                  icon: Icons.photo_camera_outlined,
-                  title: AppLocalizations.of(context).attachTakePhoto,
-                  enabled: attachmentPickingSupported,
-                  onPressed: () => unawaited(_addAttachment(fromCamera: true)),
-                ),
-                AnchoredMenuItem(
-                  id: 'entry_attachment_gallery',
-                  icon: Icons.photo_library_outlined,
-                  title: AppLocalizations.of(context).attachFromGallery,
-                  enabled: attachmentPickingSupported,
-                  onPressed: () => unawaited(_addAttachment(fromCamera: false)),
-                ),
-              ],
-              semanticLabel: AppLocalizations.of(context).attachTitle,
-              builder: (context, openMenu, menuOpen) => EntryMetadataPill(
-                key: const Key('entry_metadata_attachments'),
-                icon: Icons.add_photo_alternate_outlined,
-                label: Text(
-                  _pendingAttachments.isEmpty
-                      ? AppLocalizations.of(context).attachTitle
-                      : AppLocalizations.of(
-                          context,
-                        ).entryAttachmentCount(_pendingAttachments.length),
-                ),
-                selected: _pendingAttachments.isNotEmpty || menuOpen,
-                onTap: attachmentPickingSupported ? openMenu : null,
-              ),
-            ),
-          if (controller.multiCurrencyEnabled)
-            EntryMetadataPill(
-              key: const Key('entry_currency_button'),
-              icon: Icons.currency_exchange_rounded,
-              label: Text(
-                _currencyCode ?? controller.activeBook.baseCurrencyCode,
-              ),
-              selected:
-                  (_currencyCode ?? controller.activeBook.baseCurrencyCode) !=
-                  controller.activeBook.baseCurrencyCode,
-              onTap: _type == EntryType.transfer ? null : _pickCurrency,
-            ),
+          dateTimeChip,
+          if (_type == EntryType.expense) discountChip,
+          tagsChip,
+          ?statisticsToggles,
+          ...extraMetadata,
         ],
       ),
-      // 标记待报销本身不产生任何资金变动，用户容易以为已经「报了」。
-      if (_type == EntryType.expense && _reimbursable)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text(
-            AppLocalizations.of(context).reimbursableHint,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.62),
-            ),
-          ),
-        ),
-      // 标记不计入预算也不产生资金变动，用户容易误以为这笔不算钱了。
-      if (_type == EntryType.expense && _excludedFromBudget)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Text(
-            AppLocalizations.of(context).excludedFromBudgetHint,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.62),
-            ),
-          ),
-        ),
-      if (!_isDraft && _pendingAttachments.isNotEmpty) ...<Widget>[
+      if (attachmentsEditor != null) ...<Widget>[
         const SizedBox(height: 10),
-        AttachmentsEditor(
-          attachments: _pendingAttachments,
-          store: VeriFinScope.of(context).attachmentStore,
-          onAddBytes: (bytes) async {
-            final attachment = await VeriFinScope.of(
-              context,
-            ).stageNewAttachment(entryId: _entryId, bytes: bytes);
-            if (!mounted) return;
-            setState(() => _pendingAttachments.add(attachment));
-          },
-          onRemoveIndex: (index) =>
-              setState(() => _pendingAttachments.removeAt(index)),
-          showHeader: false,
-          showAddButton: false,
-        ),
+        attachmentsEditor,
       ],
     ];
     return PopScope<Object?>(
@@ -1195,6 +1193,10 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
                                   padding: const EdgeInsets.all(10),
                                   child: categoryGrid,
                                 ),
+                              if (attachmentsEditor != null) ...[
+                                const SizedBox(height: 10),
+                                attachmentsEditor,
+                              ],
                             ],
                           ),
                         ),
@@ -1226,9 +1228,8 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             ?payable,
-                            Wrap(
-                              spacing: 5,
-                              runSpacing: 5,
+                            EntryMetadataStrip(
+                              key: const Key('quick_entry_metadata_strip'),
                               children: [
                                 dateTimeChip,
                                 if (_type == EntryType.expense) discountChip,
@@ -1263,44 +1264,24 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
                                     onTap: _accountId.isEmpty ? null : _editFee,
                                   ),
                                 tagsChip,
-                                EntryMetadataPill(
-                                  key: const Key('quick_entry_more_info'),
-                                  icon: Icons.more_horiz_rounded,
-                                  label: Text(l10n.entryMoreInfo),
-                                  compact: true,
-                                  selected: _quickDetailsExpanded,
-                                  toggle: true,
-                                  onTap: () => setState(
-                                    () => _quickDetailsExpanded =
-                                        !_quickDetailsExpanded,
+                                ?statisticsToggles,
+                                ...extraMetadata,
+                                if (!hasAccounts && !quickTransfer)
+                                  EntryMetadataPill(
+                                    key: const Key('entry_add_account_action'),
+                                    icon: Icons.add,
+                                    compact: true,
+                                    label: Text(l10n.accountAdd),
+                                    onTap: () =>
+                                        Navigator.of(context).push<void>(
+                                          MaterialPageRoute<void>(
+                                            builder: (_) =>
+                                                const AddAccountPage(),
+                                          ),
+                                        ),
                                   ),
-                                ),
                               ],
                             ),
-                            if (_quickDetailsExpanded &&
-                                MediaQuery.viewInsetsOf(context).bottom ==
-                                    0) ...[
-                              const SizedBox(height: 6),
-                              VeriCard(
-                                key: const Key('quick_entry_more_details'),
-                                padding: const EdgeInsets.all(8),
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxHeight:
-                                        MediaQuery.sizeOf(context).height *
-                                        0.16,
-                                  ),
-                                  child: SingleChildScrollView(
-                                    primary: false,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: details,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                         onAmountChanged: _onInlineAmountChanged,
@@ -1458,14 +1439,18 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
     List<Account> accounts,
   ) {
     final l10n = AppLocalizations.of(context);
+    final theme = Theme.of(context);
     final debt = _debtDirection;
     final from = _accountFor(accounts, _accountId);
     final to = _accountFor(accounts, _toAccountId);
-    Widget accountField({required bool outgoing}) {
+    final crossCurrency =
+        from != null && to != null && from.currencyCode != to.currencyCode;
+    Widget accountRow({required bool outgoing}) {
       final account = outgoing ? from : to;
-      return SelectField(
+      final field = SelectField(
         key: Key(outgoing ? 'account_dropdown' : 'to_account_dropdown'),
         label: _manualTransferAccountLabel(l10n, outgoing: outgoing),
+        labelOutside: true,
         value: account?.name ?? l10n.pleaseSelect,
         icon: outgoing ? Icons.call_made_rounded : Icons.call_received_rounded,
         leading: account == null
@@ -1481,6 +1466,45 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
             ? null
             : () => _pickManualTransferAccount(outgoing: outgoing),
       );
+      return Row(
+        spacing: 10,
+        children: [
+          Expanded(flex: 3, child: field),
+          Expanded(
+            flex: 2,
+            child: account == null
+                ? const SizedBox.shrink()
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    spacing: 3,
+                    children: [
+                      Text(
+                        l10n.currentBalance,
+                        textAlign: TextAlign.end,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Text(
+                        formatUserMoney(
+                          controller.accountBalance(account),
+                          account.currencyCode,
+                          forceUnit: crossCurrency,
+                        ),
+                        textAlign: TextAlign.end,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+        ],
+      );
     }
 
     return VeriCard(
@@ -1491,6 +1515,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
             VeriSegmentedControl<_DebtDirection>(
               values: _DebtDirection.values,
               selected: debt,
+              compact: true,
               labelOf: (direction) => direction == _DebtDirection.borrow
                   ? l10n.entryDebtBorrow
                   : l10n.entryDebtLend,
@@ -1499,25 +1524,23 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
             ),
             const SizedBox(height: 12),
           ],
-          accountField(outgoing: true),
-          Center(
-            child: debt == null
-                ? IconButton(
-                    tooltip: l10n.entrySwapTransferAccounts,
-                    icon: const Icon(Icons.swap_vert_rounded),
-                    onPressed: from == null || to == null
-                        ? null
-                        : () {
-                            VeriHaptics.tap();
-                            _setManualTransferAccounts(to.id, from.id);
-                          },
-                  )
-                : const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Icon(Icons.arrow_downward_rounded, size: 20),
-                  ),
-          ),
-          accountField(outgoing: false),
+          accountRow(outgoing: true),
+          if (debt == null)
+            Center(
+              child: IconButton(
+                tooltip: l10n.entrySwapTransferAccounts,
+                icon: const Icon(Icons.swap_vert_rounded),
+                onPressed: from == null || to == null
+                    ? null
+                    : () {
+                        VeriHaptics.tap();
+                        _setManualTransferAccounts(to.id, from.id);
+                      },
+              ),
+            )
+          else
+            const SizedBox(height: 10),
+          accountRow(outgoing: false),
           if (debt != null)
             Align(
               alignment: AlignmentDirectional.centerStart,
@@ -2392,7 +2415,11 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
           ? normalizeCurrencyAmount(_fee, code)
           : 0,
       reimbursable: _type == EntryType.expense && _reimbursable,
-      excludedFromBudget: _type == EntryType.expense && _excludedFromBudget,
+      excludedFromBudget:
+          _statisticsScope.forType(_type) == EntryStatisticsScope.excludeBudget,
+      excludedFromStatistics:
+          _statisticsScope.forType(_type) ==
+          EntryStatisticsScope.excludeStatistics,
       subscriptionMark: _type == EntryType.expense
           ? original?.subscriptionMark ?? SubscriptionMark.automatic
           : SubscriptionMark.automatic,
@@ -2424,7 +2451,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
       listEquals(left.tagIds, right.tagIds) &&
       left.fee == right.fee &&
       left.reimbursable == right.reimbursable &&
-      left.excludedFromBudget == right.excludedFromBudget;
+      left.statisticsScope == right.statisticsScope;
 
   bool get _isDirty {
     if (_saved) {
@@ -2573,7 +2600,96 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
     }
     _saved = true;
     VeriHaptics.commit();
+    if (mounted) {
+      unawaited(
+        VeriFeedbackHost.of(context).showMessage(
+          message: AppLocalizations.of(context).entrySavedSuccessfully,
+          tone: VeriFeedbackTone.success,
+          duration: VeriFeedbackDuration.short,
+          dedupeKey: 'entry_saved',
+        ),
+      );
+    }
     return true;
+  }
+}
+
+/// 仅在诊断构建中记录备注单击后 Flutter 收到的焦点与键盘遮挡信号。
+class _NoteKeyboardTiming with WidgetsBindingObserver {
+  _NoteKeyboardTiming({
+    required this.view,
+    required this.focus,
+    required this.report,
+  });
+
+  final FlutterView view;
+  final FocusNode focus;
+  final ValueChanged<String> report;
+  final Stopwatch _clock = Stopwatch();
+  Timer? _timer;
+  double _bottom = 0;
+  int? _focusMs;
+  int? _firstInsetMs;
+  int? _lastInsetMs;
+
+  void start() {
+    if (_clock.isRunning || view.viewInsets.bottom != 0) return;
+    _bottom = 0;
+    _focusMs = focus.hasFocus ? 0 : null;
+    _firstInsetMs = null;
+    _lastInsetMs = null;
+    _clock
+      ..reset()
+      ..start();
+    focus.addListener(_onFocusChanged);
+    WidgetsBinding.instance.addObserver(this);
+    _timer = Timer(const Duration(seconds: 3), _finish);
+  }
+
+  void _onFocusChanged() {
+    if (focus.hasFocus) {
+      _focusMs ??= _clock.elapsedMilliseconds;
+    } else {
+      cancel();
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    final bottom = view.viewInsets.bottom;
+    if (bottom == _bottom) return;
+    if (bottom == 0) {
+      cancel();
+      return;
+    }
+    _bottom = bottom;
+    _lastInsetMs = _clock.elapsedMilliseconds;
+    _firstInsetMs ??= _lastInsetMs;
+    _timer?.cancel();
+    // 等遮挡值稳定后再写日志，耗时使用最后实际变化的时间。
+    _timer = Timer(const Duration(milliseconds: 250), _finish);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) cancel();
+  }
+
+  void _finish() {
+    cancel();
+    report(
+      'focusMs=${_focusMs ?? "unobserved"} '
+      'firstInsetMs=${_firstInsetMs ?? "unobserved"} '
+      'lastInsetChangeMs=${_lastInsetMs ?? "unobserved"}',
+    );
+  }
+
+  void cancel() {
+    if (!_clock.isRunning) return;
+    _clock.stop();
+    _timer?.cancel();
+    focus.removeListener(_onFocusChanged);
+    WidgetsBinding.instance.removeObserver(this);
   }
 }
 
@@ -2740,334 +2856,6 @@ class _EntryTypeSelector extends StatelessWidget {
       keyOf: (type) =>
           type == selected ? Key('entry_type_selected_${type.name}') : null,
       onChanged: onChanged,
-    );
-  }
-}
-
-class EntryCategoryGrid extends StatelessWidget {
-  const EntryCategoryGrid({
-    super.key,
-    required this.categories,
-    required this.allCategories,
-    required this.selectedId,
-    required this.selectedTopId,
-    required this.accent,
-    required this.onSelected,
-    required this.onOpenAll,
-    required this.allLabel,
-    this.collapsedId,
-    this.onToggleBranch,
-    this.iconGrid = false,
-  });
-
-  final List<Category> categories;
-  final List<Category> allCategories;
-  final String selectedId;
-  final String selectedTopId;
-  final Color accent;
-  final ValueChanged<String> onSelected;
-  final VoidCallback onOpenAll;
-  final String allLabel;
-  final String? collapsedId;
-  final void Function(String id, bool expanded)? onToggleBranch;
-  final bool iconGrid;
-
-  Iterable<Widget> _rows(
-    List<Widget> tiles,
-    int columns, {
-    int? expandedIndex,
-    Widget? inlineBranch,
-  }) sync* {
-    for (var start = 0; start < tiles.length; start += columns) {
-      if (start > 0) yield const SizedBox(height: 6);
-      yield Row(
-        children: [
-          for (var column = 0; column < columns; column++) ...[
-            if (column > 0) const SizedBox(width: 8),
-            Expanded(
-              child: start + column < tiles.length
-                  ? tiles[start + column]
-                  : const SizedBox.shrink(),
-            ),
-          ],
-        ],
-      );
-      if (inlineBranch != null &&
-          expandedIndex != null &&
-          expandedIndex >= start &&
-          expandedIndex < start + columns) {
-        yield const SizedBox(height: 6);
-        yield inlineBranch;
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final textScale = MediaQuery.textScalerOf(context);
-    final columns = iconGrid && textScale.scale(11) <= 12.5
-        ? screenWidth >= 350
-              ? 5
-              : 4
-        : 3;
-    final categoryChildren = <String, List<Category>>{};
-    for (final category in allCategories) {
-      final parentId = category.parentId;
-      if (parentId != null) {
-        categoryChildren
-            .putIfAbsent(parentId, () => <Category>[])
-            .add(category);
-      }
-    }
-    final selectedPath = [
-      ...ancestorIds(allCategories, selectedId).reversed,
-      selectedId,
-    ];
-    final openLevels = [
-      for (final id in selectedPath.takeWhile((id) => id != collapsedId))
-        if (categoryChildren[id] case final children?) (id, children),
-    ];
-    final byId = categoryIndex(allCategories);
-    final l10n = AppLocalizations.of(context);
-
-    Widget tile(Category category) {
-      final hasChildren = categoryChildren.containsKey(category.id);
-      final onPath = selectedPath.contains(category.id);
-      final expanded = openLevels.any((level) => level.$1 == category.id);
-      final toggleBranch = onToggleBranch;
-      return _EntryCategoryTile(
-        key: ValueKey(category.id),
-        category: category,
-        selected: category.id == selectedId,
-        onPath: onPath,
-        expanded: hasChildren ? expanded : null,
-        iconGrid: iconGrid,
-        accent: accent,
-        onTap: hasChildren && onPath && toggleBranch != null
-            ? () => toggleBranch(category.id, expanded)
-            : () => onSelected(category.id),
-      );
-    }
-
-    return Column(
-      key: const Key('entry_category_grid'),
-      children: [
-        ..._rows(
-          [
-            ...categories.map(tile),
-            if (!iconGrid)
-              _EntryAllCategoryTile(label: allLabel, onTap: onOpenAll),
-          ],
-          columns,
-          expandedIndex: categories.indexWhere((c) => c.id == selectedTopId),
-          inlineBranch: openLevels.isEmpty
-              ? null
-              : DecoratedBox(
-                  key: Key('entry_category_branch_$selectedTopId'),
-                  decoration: BoxDecoration(
-                    color: VeriStyleTokens.of(context).surfaceAltColor,
-                    borderRadius: BorderRadius.circular(
-                      VeriStyleTokens.of(context).innerRadius,
-                    ),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Column(
-                      children: [
-                        for (final (parentId, children) in openLevels) ...[
-                          if (parentId != selectedTopId)
-                            const Divider(height: 16),
-                          Semantics(
-                            container: true,
-                            explicitChildNodes: true,
-                            label: l10n.entryCategoryBranchTitle(
-                              byId[parentId]!.label,
-                            ),
-                            child: Column(
-                              children: _rows(
-                                children.map(tile).toList(),
-                                columns,
-                              ).toList(),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-class _EntryCategoryTile extends StatelessWidget {
-  const _EntryCategoryTile({
-    super.key,
-    required this.category,
-    required this.selected,
-    required this.onPath,
-    required this.expanded,
-    required this.iconGrid,
-    required this.accent,
-    required this.onTap,
-  });
-
-  final Category category;
-  final bool selected;
-  final bool onPath;
-  final bool? expanded;
-  final bool iconGrid;
-  final Color accent;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final tokens = VeriStyleTokens.of(context);
-    final border = onPath
-        ? BorderSide(color: accent.withValues(alpha: 0.72), width: 1.4)
-        : (iconGrid && !tokens.pillHasBorder
-              ? BorderSide.none
-              : BorderSide(color: tokens.borderColor));
-    final OutlinedBorder shape = iconGrid
-        ? RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(tokens.innerRadius),
-            side: border,
-          )
-        : StadiumBorder(side: border);
-    final glyph = CategoryGlyph(
-      iconCode: category.iconCode,
-      categoryName: category.label,
-      size: iconGrid ? 22 : 16,
-      color: accent,
-    );
-    final label = Text(
-      category.label,
-      textAlign: TextAlign.center,
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      style: theme.textTheme.labelMedium?.copyWith(
-        color: onPath ? accent : scheme.onSurface,
-        fontWeight: onPath ? FontWeight.w800 : FontWeight.w600,
-      ),
-    );
-    final branchIcon = expanded == null
-        ? null
-        : Icon(
-            expanded! ? Icons.expand_more : Icons.chevron_right,
-            size: 12,
-            color: onPath
-                ? accent
-                : scheme.onSurfaceVariant.withValues(alpha: 0.45),
-          );
-    return Semantics(
-      key: selected ? Key('entry_category_selected_${category.id}') : null,
-      selected: selected,
-      expanded: expanded,
-      button: true,
-      child: Material(
-        key: Key('entry_category_capsule_${category.id}'),
-        color: onPath
-            ? Color.alphaBlend(accent.withValues(alpha: 0.10), tokens.cardColor)
-            : (iconGrid ? Colors.transparent : tokens.cardColor),
-        shape: shape,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          key: Key('entry_category_${category.id}'),
-          customBorder: shape,
-          onTap: onTap,
-          child: Container(
-            constraints: BoxConstraints(minHeight: iconGrid ? 52 : 44),
-            padding: EdgeInsets.symmetric(
-              horizontal: iconGrid ? 3 : 7,
-              vertical: iconGrid ? 4 : 6,
-            ),
-            alignment: Alignment.center,
-            child: iconGrid
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          glyph,
-                          if (branchIcon != null)
-                            Positioned(
-                              right: -13,
-                              bottom: 0,
-                              child: branchIcon,
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      label,
-                    ],
-                  )
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      glyph,
-                      const SizedBox(width: 4),
-                      Flexible(child: label),
-                      ?branchIcon,
-                    ],
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _EntryAllCategoryTile extends StatelessWidget {
-  const _EntryAllCategoryTile({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.surfaceContainerLow,
-      shape: const StadiumBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        key: const Key('entry_category_all'),
-        customBorder: const StadiumBorder(),
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 44),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Icon(
-                  Icons.grid_view_rounded,
-                  size: 16,
-                  color: scheme.onSurface.withValues(alpha: 0.48),
-                ),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: scheme.onSurface.withValues(alpha: 0.56),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

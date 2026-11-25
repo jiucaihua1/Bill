@@ -55,6 +55,7 @@ const Map<String, List<String>> _headerAliases = <String, List<String>>{
   'recordId': <String>['记录编号'],
   'refundOfRecordId': <String>['原支出编号'],
   'settledAt': <String>['到账日期'],
+  'statisticsScope': <String>['统计口径'],
 };
 
 /// CSV 模板内容（带表头与示例行），用户下载后填写再导入。
@@ -89,6 +90,7 @@ const List<String> transactionCsvExportColumns = <String>[
   '记录编号',
   '原支出编号',
   '到账日期',
+  '统计口径',
 ];
 
 /// 导出可重新识别币种语义的交易 CSV。退款作为独立行紧跟原支出，通过
@@ -158,6 +160,7 @@ String transactionCsvExport({
       refund.id,
       refund.refundOf ?? '',
       refund.settledAt == null ? '' : _csvDate(refund.settledAt!),
+      '',
     ];
   }
 
@@ -233,6 +236,9 @@ String transactionCsvExport({
       entry.id,
       '',
       '',
+      entry.statisticsScope == EntryStatisticsScope.normal
+          ? ''
+          : entry.statisticsScope.name,
     ]);
     for (final refund in explicitRefunds) {
       rows.add(refundRow(refund));
@@ -413,6 +419,9 @@ ParsedImport parseCsvTemplateRows(List<List<String>> rows) {
       recordId: cell(row, 'recordId'),
       refundOfRecordId: cell(row, 'refundOfRecordId'),
       settledAt: cell(row, 'settledAt'),
+      statisticsScope: EntryStatisticsScope.fromStorage(
+        cell(row, 'statisticsScope'),
+      ),
       tags: splitTagLabels(cell(row, 'tags')),
       sourceLine: line,
       onError: (message) =>

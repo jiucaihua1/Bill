@@ -6,6 +6,7 @@ import 'package:month_picker_dialog/month_picker_dialog.dart' as month_picker;
 
 import '../app/app_theme.dart';
 import '../app/ai/ai_model_catalog.dart';
+import '../app/category_tree.dart';
 import '../app/common_widgets.dart';
 import '../app/currency_catalog.dart';
 import '../app/currency_math.dart';
@@ -32,6 +33,7 @@ Future<T?> showVeriModalSheet<T>({
   bool useSafeArea = false,
   Color? backgroundColor,
   ShapeBorder? shape,
+  bool keyboardFirst = false,
 }) {
   final tokens = VeriStyleTokens.of(context);
   final resolvedBg = backgroundColor ?? tokens.cardColor;
@@ -46,6 +48,14 @@ Future<T?> showVeriModalSheet<T>({
     useSafeArea: useSafeArea,
     backgroundColor: resolvedBg,
     shape: shape ?? RoundedRectangleBorder(borderRadius: topRadius),
+    sheetAnimationStyle: MediaQuery.disableAnimationsOf(context)
+        ? AnimationStyle.noAnimation
+        : keyboardFirst
+        ? const AnimationStyle(
+            duration: Duration(milliseconds: 140),
+            reverseDuration: Duration(milliseconds: 140),
+          )
+        : null,
     builder: (context) => Material(
       // 底部弹窗只圆顶部两个角，左下/右下保持直角，避免方块机上观感怪异。
       borderRadius: topRadius,
@@ -88,40 +98,45 @@ class VeriFormSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SafeArea(
-        top: false,
-        child: Center(
-          heightFactor: 1,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: veriPageMaxWidth),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                spacing: 14,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+    final form = SafeArea(
+      top: false,
+      child: Center(
+        heightFactor: 1,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: veriPageMaxWidth),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: 14,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
-                  content,
-                  OverflowBar(
-                    alignment: MainAxisAlignment.end,
-                    overflowAlignment: OverflowBarAlignment.end,
-                    spacing: 8,
-                    overflowSpacing: 6,
-                    children: actions,
-                  ),
-                ],
-              ),
+                ),
+                content,
+                OverflowBar(
+                  alignment: MainAxisAlignment.end,
+                  overflowAlignment: OverflowBarAlignment.end,
+                  spacing: 8,
+                  overflowSpacing: 6,
+                  children: actions,
+                ),
+              ],
             ),
           ),
         ),
+      ),
+    );
+    return Builder(
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: form,
       ),
     );
   }
@@ -1040,18 +1055,126 @@ Future<String?> showCategoryPickerSheet(
   String? title,
   String? topLevelLabel,
   String? allLabel,
+  bool useGrid = false,
 }) {
   return showVeriModalSheet<String>(
     context: context,
     showDragHandle: true,
-    builder: (_) => CategoryPickerSheet(
-      categories: categories,
-      selectedId: selectedId,
-      title: title,
-      topLevelLabel: topLevelLabel,
-      allLabel: allLabel,
-    ),
+    isScrollControlled: useGrid,
+    builder: (_) => useGrid
+        ? _CategoryGridPicker(
+            categories: categories,
+            selectedId: selectedId,
+            title: title,
+          )
+        : CategoryPickerSheet(
+            categories: categories,
+            selectedId: selectedId,
+            title: title,
+            topLevelLabel: topLevelLabel,
+            allLabel: allLabel,
+          ),
   );
+}
+
+/// A single-entry-type picker using the same grid as manual entry.
+class _CategoryGridPicker extends StatefulWidget {
+  const _CategoryGridPicker({
+    required this.categories,
+    required this.selectedId,
+    this.title,
+  });
+
+  final List<Category> categories;
+  final String selectedId;
+  final String? title;
+
+  @override
+  State<_CategoryGridPicker> createState() => _CategoryGridPickerState();
+}
+
+class _CategoryGridPickerState extends State<_CategoryGridPicker> {
+  late String _activeId = widget.selectedId;
+  String? _collapsedId;
+
+  void _confirm(String id) {
+    VeriHaptics.tick();
+    Navigator.of(context).pop(id);
+  }
+
+  void _select(String id) {
+    if (!widget.categories.any((category) => category.parentId == id)) {
+      _confirm(id);
+      return;
+    }
+    VeriHaptics.tick();
+    setState(() {
+      _activeId = id;
+      _collapsedId = null;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final categories = widget.categories;
+    final active = categories.where((c) => c.id == _activeId).firstOrNull;
+    final type = categories.firstOrNull?.type;
+    return SafeArea(
+      top: false,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: veriPageMaxWidth,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                widget.title ?? l10n.categoryAll,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 12),
+              if (type != null)
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: EntryCategoryGrid(
+                      categories: categories.where((c) => c.isRoot).toList(),
+                      allCategories: categories,
+                      selectedId: _activeId,
+                      selectedTopId: rootIdOf(categories, _activeId),
+                      accent: colorForType(context, type),
+                      iconGrid: true,
+                      branchBelowGrid: true,
+                      collapsedId: _collapsedId,
+                      onSelected: _select,
+                      onToggleBranch: (id, expanded) {
+                        if (_activeId != id) {
+                          _select(id);
+                          return;
+                        }
+                        VeriHaptics.tick();
+                        setState(() => _collapsedId = expanded ? id : null);
+                      },
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: active == null ? null : () => _confirm(active.id),
+                child: Text(l10n.commonConfirm),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// 选「全部账户」（筛选场景）时返回的哨兵 [Account]，其 id 为 [accountPickerAllId]。
@@ -1753,6 +1876,7 @@ Future<String?> showTextInputDialog({
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
+    keyboardFirst: true,
     builder: (context) => VeriFormSheet(
       title: title,
       content: Column(

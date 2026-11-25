@@ -130,34 +130,26 @@ enum ReimbursementFilter {
   }
 }
 
-/// 预算计入筛选：全部 / 计入预算 / 不计入预算（借款、垫付等已标记的支出）。
-/// 与报销筛选一样只回答「这笔有没有被标记」，未标记的收入与转账同样属于「计入预算」。
-enum BudgetScopeFilter {
+enum TransactionScopeFilter {
   all,
-  included,
-  excluded;
+  inBudget,
+  outOfBudget,
+  excludedFromStatistics;
 
-  String label(AppLocalizations l10n) {
-    switch (this) {
-      case BudgetScopeFilter.all:
-        return l10n.budgetScopeAll;
-      case BudgetScopeFilter.included:
-        return l10n.budgetScopeIncluded;
-      case BudgetScopeFilter.excluded:
-        return l10n.excludedFromBudget;
-    }
-  }
+  String label(AppLocalizations l10n) => switch (this) {
+    all => l10n.budgetScopeAll,
+    inBudget => l10n.budgetScopeIncluded,
+    outOfBudget => l10n.excludedFromBudget,
+    excludedFromStatistics => l10n.excludedStatisticsFilter,
+  };
 
-  bool matches(LedgerEntry entry) {
-    switch (this) {
-      case BudgetScopeFilter.all:
-        return true;
-      case BudgetScopeFilter.included:
-        return !entry.excludedFromBudget;
-      case BudgetScopeFilter.excluded:
-        return entry.excludedFromBudget;
-    }
-  }
+  bool matches(LedgerEntry entry) => switch (this) {
+    all => true,
+    inBudget => entry.type != EntryType.expense || countsTowardBudget(entry),
+    outOfBudget =>
+      entry.type == EntryType.expense && !countsTowardBudget(entry),
+    excludedFromStatistics => entry.excludedFromStatistics,
+  };
 }
 
 class TransactionsPage extends StatefulWidget {
@@ -205,7 +197,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
   String? _selectedCategoryId;
   String? _selectedTagId;
   ReimbursementFilter _reimbursementFilter = ReimbursementFilter.all;
-  BudgetScopeFilter _budgetScopeFilter = BudgetScopeFilter.all;
+  TransactionScopeFilter _scopeFilter = TransactionScopeFilter.all;
   bool _selectionMode = false;
   bool _subscriptionFiltersOpen = false;
   final Set<String> _selectedIds = <String>{};
@@ -272,7 +264,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
     _selectedCategoryId,
     _selectedTagId,
     _reimbursementFilter,
-    _budgetScopeFilter,
+    _scopeFilter,
     _sortOrder,
   ];
 
@@ -303,7 +295,10 @@ class _TransactionsPageState extends State<TransactionsPage> {
       controller,
     ).where((entry) => entry.type != EntryType.refund).toList();
     _expenseCount = entries
-        .where((entry) => entry.type == EntryType.expense)
+        .where(
+          (entry) =>
+              entry.type == EntryType.expense && !entry.excludedFromStatistics,
+        )
         .length;
     _subscriptionTotals.clear();
     _dailySubscriptionCost = 0;
@@ -468,9 +463,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                               : (_dateMode
                                     ? currencyUnitSubtitle(
                                         AppLocalizations.of(context),
-                                        AppLocalizations.of(
-                                          context,
-                                        ).dateMonthDay(_visibleDate),
+                                        l10n.dateYearMonthDay(_visibleDate),
                                         controller.activeBook.baseCurrencyCode,
                                       )
                                     : currencyUnitSubtitle(
@@ -539,22 +532,24 @@ class _TransactionsPageState extends State<TransactionsPage> {
                         if (_dateMode)
                           Row(
                             children: <Widget>[
-                              _buildTimeFilterAnchor(
-                                builder: (openMenu) => _DateFilterBar(
-                                  date: _visibleDate,
-                                  onPrevious: () => setState(() {
-                                    _visibleDate = addCalendarDays(
-                                      _visibleDate,
-                                      -1,
-                                    );
-                                  }),
-                                  onNext: () => setState(() {
-                                    _visibleDate = addCalendarDays(
-                                      _visibleDate,
-                                      1,
-                                    );
-                                  }),
-                                  onTap: openMenu,
+                              Flexible(
+                                child: _buildTimeFilterAnchor(
+                                  builder: (openMenu) => _DateFilterBar(
+                                    date: _visibleDate,
+                                    onPrevious: () => setState(() {
+                                      _visibleDate = addCalendarDays(
+                                        _visibleDate,
+                                        -1,
+                                      );
+                                    }),
+                                    onNext: () => setState(() {
+                                      _visibleDate = addCalendarDays(
+                                        _visibleDate,
+                                        1,
+                                      );
+                                    }),
+                                    onTap: openMenu,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -627,8 +622,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                                       _selectedTagId = null;
                                       _reimbursementFilter =
                                           ReimbursementFilter.all;
-                                      _budgetScopeFilter =
-                                          BudgetScopeFilter.all;
+                                      _scopeFilter = TransactionScopeFilter.all;
                                       // 按天视图与时间档同属时间维度，清空必须一起复位。
                                       _dateMode = false;
                                       _timeFilter = TransactionTimeFilter.all;
@@ -640,9 +634,9 @@ class _TransactionsPageState extends State<TransactionsPage> {
                             reimbursementFilter: _reimbursementFilter,
                             onSelectReimbursement: (value) =>
                                 setState(() => _reimbursementFilter = value),
-                            budgetScopeFilter: _budgetScopeFilter,
-                            onSelectBudgetScope: (value) =>
-                                setState(() => _budgetScopeFilter = value),
+                            scopeFilter: _scopeFilter,
+                            onSelectScope: (value) =>
+                                setState(() => _scopeFilter = value),
                           ),
                         ],
                         const SizedBox(height: 16),
@@ -885,7 +879,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
       _selectedCategoryId != null ||
       _selectedTagId != null ||
       _reimbursementFilter != ReimbursementFilter.all ||
-      _budgetScopeFilter != BudgetScopeFilter.all ||
+      _scopeFilter != TransactionScopeFilter.all ||
       // 只算时间筛选，不算「按天进入」：日历里点开一个空日期仍应显示「暂无交易」，
       // 而不是「没有匹配交易」。
       _timeFilter != TransactionTimeFilter.all;
@@ -928,11 +922,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
     )) {
       return false;
     }
-    // 预算计入：全部 / 计入预算 / 不计入预算。
-    if (!_budgetScopeFilter.matches(entry)) {
-      return false;
-    }
-    return true;
+    return _scopeFilter.matches(entry);
   }
 
   bool _matchesQuery(
@@ -965,8 +955,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
         AppLocalizations.of(context).entryTypeRefund,
       ],
       // 预算标记也纳入搜索：可用「不计入预算」关键词快速找回这类交易。
-      if (entry.excludedFromBudget)
-        AppLocalizations.of(context).excludedFromBudget,
+      if (entry.statisticsScope != EntryStatisticsScope.normal)
+        entry.statisticsScope.label(AppLocalizations.of(context)),
     ].join(' ').toLowerCase();
     return searchable.contains(query);
   }
@@ -1499,8 +1489,8 @@ class _TransactionSearchFilters extends StatelessWidget {
     this.onPickTag,
     required this.reimbursementFilter,
     required this.onSelectReimbursement,
-    required this.budgetScopeFilter,
-    required this.onSelectBudgetScope,
+    required this.scopeFilter,
+    required this.onSelectScope,
     this.onClear,
   });
 
@@ -1518,13 +1508,14 @@ class _TransactionSearchFilters extends StatelessWidget {
   final VoidCallback? onPickTag;
   final ReimbursementFilter reimbursementFilter;
   final ValueChanged<ReimbursementFilter> onSelectReimbursement;
-  final BudgetScopeFilter budgetScopeFilter;
-  final ValueChanged<BudgetScopeFilter> onSelectBudgetScope;
+  final TransactionScopeFilter scopeFilter;
+  final ValueChanged<TransactionScopeFilter> onSelectScope;
   final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
     final tokens = VeriStyleTokens.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return VeriCard(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
@@ -1621,22 +1612,20 @@ class _TransactionSearchFilters extends StatelessWidget {
                     onTap: openMenu,
                   ),
                 ),
-                AnchoredMenuChoice<BudgetScopeFilter>(
-                  values: BudgetScopeFilter.values,
-                  selected: budgetScopeFilter,
-                  idOf: (value) => 'budget_scope_${value.name}',
-                  labelOf: (value) => value.label(AppLocalizations.of(context)),
-                  onSelected: onSelectBudgetScope,
-                  semanticLabel: AppLocalizations.of(
-                    context,
-                  ).budgetScopeFilterTitle,
+                AnchoredMenuChoice<TransactionScopeFilter>(
+                  values: TransactionScopeFilter.values,
+                  selected: scopeFilter,
+                  idOf: (value) => 'transaction_scope_${value.name}',
+                  labelOf: (value) => value.label(l10n),
+                  onSelected: onSelectScope,
+                  semanticLabel: l10n.transactionScopeFilterName,
                   builder: (context, openMenu, menuOpen) => FilterPill(
-                    label: budgetScopeFilter == BudgetScopeFilter.all
-                        ? AppLocalizations.of(context).budgetScopeFilterName
-                        : budgetScopeFilter.label(AppLocalizations.of(context)),
-                    icon: budgetScopeFilter != BudgetScopeFilter.all
+                    label: scopeFilter == TransactionScopeFilter.all
+                        ? l10n.transactionScopeFilterName
+                        : scopeFilter.label(l10n),
+                    icon: scopeFilter != TransactionScopeFilter.all
                         ? Icons.check_circle
-                        : Icons.pie_chart_outline,
+                        : Icons.bar_chart_outlined,
                     onTap: openMenu,
                   ),
                 ),
@@ -1665,15 +1654,19 @@ class _DateFilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         IconButton(
           tooltip: AppLocalizations.of(context).prevDay,
           onPressed: onPrevious,
           icon: const Icon(Icons.chevron_left),
         ),
-        FilterPill(
-          label: AppLocalizations.of(context).dateMonthDay(date),
-          onTap: onTap,
+        Flexible(
+          child: FilterPill(
+            label: AppLocalizations.of(context).dateYearMonthDay(date),
+            onTap: onTap,
+            flexibleLabel: true,
+          ),
         ),
         IconButton(
           tooltip: AppLocalizations.of(context).nextDay,

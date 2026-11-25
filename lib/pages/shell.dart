@@ -34,10 +34,13 @@ class VeriFinShell extends StatefulWidget {
   State<VeriFinShell> createState() => _VeriFinShellState();
 }
 
-class _VeriFinShellState extends State<VeriFinShell> {
+class _VeriFinShellState extends State<VeriFinShell>
+    with WidgetsBindingObserver {
+  static const _exitHintKey = 'root-exit';
   int _index = 0;
   int? _programmaticPageTarget;
   DateTime? _lastBackPressedAt;
+  late VeriFeedbackController _feedback;
 
   /// 已经进入退出流程（等待最后一次桌面投影冲刷）。期间再按返回键直接忽略，
   /// 避免重复冲刷或重复调用 `SystemNavigator.pop()`。
@@ -90,6 +93,7 @@ class _VeriFinShellState extends State<VeriFinShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _pageController.addListener(_trackScrollVelocity);
     AppCaptureBridge.setQuickEntryHandler(_openQuickEntryFromPlatform);
     AppCaptureBridge.setScreenshotCaptureHandler(
@@ -147,6 +151,7 @@ class _VeriFinShellState extends State<VeriFinShell> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _feedback = VeriFeedbackHost.of(context);
     // 样式偏好走独立通知器：只有它变化时才需要重建壳层，不必跟着全量账目通知走。
     final listenable = VeriFinScope.of(
       context,
@@ -174,6 +179,7 @@ class _VeriFinShellState extends State<VeriFinShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _navigationStyleListenable?.removeListener(_handleNavigationStyleChanged);
     AppCaptureBridge.clearQuickEntryHandler();
     AppCaptureBridge.clearScreenshotCaptureHandler();
@@ -474,6 +480,7 @@ class _VeriFinShellState extends State<VeriFinShell> {
         now.difference(_lastBackPressedAt!) < const Duration(seconds: 2);
     if (shouldExit) {
       _exiting = true;
+      _clearExitHint();
       await _flushWidgetProjectionBeforeExit();
       if (!mounted) {
         return;
@@ -487,12 +494,25 @@ class _VeriFinShellState extends State<VeriFinShell> {
     }
     _lastBackPressedAt = now;
     unawaited(
-      VeriFeedbackHost.of(context).showMessage(
+      _feedback.showMessage(
         message: AppLocalizations.of(context).pressBackAgainToExit,
         duration: VeriFeedbackDuration.short,
-        dedupeKey: 'root-exit',
+        dedupeKey: _exitHintKey,
       ),
     );
+  }
+
+  void _clearExitHint() {
+    _lastBackPressedAt = null;
+    _feedback.dismissByKey(_exitHintKey);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused) {
+      _clearExitHint();
+    }
   }
 
   /// 退出前把桌面投影冲刷完。
@@ -592,7 +612,8 @@ class _VeriFinShellState extends State<VeriFinShell> {
       return;
     }
     await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
+      _QuickEntryRoute(
+        reduceMotion: MediaQuery.disableAnimationsOf(context),
         builder: (context) => EntryDetailPage.manual(
           initialAccountId: controller.defaultAccountId,
         ),
@@ -724,6 +745,20 @@ class _VeriFinShellState extends State<VeriFinShell> {
       _goToTab(target);
     }
   }
+}
+
+class _QuickEntryRoute extends MaterialPageRoute<void> {
+  _QuickEntryRoute({required super.builder, required this.reduceMotion});
+
+  final bool reduceMotion;
+
+  @override
+  Duration get transitionDuration =>
+      reduceMotion ? Duration.zero : super.transitionDuration;
+
+  @override
+  Duration get reverseTransitionDuration =>
+      reduceMotion ? Duration.zero : const Duration(milliseconds: 220);
 }
 
 /// 让 PageView 里的根页面保持存活（`addAutomaticKeepAlives` 默认开启）。

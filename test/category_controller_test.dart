@@ -11,9 +11,18 @@ void main() {
     return controller.categories.firstWhere((c) => c.label == label).id;
   }
 
+  String addExpenseRoot(VeriFinController controller, String label) {
+    controller.addCategory(
+      type: EntryType.expense,
+      label: label,
+      iconCode: 'category',
+    );
+    return idOfLabel(controller, label);
+  }
+
   test('addCategory 带 parentId 创建子分类并继承父类型', () async {
     final controller = await makeController();
-    final diningId = idOfLabel(controller, '餐饮'); // expense 顶级
+    final diningId = addExpenseRoot(controller, '餐饮'); // expense 顶级
     controller.addCategory(
       type: EntryType.income, // 传入的类型应被父分类覆盖
       label: '咖啡',
@@ -43,8 +52,8 @@ void main() {
 
   test('moveCategory 移动到新父级、移到顶级', () async {
     final controller = await makeController();
-    final diningId = idOfLabel(controller, '餐饮');
-    final shoppingId = idOfLabel(controller, '购物');
+    final diningId = addExpenseRoot(controller, '餐饮');
+    final shoppingId = addExpenseRoot(controller, '购物');
     controller.addCategory(
       type: EntryType.expense,
       label: '咖啡',
@@ -53,18 +62,39 @@ void main() {
     );
     final coffeeId = idOfLabel(controller, '咖啡');
 
-    expect(controller.moveCategory(coffeeId, shoppingId), isTrue);
+    controller.addCategory(
+      type: EntryType.expense,
+      label: '咖啡',
+      iconCode: 'dining',
+      parentId: shoppingId,
+    );
+    final duplicate = controller
+        .childCategories(shoppingId)
+        .singleWhere((category) => category.label == '咖啡');
+    expect(
+      await controller.moveCategory(coffeeId, shoppingId),
+      MoveCategoryResult.duplicate,
+    );
+    expect(controller.categoryById(coffeeId).parentId, diningId);
+    expect(await controller.deleteCategory(duplicate.id), isTrue);
+    expect(
+      await controller.moveCategory(coffeeId, shoppingId),
+      MoveCategoryResult.success,
+    );
     expect(controller.categoryById(coffeeId).parentId, shoppingId);
 
     // 移到顶级。
-    expect(controller.moveCategory(coffeeId, null), isTrue);
+    expect(
+      await controller.moveCategory(coffeeId, null),
+      MoveCategoryResult.success,
+    );
     expect(controller.categoryById(coffeeId).parentId, isNull);
   });
 
   test('moveCategory 阻止成环与跨类型', () async {
     final controller = await makeController();
-    final diningId = idOfLabel(controller, '餐饮');
-    final salaryId = idOfLabel(controller, '工资'); // income
+    final diningId = addExpenseRoot(controller, '餐饮');
+    final incomeId = controller.categoriesForType(EntryType.income).first.id;
     controller.addCategory(
       type: EntryType.expense,
       label: '咖啡',
@@ -74,16 +104,25 @@ void main() {
     final coffeeId = idOfLabel(controller, '咖啡');
 
     // 不能把父分类移动到自己的后代之下（成环）。
-    expect(controller.moveCategory(diningId, coffeeId), isFalse);
+    expect(
+      await controller.moveCategory(diningId, coffeeId),
+      MoveCategoryResult.invalid,
+    );
     // 不能移到自身。
-    expect(controller.moveCategory(diningId, diningId), isFalse);
+    expect(
+      await controller.moveCategory(diningId, diningId),
+      MoveCategoryResult.invalid,
+    );
     // 不能跨类型（expense 子分类挂到 income 父分类下）。
-    expect(controller.moveCategory(coffeeId, salaryId), isFalse);
+    expect(
+      await controller.moveCategory(coffeeId, incomeId),
+      MoveCategoryResult.invalid,
+    );
   });
 
   test('reorderCategories 只在同级兄弟间重排', () async {
     final controller = await makeController();
-    final diningId = idOfLabel(controller, '餐饮');
+    final diningId = addExpenseRoot(controller, '餐饮');
     controller.addCategory(
       type: EntryType.expense,
       label: '早餐',
@@ -109,7 +148,7 @@ void main() {
 
   test('deleteCategory 有子分类时被拦截', () async {
     final controller = await makeController();
-    final diningId = idOfLabel(controller, '餐饮');
+    final diningId = addExpenseRoot(controller, '餐饮');
     controller.addCategory(
       type: EntryType.expense,
       label: '咖啡',
@@ -160,8 +199,8 @@ void main() {
 
   test('mergeCategoryInto 把源分类交易并入目标并删除源分类', () async {
     final controller = await makeController();
-    final diningId = idOfLabel(controller, '餐饮');
-    final shoppingId = idOfLabel(controller, '购物');
+    final diningId = addExpenseRoot(controller, '餐饮');
+    final shoppingId = addExpenseRoot(controller, '购物');
     controller.addEntry(expenseEntry(controller, 'm1', shoppingId));
     controller.addEntry(expenseEntry(controller, 'm2', shoppingId));
     controller.addEntry(expenseEntry(controller, 'm3', diningId));
@@ -176,8 +215,8 @@ void main() {
 
   test('mergeCategoryInto 拦截：源有子分类 / 目标是源后代 / 自身', () async {
     final controller = await makeController();
-    final diningId = idOfLabel(controller, '餐饮');
-    final shoppingId = idOfLabel(controller, '购物');
+    final diningId = addExpenseRoot(controller, '餐饮');
+    final shoppingId = addExpenseRoot(controller, '购物');
     controller.addCategory(
       type: EntryType.expense,
       label: '咖啡',
@@ -200,8 +239,8 @@ void main() {
   test('mergeCategoryInto 清理源分类的分类预算', () async {
     final controller = await makeController();
     final month = DateTime(2026, 7);
-    final diningId = idOfLabel(controller, '餐饮');
-    final shoppingId = idOfLabel(controller, '购物');
+    final diningId = addExpenseRoot(controller, '餐饮');
+    final shoppingId = addExpenseRoot(controller, '购物');
     controller.setCategoryBudget(month, shoppingId, 300);
     expect(controller.categoryBudget(month, shoppingId), 300);
 
@@ -214,7 +253,7 @@ void main() {
 
   test('categoryTreeForType 前序展开携带深度', () async {
     final controller = await makeController();
-    final diningId = idOfLabel(controller, '餐饮');
+    final diningId = addExpenseRoot(controller, '餐饮');
     controller.addCategory(
       type: EntryType.expense,
       label: '咖啡',

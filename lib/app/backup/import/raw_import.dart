@@ -37,6 +37,7 @@ class RawImportRecord {
     this.fee = 0,
     this.refunded = 0,
     this.excludedFromBudget = false,
+    this.excludedFromStatistics = false,
     this.tags = const <String>[],
     this.recordId,
     this.refundOfRecordId,
@@ -92,6 +93,7 @@ class RawImportRecord {
   /// 支出退款额（>= 0；plan_builder 再钳到 [0, amount]、仅支出生效）。
   final double refunded;
   final bool excludedFromBudget;
+  final bool excludedFromStatistics;
 
   /// 标签名（未归一化；plan_builder 去重并解析成标签 id）。
   final List<String> tags;
@@ -132,6 +134,7 @@ class RawImportRecord {
       fee: fee,
       refunded: refunded,
       excludedFromBudget: excludedFromBudget,
+      excludedFromStatistics: excludedFromStatistics,
       tags: tags,
       recordId: recordId,
       refundOfRecordId: refundOfRecordId,
@@ -326,6 +329,7 @@ RawImportRecord? buildRecordFromStrings({
   String recordId = '',
   String refundOfRecordId = '',
   String settledAt = '',
+  EntryStatisticsScope statisticsScope = EntryStatisticsScope.normal,
   List<String> tags = const <String>[],
   int? sourceLine,
   void Function(String message)? onError,
@@ -379,6 +383,12 @@ RawImportRecord? buildRecordFromStrings({
     note: note,
     fee: parseImportFee(fee),
     refunded: parseImportFee(refunded),
+    excludedFromBudget:
+        statisticsScope.forType(parsedType) ==
+        EntryStatisticsScope.excludeBudget,
+    excludedFromStatistics:
+        statisticsScope.forType(parsedType) ==
+        EntryStatisticsScope.excludeStatistics,
     tags: tags,
     recordId: recordId.trim().isEmpty ? null : recordId.trim(),
     refundOfRecordId: refundOfRecordId.trim().isEmpty

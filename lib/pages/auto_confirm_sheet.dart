@@ -15,7 +15,6 @@ import '../app/models.dart';
 import '../app/platform_bridge.dart';
 import '../app/veri_fin_scope.dart';
 import '../l10n/app_localizations.dart';
-import 'entry_detail_page.dart';
 import 'sheets.dart';
 
 /// The overlay isolate renders the prepared suggestions without opening SQLite
@@ -161,7 +160,7 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
   Tag? _platformTag;
   late final List<Tag> _availableTags;
   bool _reimbursable = false;
-  bool _excludedFromBudget = false;
+  EntryStatisticsScope _statisticsScope = EntryStatisticsScope.normal;
   bool _saving = false;
   String? _error;
   String? _collapsedCategoryId;
@@ -338,7 +337,11 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
       if (_tagIds.contains(AutoBillSuggestions.draftTagId))
         'suggestedTagLabel': _platformTag?.label,
       'reimbursable': _reimbursable,
-      'excludedFromBudget': _excludedFromBudget,
+      'excludedFromBudget':
+          _statisticsScope.forType(_type) == EntryStatisticsScope.excludeBudget,
+      'excludedFromStatistics':
+          _statisticsScope.forType(_type) ==
+          EntryStatisticsScope.excludeStatistics,
     });
     if (!mounted) return;
     if (saved) {
@@ -613,17 +616,14 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
                             onTap: () =>
                                 setState(() => _reimbursable = !_reimbursable),
                           ),
-                          EntryMetadataPill(
-                            compact: true,
-                            icon: Icons.money_off_outlined,
-                            label: Text(l10n.excludedFromBudget),
-                            selected: _excludedFromBudget,
-                            toggle: true,
-                            onTap: () => setState(
-                              () => _excludedFromBudget = !_excludedFromBudget,
-                            ),
-                          ),
                         ],
+                        if (EntryStatisticsScope.supports(_type))
+                          EntryStatisticsToggles(
+                            type: _type,
+                            scope: _statisticsScope,
+                            onChanged: (scope) =>
+                                setState(() => _statisticsScope = scope),
+                          ),
                       ],
                     ),
                     Divider(height: 16, color: tokens.borderColor),

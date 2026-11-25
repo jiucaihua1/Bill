@@ -52,17 +52,13 @@ class HomePage extends StatelessWidget {
         .toList();
     final todayExpenses = entries
         .where(
-          (e) =>
-              e.type == EntryType.expense &&
-              e.occurredAt.year == now.year &&
-              e.occurredAt.month == now.month &&
-              e.occurredAt.day == now.day,
+          (entry) =>
+              entry.type == EntryType.expense &&
+              !entry.excludedFromStatistics &&
+              DateUtils.isSameDay(entry.occurredAt, now),
         )
         .toList();
-    final todayExpenseTotal = todayExpenses.fold<double>(
-      0,
-      (sum, entry) => sum + entry.netBaseAmount,
-    );
+    final todayExpenseTotal = sumByType(todayExpenses, EntryType.expense);
     // 预算面板按预算周期取数（键月 + 周期窗口）；首页其余统计仍按自然月。
     final budgetKeyMonth = controller.budgetKeyMonthFor(now);
     final budgetWindow = controller.budgetWindow(budgetKeyMonth);
@@ -1013,7 +1009,7 @@ class _IncomeExpenseStatsPageState extends State<IncomeExpenseStatsPage> {
     // 年视图无「按天」窗口，用 12 个月聚合；其余按天窗口。
     final window = isYear ? null : _windowForPeriod();
     final scopedByType = controller.entries
-        .where((entry) => entry.type == _type)
+        .where((entry) => entry.type == _type && !entry.excludedFromStatistics)
         .toList();
 
     final List<LedgerEntry> rangeEntries;
