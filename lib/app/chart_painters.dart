@@ -725,6 +725,7 @@ class InteractiveBarChart extends StatefulWidget {
     this.labelColor,
     required this.tooltipOf,
     this.semanticsLabel,
+    this.onIndexInteracted,
   }) : assert(
          (values.length == 0 ? 0 : 1) + (series == null ? 0 : 1) == 1,
          '单序列传 values，多序列传 series，二选一',
@@ -747,6 +748,9 @@ class InteractiveBarChart extends StatefulWidget {
   /// 按插槽索引生成气泡内容；分组柱的气泡一次展示该插槽的全部序列。
   final ChartTooltip Function(int index) tooltipOf;
   final String? semanticsLabel;
+
+  /// 用户点按或滑动到某个插槽，关闭气泡时不清除调用方的选择。
+  final ValueChanged<int>? onIndexInteracted;
 
   @override
   State<InteractiveBarChart> createState() => _InteractiveBarChartState();
@@ -917,13 +921,20 @@ class _InteractiveBarChartState extends State<InteractiveBarChart> {
             context: context,
             onTapOutside: () => _select(null),
             child: _ChartGestureLayer(
-              onScrub: (localX) => _select(indexAt(localX)),
+              onScrub: (localX) {
+                final index = indexAt(localX);
+                if (index != _selectedIndex) {
+                  widget.onIndexInteracted?.call(index);
+                }
+                _select(index);
+              },
               onTap: (localX) {
                 // 按在纵轴刻度区不算选中。
                 if (localX < reserved) {
                   return;
                 }
                 final index = indexAt(localX);
+                widget.onIndexInteracted?.call(index);
                 _select(index == _selectedIndex ? null : index, haptic: true);
               },
               child: Stack(

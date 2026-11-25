@@ -68,6 +68,7 @@ class _ReportsPageState extends State<ReportsPage> {
         case 'week_summary':
           return _PeriodSummaryPanel(
             window: weekWindow,
+            timeFilter: TransactionTimeFilter.week,
             title: l10n.panelWeekSummaryLabel,
             trailing: null,
             incomeLabel: isCurrentWeek
@@ -83,6 +84,7 @@ class _ReportsPageState extends State<ReportsPage> {
         case 'summary':
           return _PeriodSummaryPanel(
             window: monthWindow,
+            timeFilter: TransactionTimeFilter.month,
             // 默认（本月）沿用「本月收支」；切到历史月份时标题直接写明那一期。
             title: isCurrentMonth
                 ? l10n.panelSummaryLabel
@@ -101,6 +103,7 @@ class _ReportsPageState extends State<ReportsPage> {
         case 'year_summary':
           return _PeriodSummaryPanel(
             window: yearWindow,
+            timeFilter: TransactionTimeFilter.year,
             // 看今年沿用「本年收支」；看历史年份时标题去掉「本」、把年份放到右上角
             // 角标——标题位置写一个光秃秃的「2025年」既不像卡片标题，也丢了「收支」。
             title: isCurrentYear
@@ -163,7 +166,18 @@ class _ReportsPageState extends State<ReportsPage> {
                 : l10n.yearNumber(DateTime(_yearFocus)),
           );
         case 'year_heatmap':
-          return _YearHeatmapPanel(year: _yearFocus);
+          return _YearHeatmapPanel(
+            year: _yearFocus,
+            firstMonth: monthWindowFor(firstDay).start,
+            lastMonth: thisMonth,
+            onOpenMonth: (month) {
+              if (!mounted) return;
+              setState(() {
+                _monthFocus = month;
+                _tab = ReportPeriodTab.monthly;
+              });
+            },
+          );
         case 'daily_trend':
           // 本月用累积展开窗口（1–7、1–14……只画到今天，不把未来日期塞进横轴）；
           // 看历史月份时那一个月已经走完，直接给整月窗口。
@@ -178,6 +192,7 @@ class _ReportsPageState extends State<ReportsPage> {
 
     return VeriPage(
       child: ListView(
+        key: ValueKey(_tab),
         padding: veriRootPageListPadding(context),
         children: <Widget>[
           PageHeader(
@@ -755,32 +770,49 @@ class _WeeklyTrendPanel extends StatefulWidget {
 
 class _WeeklyTrendPanelState extends State<_WeeklyTrendPanel> {
   EntryType _type = EntryType.expense;
+  int? _selectedDay;
+
+  @override
+  void didUpdateWidget(covariant _WeeklyTrendPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.window.start != oldWidget.window.start) _selectedDay = null;
+  }
 
   @override
   Widget build(BuildContext context) {
     final controller = VeriFinScope.of(context);
     final l10n = AppLocalizations.of(context);
     final window = widget.window;
-    final expenseValues = valuesForTypeInWindow(
-      controller.entries,
-      window,
-      EntryType.expense,
+    final days = window.days;
+    final today = DateTime.now();
+    final todayIndex = days.indexWhere(
+      (day) => DateUtils.isSameDay(day, today),
     );
-    final incomeValues = valuesForTypeInWindow(
-      controller.entries,
-      window,
-      EntryType.income,
-    );
-    final expenseTotal = _sumValues(expenseValues);
-    final incomeTotal = _sumValues(incomeValues);
-    final expense = _type == EntryType.expense;
-    final chartValues = expense ? expenseValues : incomeValues;
-    final chartTotal = expense ? expenseTotal : incomeTotal;
+    final dayIndex =
+        _selectedDay ?? (todayIndex == -1 ? days.length - 1 : todayIndex);
+    final selectedDate = days[dayIndex];
+    final weekEntries = entriesInWindow(controller.entries, window);
+    final chartValues = valuesForTypeInWindow(weekEntries, window, _type);
     final maxValue = chartValues.fold<double>(
       0,
       (max, value) => value > max ? value : max,
     );
+    final expense = _type == EntryType.expense;
     final dimLabel = _type.label(l10n);
+    final directionColor = veriSemantic(
+      context,
+      expense ? veriExpense : veriIncome,
+    );
+    final dayEntries = weekEntries
+        .where(
+          (entry) =>
+              entry.type == _type &&
+              !entry.excludedFromStatistics &&
+              DateUtils.isSameDay(entry.occurredAt, selectedDate),
+        )
+        .take(3);
+    String amount(double value) =>
+        expense ? formatExpenseAmount(value) : formatIncomeAmount(value);
 
     return VeriCard(
       child: Column(
@@ -795,97 +827,78 @@ class _WeeklyTrendPanelState extends State<_WeeklyTrendPanel> {
             ),
           ),
           const SizedBox(height: 16),
-          if (isZeroAmount(chartTotal))
-            EmptyState(
-              icon: Icons.bar_chart_outlined,
-              title: l10n.noDimData(dimLabel),
-              description: l10n.noDimDesc(dimLabel),
-            )
-          else
-            SizedBox(
-              height: 138,
-              child: InteractiveBarChart(
-                values: chartValues,
-                // 柱子颜色跟着口径走：支出语义红、收入语义青，方向不只靠标题。
-                color: expense
-                    ? veriSemantic(context, veriExpense)
-                    : veriSemantic(context, veriIncome),
-                xLabels: window.days
-                    .map((day) => _weekdayLabel(l10n, day))
-                    .toList(growable: false),
-                yLabels: reportAxisLabels(maxValue),
-                labelColor: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.50),
-                tooltipOf: (index) => ChartTooltip(
-                  title: l10n.dateMonthDay(window.days[index]),
-                  lines: <ChartTooltipLine>[
-                    ChartTooltipLine(
-                      text: expense
-                          ? l10n.expenseAmountLabel(
-                              formatExpenseAmount(chartValues[index]),
-                            )
-                          : l10n.incomeAmountLabel(
-                              formatIncomeAmount(chartValues[index]),
-                            ),
-                    ),
-                  ],
-                ),
+          SizedBox(
+            height: 138,
+            child: InteractiveBarChart(
+              key: ValueKey(window.start),
+              values: chartValues,
+              color: directionColor,
+              xLabels: days
+                  .map((day) => _weekdayLabel(l10n, day))
+                  .toList(growable: false),
+              yLabels: reportAxisLabels(maxValue),
+              onIndexInteracted: (index) {
+                if (index != dayIndex) setState(() => _selectedDay = index);
+              },
+              tooltipOf: (index) => ChartTooltip(
+                title: l10n.dateMonthDay(days[index]),
+                lines: <ChartTooltipLine>[
+                  ChartTooltipLine(
+                    text: expense
+                        ? l10n.expenseAmountLabel(amount(chartValues[index]))
+                        : l10n.incomeAmountLabel(amount(chartValues[index])),
+                  ),
+                ],
               ),
             ),
-          const SizedBox(height: 14),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: _RecentStatLine(
-                  label: l10n.recentTotalExpense,
-                  value: formatExpenseAmount(expenseTotal),
-                  tone: VeriMetricTone.expense,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _RecentStatLine(
-                  label: l10n.recentDailyAvgExpense,
-                  value: formatExpenseAmount(_dailyAverage(expenseTotal)),
-                  tone: VeriMetricTone.neutral,
-                ),
-              ),
-            ],
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: _RecentStatLine(
-                  label: l10n.recentTotalIncome,
-                  // 与支出侧一致：零值显示「0」，不带小数。
-                  value: formatIncomeAmount(incomeTotal),
-                  tone: VeriMetricTone.income,
+          const Divider(height: 24),
+          SectionTitle(
+            title: l10n.reportDayDirection(
+              l10n.dateMonthDay(selectedDate),
+              dimLabel,
+            ),
+            trailingWidget: Text(
+              amount(chartValues[dayIndex]),
+              key: const Key('reports_week_day_amount'),
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: directionColor,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          if (dayEntries.isEmpty)
+            Text(
+              l10n.noDimData(dimLabel),
+              style: Theme.of(context).textTheme.bodySmall,
+            )
+          else
+            for (final entry in dayEntries)
+              TransactionTile(
+                entry,
+                accounts: controller.accounts,
+                categories: controller.categories,
+                tags: controller.tags,
+                baseCurrencyCode: controller.activeBook.baseCurrencyCode,
+                onTap: () => openEntryDetail(context, entry),
+              ),
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: TextButton(
+              onPressed: () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => TransactionsPage(initialDate: selectedDate),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _RecentStatLine(
-                  label: l10n.recentDailyAvgIncome,
-                  value: formatIncomeAmount(_dailyAverage(incomeTotal)),
-                  tone: VeriMetricTone.neutral,
-                ),
-              ),
-            ],
+              child: Text(l10n.entriesListTitle),
+            ),
           ),
         ],
       ),
     );
   }
 }
-
-/// 面板内的合计：规整到最小货币单位，避免浮点残差。
-double _sumValues(List<double> values) =>
-    normalizeAmount(values.fold<double>(0, (sum, value) => sum + value));
-
-/// 自然周的日均按七天折算。
-double _dailyAverage(double total) => normalizeAmount(total / 7);
 
 String _weekdayLabel(AppLocalizations l10n, DateTime day) {
   switch (day.weekday) {
@@ -906,56 +919,6 @@ String _weekdayLabel(AppLocalizations l10n, DateTime day) {
   }
 }
 
-/// 「标签：金额」一行的紧凑排布（近 7 日面板底部两列两行）。
-class _RecentStatLine extends StatelessWidget {
-  const _RecentStatLine({
-    required this.label,
-    required this.value,
-    required this.tone,
-  });
-
-  final String label;
-  final String value;
-  final VeriMetricTone tone;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: veriMetricTileColor(context, tone),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.58),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// 整年窗口（1 月 1 日到 12 月 31 日），用于年统计 Tab。
 DateWindow _yearWindow(int year) =>
     DateWindow(start: DateTime(year, 1, 1), end: DateTime(year, 12, 31));
@@ -966,6 +929,7 @@ DateWindow _yearWindow(int year) =>
 class _PeriodSummaryPanel extends StatelessWidget {
   const _PeriodSummaryPanel({
     required this.window,
+    required this.timeFilter,
     required this.title,
     required this.trailing,
     required this.incomeLabel,
@@ -974,6 +938,7 @@ class _PeriodSummaryPanel extends StatelessWidget {
   });
 
   final DateWindow window;
+  final TransactionTimeFilter timeFilter;
   final String title;
   final String? trailing;
   final String incomeLabel;
@@ -983,7 +948,8 @@ class _PeriodSummaryPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final entries = entriesInWindow(VeriFinScope.of(context).entries, window);
+    final controller = VeriFinScope.of(context);
+    final entries = entriesInWindow(controller.entries, window);
     final income = sumByType(entries, EntryType.income);
     final expense = sumByType(entries, EntryType.expense);
     final net = income - expense;
@@ -1002,43 +968,89 @@ class _PeriodSummaryPanel extends StatelessWidget {
     final zeroColor = Theme.of(
       context,
     ).colorScheme.onSurface.withValues(alpha: 0.48);
+    final summary = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        SectionTitle(
+          title: title,
+          trailingWidget: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (trailing case final label?) Flexible(child: Text(label)),
+              const Icon(Icons.chevron_right_rounded, size: 20),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              SummaryMetric(
+                label: incomeLabel,
+                value: formatIncomeAmount(income),
+                color: isZeroAmount(income)
+                    ? zeroColor
+                    : veriSemantic(context, veriIncome),
+                tone: VeriMetricTone.income,
+                detail: l10n.entriesCount(incomeCount),
+              ),
+              SummaryMetric(
+                label: expenseLabel,
+                value: formatExpenseAmount(expense),
+                color: isZeroAmount(expense)
+                    ? zeroColor
+                    : veriSemantic(context, veriExpense),
+                tone: VeriMetricTone.expense,
+                detail: l10n.entriesCount(expenseCount),
+              ),
+              SummaryMetric(
+                label: netLabel,
+                value: formatSignedAmount(net),
+                color: Theme.of(context).colorScheme.onSurface,
+                tone: VeriMetricTone.neutral,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
     return VeriCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          SectionTitle(title: title, trailing: trailing),
-          const SizedBox(height: 12),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                SummaryMetric(
-                  label: incomeLabel,
-                  value: formatIncomeAmount(income),
-                  color: isZeroAmount(income)
-                      ? zeroColor
-                      : veriSemantic(context, veriIncome),
-                  tone: VeriMetricTone.income,
-                  detail: l10n.entriesCount(incomeCount),
+        children: [
+          Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              key: ValueKey('reports_summary_${timeFilter.name}'),
+              borderRadius: BorderRadius.circular(
+                VeriStyleTokens.of(context).innerRadius,
+              ),
+              onTap: () => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => TransactionsPage(
+                    initialTimeFilter: timeFilter,
+                    initialPeriodAnchor: window.start,
+                  ),
                 ),
-                SummaryMetric(
-                  label: expenseLabel,
-                  value: formatExpenseAmount(expense),
-                  color: isZeroAmount(expense)
-                      ? zeroColor
-                      : veriSemantic(context, veriExpense),
-                  tone: VeriMetricTone.expense,
-                  detail: l10n.entriesCount(expenseCount),
-                ),
-                SummaryMetric(
-                  label: netLabel,
-                  value: formatSignedAmount(net),
-                  color: Theme.of(context).colorScheme.onSurface,
-                  tone: VeriMetricTone.neutral,
-                ),
-              ],
+              ),
+              child: summary,
             ),
           ),
+          if (timeFilter == TransactionTimeFilter.month) ...[
+            const Divider(height: 26),
+            CalendarPreview(
+              key: const Key('reports_month_calendar'),
+              month: window.start,
+              entries: entries,
+              currencyCode: controller.activeBook.baseCurrencyCode,
+              onDayTap: (date) => Navigator.of(context).push<void>(
+                MaterialPageRoute<void>(
+                  builder: (_) => TransactionsPage(initialDate: date),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2050,9 +2062,17 @@ class _YearTrendPanel extends StatelessWidget {
 /// 这是「日历网格」而不是图表库图表：与 `CalendarPreview` 同一类做法，
 /// 由普通 Widget 拼装，不引入自绘数据图表。
 class _YearHeatmapPanel extends StatefulWidget {
-  const _YearHeatmapPanel({required this.year});
+  const _YearHeatmapPanel({
+    required this.year,
+    required this.firstMonth,
+    required this.lastMonth,
+    required this.onOpenMonth,
+  });
 
   final int year;
+  final DateTime firstMonth;
+  final DateTime lastMonth;
+  final ValueChanged<DateTime> onOpenMonth;
 
   @override
   State<_YearHeatmapPanel> createState() => _YearHeatmapPanelState();
@@ -2060,6 +2080,84 @@ class _YearHeatmapPanel extends StatefulWidget {
 
 class _YearHeatmapPanelState extends State<_YearHeatmapPanel> {
   EntryType _type = EntryType.expense;
+
+  Future<void> _previewMonth(DateTime month, List<double> yearValues) async {
+    final type = _type;
+    final onOpenMonth = widget.onOpenMonth;
+    final days = monthWindowFor(month).days;
+    final start = heatmapDayIndexOfYear(month);
+    final openMonth = await showVeriModalSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) {
+        final l10n = AppLocalizations.of(context);
+        final theme = Theme.of(context);
+        final expense = type == EntryType.expense;
+        final accent = veriSemantic(
+          context,
+          expense ? veriExpense : veriIncome,
+        );
+        return FractionallySizedBox(
+          heightFactor: 0.72,
+          child: SafeArea(
+            top: false,
+            minimum: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SectionTitle(
+                  title: l10n.yearMonth(month),
+                  trailing: type.label(l10n),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.separated(
+                    padding: EdgeInsets.zero,
+                    itemCount: days.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final amount = yearValues[start + index];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(l10n.dateMonthDay(days[index])),
+                            ),
+                            Flexible(
+                              child: Text(
+                                expense
+                                    ? formatExpenseAmount(amount)
+                                    : formatIncomeAmount(amount),
+                                textAlign: TextAlign.end,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: isZeroAmount(amount)
+                                      ? theme.colorScheme.onSurfaceVariant
+                                      : accent,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(l10n.reportOpenMonth),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (openMonth == true) onOpenMonth(month);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2108,6 +2206,14 @@ class _YearHeatmapPanelState extends State<_YearHeatmapPanel> {
               color: color,
               emptyColor: emptyColor,
               monthLabelOf: l10n.monthNumber,
+              monthActionOf: (month) {
+                final date = DateTime(widget.year, month);
+                if (date.isBefore(widget.firstMonth) ||
+                    date.isAfter(widget.lastMonth)) {
+                  return null;
+                }
+                return () => _previewMonth(date, values);
+              },
             ),
         ],
       ),

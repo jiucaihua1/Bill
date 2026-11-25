@@ -136,8 +136,8 @@
 | `TransactionListCard` | Widget | `common_widgets.dart` | 交易列表卡（多条 `TransactionTile` + 分隔线）；可透传 `moneyDisplay`，AI 等非活动账本结果使用；AI 对话调用时不传 `onEntryTap`，保持只读 |
 | `DateGroupHeader` | Widget | `common_widgets.dart` | 日期分组小标题（日期+今天/昨天+当日合计） |
 | `groupEntriesByDate` / `relativeDay` | 纯函数 | `common_widgets.dart` | 按日分组、日期倒序 / 相对今天；`DateEntryGroup` 分组模型 |
-| `CalendarPreview` | Widget | `common_widgets.dart` | 月历预览（内建月份切换、非当前月份显示「本月」回跳按钮 + 日收支）；必传 `currencyCode`；单币种账本隐藏单位时右下角不再显示轻量单位提示，并**连同前置 6dp 间距整块不构建**（`if (!textCurrencyUnitHidden)`，见维护约定），多币种账本照常显示 |
-| `VeriCalendarHeatmap` | Widget | `common_widgets_heatmap.dart` | 月历热力图：12 个月各一张迷你日历，按天着色（值越大越深，无记录为浅底）。固定尺寸格子 + `RepaintBoundary`，格子尺寸按可用宽度一次算出（默认 4 列），领空格不生成 Widget；调用方传 `year` / `dailyValues` / 深浅两色 / 月份文案。配套纯函数 `heatmapDayIndexOfYear` 把日期映射成 `dailyValues` 下标（**必须走 `calendarDaysBetween`**，`difference().inDays` 在夏令时地区会少算一天）。看板「收支热力」卡用它 |
+| `CalendarPreview` | Widget | `common_widgets.dart` | 月历预览（内建月份切换、非当前月份显示「本月」回跳按钮 + 日收支）；传入 `month` 时嵌入当前统计卡，使用外部期间；必传 `currencyCode`；单币种账本隐藏单位时右下角不再显示轻量单位提示，并**连同前置 6dp 间距整块不构建**（`if (!textCurrencyUnitHidden)`，见维护约定），多币种账本照常显示 |
+| `VeriCalendarHeatmap` | Widget | `common_widgets_heatmap.dart` | 月历热力图：12 个月各一张迷你日历，按天着色（值越大越深，无记录为浅底）。固定尺寸格子 + `RepaintBoundary`，格子尺寸按可用宽度一次算出（默认 4 列），领空格不生成 Widget；调用方传 `year` / `dailyValues` / 深浅两色 / 月份文案。配套纯函数 `heatmapDayIndexOfYear` 把日期映射成 `dailyValues` 下标（**必须走 `calendarDaysBetween`**，`difference().inDays` 在夏令时地区会少算一天）。看板「收支热力」卡通过 `monthActionOf` 打开各月摘要 |
 | `EntryTagField` | Widget | `common_widgets.dart` | 单笔详情的标签行，可横滑查看各标签名称，点击打开多选。 |
 | `AttachmentsEditor` | Widget | `attachments_editor.dart` | 多图片附件横向缩略图、全屏查看和逐张删除；默认自带标题与拍照/相册添加入口，记账页的轻量元数据布局通过 `showHeader:false` / `showAddButton:false` 只复用缩略图条，添加入口由页面标签触发 |
 | `TagSelectorSheet` / `pickEntryTags` | Widget / Sheet 函数 | `entry_sheets.dart` / `sheets.dart` | 交易标签多选（即时新建）/ 接 controller 的弹窗封装。**标签同样是账本内数据**（`Tag.bookId`）：列表取 `controller.tags`（当前账本），跨账本数据用 `tagsForBook(bookId)` |
@@ -191,7 +191,7 @@
 | 名称 | 类型 | 位置 | 用途 |
 |---|---|---|---|
 | `InteractiveTrendChart` | Widget | `chart_painters.dart` | 可交互折线图。`formatYAxisValue` 按实际绘制范围生成纵轴刻度。`highlightLatest` 为最后一个有效点加外圈，全年图可用 `highlightThroughIndex` 限制锚点的月份。默认不画节点圆点，有缺率断点或有效点不超过 2 个时显示小圆点；缺率插槽不可选。支持点击固定或收起气泡、左右滑动连续查看。自带 `Semantics` 摘要；位于可跳转卡片内时拦截点击 |
-| `InteractiveBarChart` | Widget | `chart_painters.dart` | 可交互柱状图；单序列传 `values`（颜色默认取主题主色，语义色传 `color`，如支出红 / 收入青），多序列传 `series`（`List<VeriBarSeries>`，同插槽并排成组，如预算/支出双柱）。命中按插槽取最近一根柱子，整片绘图区可点击或拖动，零值柱也能查看；选中在抬手后保持。**柱子圆角按柱高收窄**（不超过柱高的一半，也不超过 4）：fl_chart 会把正柱的像素高度垫到至少「上下圆角半径之和」，半径写死会让矮柱变成固定高度的短杠，归零的柱子会卡一下再消失 |
+| `InteractiveBarChart` | Widget | `chart_painters.dart` | 可交互柱状图；单序列传 `values`（颜色默认取主题主色，语义色传 `color`，如支出红 / 收入青），多序列传 `series`（`List<VeriBarSeries>`，同插槽并排成组，如预算/支出双柱）。命中按插槽取最近一根柱子，整片绘图区可点击或拖动，零值柱也能查看；选中在抬手后保持。`onIndexInteracted` 可同步外部明细，收起气泡时保留外部选中的插槽。**柱子圆角按柱高收窄**（不超过柱高的一半，也不超过 4）：fl_chart 会把正柱的像素高度垫到至少「上下圆角半径之和」，半径写死会让矮柱变成固定高度的短杠，归零的柱子会卡一下再消失 |
 | `VeriBarSeries` | 值类 | `chart_painters.dart` | 柱状图的一条序列（`values, color`）；配合 `InteractiveBarChart.series` 使用 |
 | `VeriDonutChart` | Widget | `chart_painters.dart` | 环形分段图；`segments, center, ringWidth, selectedIndex, onSelected, semanticsLabel, showPercentTitles, onCenterTap`。点击分段回传索引；中心空区回传 `null`，`onCenterTap` 非空时中心改成可点热区（资产汇总切换「金额 / 占比」，分类统计清空分段选中）。`showPercentTitles` 打开环内占比文字，低于 5% 的分段不画；选中某段时只保留该段的占比文字，取消后恢复。环内百分比固定白字。分类分段颜色统一取 `veriChartPalette`（10 色，见族 10），调色盘全部压到深色档，浅色 / 深色主题下都不再翻转。 |
 | `VeriBudgetRing` | Widget | `chart_painters.dart` | 预算/额度进度环；`value, trackColor, progressColor, center, strokeWidth`。中心内容忽略指针事件 |

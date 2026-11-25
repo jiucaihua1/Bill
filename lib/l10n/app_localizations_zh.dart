@@ -622,33 +622,24 @@ class AppLocalizationsZh extends AppLocalizations {
   String get panelSummaryLabel => '本月收支';
 
   @override
-  String get panelSummaryDesc => '本月收入、支出与结余合计';
+  String get panelSummaryDesc => '月度收支合计与每日收支日历';
 
   @override
   String get panelRecentDailyLabel => '每日收支';
 
   @override
-  String get panelRecentDailyDesc => '所选周的每日收支、总额和日均';
+  String reportDayDirection(String date, String direction) {
+    return '$date $direction';
+  }
+
+  @override
+  String get reportOpenMonth => '查看月统计';
+
+  @override
+  String get panelRecentDailyDesc => '点柱状图查看当天金额和交易';
 
   @override
   String get panelThisWeekLabel => '本周统计';
-
-  @override
-  String get recentTotalExpense => '总支出';
-
-  @override
-  String get recentDailyAvgExpense => '日均支出';
-
-  @override
-  String get recentTotalIncome => '总收入';
-
-  @override
-  String get recentDailyAvgIncome => '日均收入';
-
-  @override
-  String recentStatLine(String label, String amount) {
-    return '$label：$amount';
-  }
 
   @override
   String get panelAssetSummaryLabel => '资产汇总';
@@ -699,7 +690,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get panelYearHeatmapLabel => '收支热力';
 
   @override
-  String get panelYearHeatmapDesc => '按天查看全年支出 / 收入的深浅';
+  String get panelYearHeatmapDesc => '按天查看全年收支，点月份查看每日金额';
 
   @override
   String get assetPositive => '正资产';

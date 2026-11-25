@@ -16,6 +16,11 @@ void main() {
   testWidgets('看板的 SectionTitle 把 trailing 顶到卡片右端', (tester) async {
     await pumpApp(tester, LocalKeyValueStore());
     await openReportsMonthlyTab(tester); // 看板 · 月统计
+    await tester.scrollUntilVisible(
+      find.text('预算执行'),
+      200,
+      scrollable: firstVerticalScrollable(),
+    );
     await tester.pumpAndSettle();
 
     final titles = find.byType(SectionTitle);

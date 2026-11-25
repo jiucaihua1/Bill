@@ -3,9 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xiaohe/app/app_theme.dart';
 import 'package:xiaohe/app/chart_painters.dart';
 import 'package:xiaohe/app/common_widgets.dart';
+import 'package:xiaohe/app/ledger_math.dart';
 import 'package:xiaohe/app/models.dart';
 import 'package:xiaohe/local_storage/local_storage.dart';
 import 'package:xiaohe/pages/sheets.dart';
+import 'package:xiaohe/pages/transactions_pages.dart';
 
 import 'support/test_harness.dart';
 
@@ -52,7 +54,10 @@ void main() {
     // 列表是懒加载的，滚到底部后顶部 Tab 条会被回收，所以先切 Tab 再滚动。
     await tester.tap(tabLabel('月统计'));
     await tester.pumpAndSettle();
-    expect(selectedTab('monthly'), findsOneWidget);
+    expect(
+      find.byKey(const Key('reports_tab_selected_monthly')),
+      findsOneWidget,
+    );
     expect(dailyEntry, findsNothing);
     await tester.scrollUntilVisible(
       monthlyEntry,
@@ -89,13 +94,23 @@ void main() {
     await tester.tap(find.byTooltip('上一周'));
     await tester.pumpAndSettle();
     expect(periodArrow(tester, '上一周').onPressed, isNull);
-    final totalIncome = find
-        .ancestor(of: find.text('总收入'), matching: find.byType(Column))
-        .first;
-    expect(
-      find.descendant(of: totalIncome, matching: find.text('350')),
-      findsOneWidget,
+    await tester.tap(find.byKey(const Key('reports_summary_week')));
+    await tester.pumpAndSettle();
+    final weekDetails = tester.widget<TransactionsPage>(
+      find.byType(TransactionsPage),
     );
+    expect(weekDetails.initialTimeFilter, TransactionTimeFilter.week);
+    expect(
+      weekDetails.initialPeriodAnchor,
+      weekWindowFor(DateTime(now.year, now.month, now.day - 7)).start,
+    );
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    final totalIncome = find.descendant(
+      of: find.byKey(const Key('reports_summary_week')),
+      matching: find.widgetWithText(SummaryMetric, '收入'),
+    );
+    expect(tester.widget<SummaryMetric>(totalIncome).value, '350');
     expect(find.text('资产汇总'), findsNothing);
     await tester.tap(find.byKey(const Key('reports_period_label')));
     await tester.pumpAndSettle();
@@ -104,10 +119,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('reports_period_jump')));
     await tester.pumpAndSettle();
-    expect(
-      find.descendant(of: totalIncome, matching: find.text('0')),
-      findsOneWidget,
+    final currentIncome = find.descendant(
+      of: find.byKey(const Key('reports_summary_week')),
+      matching: find.widgetWithText(SummaryMetric, '本周收入'),
     );
+    expect(tester.widget<SummaryMetric>(currentIncome).value, '0');
     await tester.ensureVisible(find.text('每日收支'));
     // 页面上「收入」还出现在图例里，这里只点口径切换控件里的那一个。
     await tester.tap(
@@ -161,6 +177,8 @@ void main() {
 
     // 柱子颜色跟着口径走：支出语义红、收入语义青。
     final chartContext = tester.element(find.byType(InteractiveBarChart));
+    final dayAmount = find.byKey(const Key('reports_week_day_amount'));
+    expect(tester.widget<Text>(dayAmount).data, formatExpenseAmount(80));
     Color chartColor() => tester
         .widget<InteractiveBarChart>(find.byType(InteractiveBarChart))
         .color!;
@@ -171,6 +189,16 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(chartColor(), veriSemantic(chartContext, veriIncome));
+    expect(tester.widget<Text>(dayAmount).data, formatIncomeAmount(500));
+
+    final chartRect = tester.getRect(find.byType(InteractiveBarChart));
+    // 周日之外点最右插槽；周日则点最左插槽，两个目标均是空日期。
+    final x = now.weekday == DateTime.sunday
+        ? chartRect.left + 47
+        : chartRect.right - 5;
+    await tester.tapAt(Offset(x, chartRect.center.dy));
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(dayAmount).data, formatIncomeAmount(0));
   });
 
   testWidgets('排行卡：支出/收入在标题右上角，分组口径移到下方且同为紧凑档', (tester) async {
@@ -320,6 +348,7 @@ void main() {
     final store = LocalKeyValueStore();
     final controller = await makeController(store);
     final now = DateTime.now();
+    final target = DateTime(now.year, now.month == 1 ? 1 : now.month - 1, 5);
     controller.addEntry(
       LedgerEntry(
         id: 'heat-entry',
@@ -329,7 +358,7 @@ void main() {
         categoryId: 'dining',
         accountId: 'cash',
         note: '',
-        occurredAt: DateTime(now.year, 3, 5),
+        occurredAt: target,
       ),
     );
     controller.dispose();
@@ -364,6 +393,30 @@ void main() {
     await tester.pumpAndSettle();
     // 这个账本只有支出：切到「收入」后热力图应变成空态。
     expect(find.text('暂无收入数据'), findsOneWidget);
+
+    await tester.tap(
+      find
+          .descendant(of: toggleForCard('收支热力'), matching: find.text('支出'))
+          .first,
+    );
+    await tester.pumpAndSettle();
+    final month = find.byKey(ValueKey('heatmap_month_${target.month}'));
+    await tester.ensureVisible(month);
+    await tester.pumpAndSettle();
+    await tester.tap(month);
+    await tester.pumpAndSettle();
+    expect(find.text(formatExpenseAmount(42)), findsWidgets);
+    await tester.tap(find.text('查看月统计'));
+    await tester.pumpAndSettle();
+    expect(find.text('查看月统计'), findsNothing);
+    expect(
+      find.byKey(const Key('reports_tab_selected_monthly')),
+      findsOneWidget,
+    );
+    final calendar = tester.widget<CalendarPreview>(
+      find.byKey(const Key('reports_month_calendar')),
+    );
+    expect(calendar.month, DateTime(target.year, target.month));
   });
 
   testWidgets('资产汇总：环内空白处点击也能切换金额 / 占比', (tester) async {
@@ -544,7 +597,42 @@ void main() {
     expect(find.text('收入'), findsWidgets);
     expect(jumpToCurrentEnabled(tester), isTrue);
 
-    await tester.tap(find.byKey(const Key('reports_period_jump')));
+    final calendar = find.byKey(const Key('reports_month_calendar'));
+    expect(tester.widget<CalendarPreview>(calendar).month, lastMonth);
+    final date = find.descendant(of: calendar, matching: find.text('12'));
+    await tester.ensureVisible(date);
+    await tester.pumpAndSettle();
+    await tester.tap(date);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TransactionsPage>(find.byType(TransactionsPage))
+          .initialDate,
+      DateTime(lastMonth.year, lastMonth.month, 12),
+    );
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    final summary = find.byKey(const Key('reports_summary_month'));
+    await tester.ensureVisible(summary);
+    await tester.pumpAndSettle();
+    await tester.tap(summary);
+    await tester.pumpAndSettle();
+    final monthDetails = tester.widget<TransactionsPage>(
+      find.byType(TransactionsPage),
+    );
+    expect(monthDetails.initialTimeFilter, TransactionTimeFilter.month);
+    expect(monthDetails.initialPeriodAnchor, lastMonth);
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+
+    final jump = find.byKey(const Key('reports_period_jump'));
+    await tester.scrollUntilVisible(
+      jump,
+      -160,
+      scrollable: firstVerticalScrollable(),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(jump);
     await tester.pumpAndSettle();
     expect(find.text(thisMonthLabel), findsOneWidget);
     expect(find.text('本月收支'), findsOneWidget);
@@ -647,6 +735,15 @@ void main() {
     expect(find.text('本年收入'), findsNothing);
     // 年份出现在三处：期间栏、摘要卡角标、收支统计卡角标。
     expect(find.text('$lastYear年'), findsNWidgets(3));
+    await tester.tap(find.byKey(const Key('reports_summary_year')));
+    await tester.pumpAndSettle();
+    final yearDetails = tester.widget<TransactionsPage>(
+      find.byType(TransactionsPage),
+    );
+    expect(yearDetails.initialTimeFilter, TransactionTimeFilter.year);
+    expect(yearDetails.initialPeriodAnchor, DateTime(lastYear));
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
     // 「收支统计」的角标不再是「今年」而是当前看的年份。
     expect(
       tester

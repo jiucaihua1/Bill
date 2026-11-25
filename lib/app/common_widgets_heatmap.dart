@@ -30,6 +30,7 @@ class VeriCalendarHeatmap extends StatelessWidget {
     required this.color,
     required this.emptyColor,
     required this.monthLabelOf,
+    this.monthActionOf,
     this.columns = 4,
     this.labelSpacing = 6,
     this.cellSpacing = 2,
@@ -49,6 +50,9 @@ class VeriCalendarHeatmap extends StatelessWidget {
 
   /// 月份标题（如「1月」），由调用方提供本地化文案。
   final String Function(int month) monthLabelOf;
+
+  /// 返回对应月份的点击操作，空值表示该月份不可点击。
+  final VoidCallback? Function(int month)? monthActionOf;
 
   /// 每行放几个月。
   final int columns;
@@ -99,6 +103,7 @@ class VeriCalendarHeatmap extends StatelessWidget {
                 step: step,
                 monthWidth: monthWidth,
                 labelSpacing: labelSpacing,
+                onTap: monthActionOf?.call(month),
               ),
           ];
 
@@ -157,6 +162,7 @@ class _VeriHeatMonth extends StatelessWidget {
     required this.step,
     required this.monthWidth,
     required this.labelSpacing,
+    this.onTap,
   });
 
   final int year;
@@ -175,6 +181,7 @@ class _VeriHeatMonth extends StatelessWidget {
   /// 一个月占用的宽度（7 个步长）。
   final double monthWidth;
   final double labelSpacing;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -186,7 +193,7 @@ class _VeriHeatMonth extends StatelessWidget {
     final leading = firstDay.weekday - 1;
     final weeks = ((leading + daysInMonth) / 7).ceil();
 
-    return Column(
+    final calendar = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
@@ -213,6 +220,16 @@ class _VeriHeatMonth extends StatelessWidget {
             ],
           ),
       ],
+    );
+    if (onTap == null) return calendar;
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        key: ValueKey('heatmap_month_$month'),
+        borderRadius: BorderRadius.circular(veriRadiusSm),
+        onTap: onTap,
+        child: calendar,
+      ),
     );
   }
 

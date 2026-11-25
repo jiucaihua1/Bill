@@ -272,10 +272,16 @@ void main() {
 
       await openReportsMonthlyTab(tester);
 
+      // 顶部收支摘要：实际发生 150，不计入预算的标记不改变它。
+      expect(find.text('150'), findsAtLeastNWidgets(1));
+      await tester.scrollUntilVisible(
+        find.text('预算执行'),
+        200,
+        scrollable: firstVerticalScrollable(),
+      );
+      await tester.pumpAndSettle();
       // 预算执行卡：预算口径只算 100，剩余 1000 - 100 = 900。
       expect(find.text('900'), findsOneWidget);
-      // 顶部收支摘要等处：实际发生 150，标记不改变它（同一页同时看得到两个口径）。
-      expect(find.text('150'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('首页预算卡排除标记支出', (tester) async {

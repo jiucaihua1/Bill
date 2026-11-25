@@ -639,34 +639,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get panelSummaryLabel => 'This month';
 
   @override
-  String get panelSummaryDesc => 'Income, spending and balance for this month';
+  String get panelSummaryDesc =>
+      'Monthly totals and a daily income and spending calendar';
 
   @override
   String get panelRecentDailyLabel => 'Daily activity';
 
   @override
+  String reportDayDirection(String date, String direction) {
+    return '$direction · $date';
+  }
+
+  @override
+  String get reportOpenMonth => 'View monthly report';
+
+  @override
   String get panelRecentDailyDesc =>
-      'Daily activity, totals and averages for the selected week';
+      'Pick a bar to view the day\'s total and transactions';
 
   @override
   String get panelThisWeekLabel => 'This week';
-
-  @override
-  String get recentTotalExpense => 'Total spending';
-
-  @override
-  String get recentDailyAvgExpense => 'Daily avg spending';
-
-  @override
-  String get recentTotalIncome => 'Total income';
-
-  @override
-  String get recentDailyAvgIncome => 'Daily avg income';
-
-  @override
-  String recentStatLine(String label, String amount) {
-    return '$label: $amount';
-  }
 
   @override
   String get panelAssetSummaryLabel => 'Assets';
@@ -723,7 +715,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get panelYearHeatmapDesc =>
-      'Spending or income intensity for every day of the year';
+      'See daily amounts across the year and tap a month for details';
 
   @override
   String get assetPositive => 'Positive assets';

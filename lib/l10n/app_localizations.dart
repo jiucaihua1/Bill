@@ -1295,7 +1295,7 @@ abstract class AppLocalizations {
   /// 看板月统计面板:本月收支摘要卡片描述
   ///
   /// In zh, this message translates to:
-  /// **'本月收入、支出与结余合计'**
+  /// **'月度收支合计与每日收支日历'**
   String get panelSummaryDesc;
 
   /// 看板周统计:每日收支统计卡片标题
@@ -1304,10 +1304,22 @@ abstract class AppLocalizations {
   /// **'每日收支'**
   String get panelRecentDailyLabel;
 
+  /// No description provided for @reportDayDirection.
+  ///
+  /// In zh, this message translates to:
+  /// **'{date} {direction}'**
+  String reportDayDirection(String date, String direction);
+
+  /// No description provided for @reportOpenMonth.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看月统计'**
+  String get reportOpenMonth;
+
   /// 看板周统计:每日收支统计卡片描述
   ///
   /// In zh, this message translates to:
-  /// **'所选周的每日收支、总额和日均'**
+  /// **'点柱状图查看当天金额和交易'**
   String get panelRecentDailyDesc;
 
   /// 看板日常面板:切到本周时的卡片标题
@@ -1315,36 +1327,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'本周统计'**
   String get panelThisWeekLabel;
-
-  /// 近 7 日统计面板:总支出
-  ///
-  /// In zh, this message translates to:
-  /// **'总支出'**
-  String get recentTotalExpense;
-
-  /// 近 7 日统计面板:日均支出
-  ///
-  /// In zh, this message translates to:
-  /// **'日均支出'**
-  String get recentDailyAvgExpense;
-
-  /// 近 7 日统计面板:总收入
-  ///
-  /// In zh, this message translates to:
-  /// **'总收入'**
-  String get recentTotalIncome;
-
-  /// 近 7 日统计面板:日均收入
-  ///
-  /// In zh, this message translates to:
-  /// **'日均收入'**
-  String get recentDailyAvgIncome;
-
-  /// 近 7 日统计面板的文字统计行(标签：金额)
-  ///
-  /// In zh, this message translates to:
-  /// **'{label}：{amount}'**
-  String recentStatLine(String label, String amount);
 
   /// 看板日常面板:资产汇总卡片标题
   ///
@@ -1445,7 +1427,7 @@ abstract class AppLocalizations {
   /// 看板年统计面板:按天热力图卡片描述
   ///
   /// In zh, this message translates to:
-  /// **'按天查看全年支出 / 收入的深浅'**
+  /// **'按天查看全年收支，点月份查看每日金额'**
   String get panelYearHeatmapDesc;
 
   /// 资产汇总:只统计余额为正的账户

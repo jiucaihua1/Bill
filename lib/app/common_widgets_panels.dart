@@ -345,6 +345,7 @@ class CalendarPreview extends StatefulWidget {
     super.key,
     required this.entries,
     required this.currencyCode,
+    this.month,
     this.onDayTap,
     this.accounts = const <Account>[],
     this.categories = const <Category>[],
@@ -356,6 +357,9 @@ class CalendarPreview extends StatefulWidget {
 
   final List<LedgerEntry> entries;
   final String currencyCode;
+
+  /// 嵌入统计卡片时跟随外部期间，并省略独立卡片和内部月份导航。
+  final DateTime? month;
   final ValueChanged<DateTime>? onDayTap;
   final List<Account> accounts;
   final List<Category> categories;
@@ -379,21 +383,17 @@ class _CalendarPreviewState extends State<CalendarPreview> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final now = DateTime.now();
-    final isCurrentMonth =
-        _visibleMonth.year == now.year && _visibleMonth.month == now.month;
-    final days = DateUtils.getDaysInMonth(
-      _visibleMonth.year,
-      _visibleMonth.month,
-    );
-    final leadingBlanks =
-        DateTime(_visibleMonth.year, _visibleMonth.month).weekday - 1;
+    final month = widget.month ?? _visibleMonth;
+    final isCurrentMonth = month.year == now.year && month.month == now.month;
+    final days = DateUtils.getDaysInMonth(month.year, month.month);
+    final leadingBlanks = DateTime(month.year, month.month).weekday - 1;
     // 先按天分桶一次，避免每格各扫一遍全部交易。
     final incomeByDay = <int, double>{};
     final expenseByDay = <int, double>{};
     for (final entry in widget.entries) {
       if (entry.excludedFromStatistics) continue;
       final at = entry.occurredAt;
-      if (at.year != _visibleMonth.year || at.month != _visibleMonth.month) {
+      if (at.year != month.year || at.month != month.month) {
         continue;
       }
       switch (entry.type) {
@@ -408,9 +408,15 @@ class _CalendarPreviewState extends State<CalendarPreview> {
       }
     }
 
-    return VeriCard(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Column(
+    Widget wrapCalendar(Widget calendar) => widget.month != null
+        ? calendar
+        : VeriCard(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: calendar,
+          );
+
+    return wrapCalendar(
+      Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Row(
@@ -421,85 +427,89 @@ class _CalendarPreviewState extends State<CalendarPreview> {
                   title: AppLocalizations.of(context).calendarTitle,
                 ),
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: <Widget>[
-                  if (!isCurrentMonth)
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(44, 36),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        visualDensity: VisualDensity.compact,
+              if (widget.month == null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    if (!isCurrentMonth)
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(44, 36),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () => setState(() {
+                          _visibleMonth = DateTime(now.year, now.month);
+                        }),
+                        child: Text(l10n.thisMonth),
                       ),
-                      onPressed: () => setState(() {
-                        _visibleMonth = DateTime(now.year, now.month);
-                      }),
-                      child: Text(l10n.thisMonth),
+                    IconButton(
+                      constraints: const BoxConstraints.tightFor(
+                        width: 32,
+                        height: 32,
+                      ),
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: l10n.calendarPrevMonth,
+                      onPressed: () {
+                        VeriHaptics.tick();
+                        setState(() {
+                          _visibleMonth = DateTime(
+                            _visibleMonth.year,
+                            _visibleMonth.month - 1,
+                          );
+                        });
+                      },
+                      icon: const Icon(Icons.chevron_left, size: 20),
                     ),
-                  IconButton(
-                    constraints: const BoxConstraints.tightFor(
-                      width: 32,
-                      height: 32,
-                    ),
-                    padding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                    tooltip: l10n.calendarPrevMonth,
-                    onPressed: () {
-                      VeriHaptics.tick();
-                      setState(() {
-                        _visibleMonth = DateTime(
-                          _visibleMonth.year,
-                          _visibleMonth.month - 1,
-                        );
-                      });
-                    },
-                    icon: const Icon(Icons.chevron_left, size: 20),
-                  ),
-                  Container(
-                    constraints: const BoxConstraints(minWidth: 64),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: VeriStyleTokens.of(context).surfaceAltColor,
-                      borderRadius: BorderRadius.circular(999),
-                      border: VeriStyleTokens.of(context).pillHasBorder
-                          ? Border.all(
-                              color: VeriStyleTokens.of(context).borderColor,
-                            )
-                          : null,
-                    ),
-                    child: Text(
-                      l10n.yearMonth(_visibleMonth),
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
+                    Container(
+                      constraints: const BoxConstraints(minWidth: 64),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: ShapeDecoration(
+                        color: VeriStyleTokens.of(context).surfaceAltColor,
+                        shape: StadiumBorder(
+                          side: VeriStyleTokens.of(context).pillHasBorder
+                              ? BorderSide(
+                                  color: VeriStyleTokens.of(
+                                    context,
+                                  ).borderColor,
+                                )
+                              : BorderSide.none,
+                        ),
+                      ),
+                      child: Text(
+                        l10n.yearMonth(_visibleMonth),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    constraints: const BoxConstraints.tightFor(
-                      width: 32,
-                      height: 32,
+                    IconButton(
+                      constraints: const BoxConstraints.tightFor(
+                        width: 32,
+                        height: 32,
+                      ),
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: l10n.calendarNextMonth,
+                      onPressed: () {
+                        VeriHaptics.tick();
+                        setState(() {
+                          _visibleMonth = DateTime(
+                            _visibleMonth.year,
+                            _visibleMonth.month + 1,
+                          );
+                        });
+                      },
+                      icon: const Icon(Icons.chevron_right, size: 20),
                     ),
-                    padding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
-                    tooltip: l10n.calendarNextMonth,
-                    onPressed: () {
-                      VeriHaptics.tick();
-                      setState(() {
-                        _visibleMonth = DateTime(
-                          _visibleMonth.year,
-                          _visibleMonth.month + 1,
-                        );
-                      });
-                    },
-                    icon: const Icon(Icons.chevron_right, size: 20),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ],
           ),
           const SizedBox(height: 10),
@@ -534,16 +544,8 @@ class _CalendarPreviewState extends State<CalendarPreview> {
               final day = index - leadingBlanks + 1;
               final income = incomeByDay[day] ?? 0;
               final expense = expenseByDay[day] ?? 0;
-              final date = DateTime(
-                _visibleMonth.year,
-                _visibleMonth.month,
-                day,
-              );
-
-              final isToday =
-                  day == now.day &&
-                  _visibleMonth.year == now.year &&
-                  _visibleMonth.month == now.month;
+              final date = DateTime(month.year, month.month, day);
+              final isToday = isCurrentMonth && day == now.day;
               final isSelected =
                   _selectedDate != null &&
                   _selectedDate!.year == date.year &&
@@ -596,10 +598,7 @@ class _CalendarPreviewState extends State<CalendarPreview> {
                           '$day',
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(
-                                color:
-                                    day == now.day &&
-                                        _visibleMonth.year == now.year &&
-                                        _visibleMonth.month == now.month
+                                color: isToday
                                     ? Theme.of(context).colorScheme.primary
                                     : null,
                                 fontWeight: FontWeight.w700,

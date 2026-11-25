@@ -398,45 +398,29 @@
   "@panelSummaryLabel": {
     "description": "看板月统计面板:本月收支摘要卡片标题"
   },
-  "panelSummaryDesc": "本月收入、支出与结余合计",
+  "panelSummaryDesc": "月度收支合计与每日收支日历",
   "@panelSummaryDesc": {
     "description": "看板月统计面板:本月收支摘要卡片描述"
   },
   "panelRecentDailyLabel": "每日收支",
+  "reportDayDirection": "{date} {direction}",
+  "@reportDayDirection": {
+    "placeholders": {
+      "date": {"type": "String"},
+      "direction": {"type": "String"}
+    }
+  },
+  "reportOpenMonth": "查看月统计",
   "@panelRecentDailyLabel": {
     "description": "看板周统计:每日收支统计卡片标题"
   },
-  "panelRecentDailyDesc": "所选周的每日收支、总额和日均",
+  "panelRecentDailyDesc": "点柱状图查看当天金额和交易",
   "@panelRecentDailyDesc": {
     "description": "看板周统计:每日收支统计卡片描述"
   },
   "panelThisWeekLabel": "本周统计",
   "@panelThisWeekLabel": {
     "description": "看板日常面板:切到本周时的卡片标题"
-  },
-  "recentTotalExpense": "总支出",
-  "@recentTotalExpense": {
-    "description": "近 7 日统计面板:总支出"
-  },
-  "recentDailyAvgExpense": "日均支出",
-  "@recentDailyAvgExpense": {
-    "description": "近 7 日统计面板:日均支出"
-  },
-  "recentTotalIncome": "总收入",
-  "@recentTotalIncome": {
-    "description": "近 7 日统计面板:总收入"
-  },
-  "recentDailyAvgIncome": "日均收入",
-  "@recentDailyAvgIncome": {
-    "description": "近 7 日统计面板:日均收入"
-  },
-  "recentStatLine": "{label}：{amount}",
-  "@recentStatLine": {
-    "description": "近 7 日统计面板的文字统计行(标签：金额)",
-    "placeholders": {
-      "label": { "type": "String" },
-      "amount": { "type": "String" }
-    }
   },
   "panelAssetSummaryLabel": "资产汇总",
   "@panelAssetSummaryLabel": {
@@ -510,7 +494,7 @@
   "@panelYearHeatmapLabel": {
     "description": "看板年统计面板:按天热力图卡片标题"
   },
-  "panelYearHeatmapDesc": "按天查看全年支出 / 收入的深浅",
+  "panelYearHeatmapDesc": "按天查看全年收支，点月份查看每日金额",
   "@panelYearHeatmapDesc": {
     "description": "看板年统计面板:按天热力图卡片描述"
   },
