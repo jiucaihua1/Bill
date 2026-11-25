@@ -14,9 +14,8 @@ import 'widgets/widget_service.dart';
 
 String autoBookkeepingNotificationSummary(VeriFinController controller) {
   final expense = dayExpenseTotal(controller.entries, DateTime.now());
-  return l10nForPreference(
-    controller.localePreference,
-  ).autoCaptureTodayExpense(formatExpenseAmount(expense));
+  return l10nForPreference(controller.localePreference)
+      .autoCaptureTodayExpense(formatExpenseAmount(expense));
 }
 
 class AutoBillReviewData {
@@ -73,6 +72,11 @@ class AutoBillReviewData {
 /// Only the ledger engine can resolve the book or commit the edits from Android.
 class AutoBillOverlayBridge {
   static const _channel = MethodChannel('verifin/auto_bill_overlay');
+  static const _alipay = 'com.eg.android.AlipayGphone';
+  static const _receiptTimeToleranceMs = 35000;
+  static final _alipayDefaultRemark = RegExp(
+    r'^支付宝\s*(?:(?:支付|收款|转账)(?:成功)?|账单|自动识别)?\s*[。.!！]?$',
+  );
   static Future<void> _lastLedgerWrite = Future<void>.value();
 
   static Future<T> runLedgerWrite<T>(Future<T> Function() operation) {
@@ -98,6 +102,7 @@ class AutoBillOverlayBridge {
         'prepare' => _prepare(controller, args),
         'save' => commit(controller, args),
         'enrichWechatNote' => _enrichWechatNote(controller, args),
+        'correctAlipayNote' => _correctAlipayNote(controller, args),
         _ => throw MissingPluginException(call.method),
       };
     });
@@ -139,7 +144,7 @@ class AutoBillOverlayBridge {
     }
   }
 
-  static String? _matchingWechatNote(
+  static String? _matchingDraftRemark(
     Map<Object?, Object?>? supplement, {
     required String note,
     required double amount,
@@ -164,7 +169,7 @@ class AutoBillOverlayBridge {
         .where((entry) => entry.id == 'auto-bill-$id')
         .firstOrNull;
     if (entry == null || entry.type != EntryType.expense) return false;
-    final note = _matchingWechatNote(
+    final note = _matchingDraftRemark(
       supplement,
       note: entry.note,
       amount: entry.amount,
@@ -184,6 +189,118 @@ class AutoBillOverlayBridge {
       );
     }
     return result.isSuccess;
+  });
+
+  /// False means a fresh payment notification may create its first draft.
+  /// True means ignore the detail, or that a corresponding entry already exists.
+  static Future<Object> _correctAlipayNote(
+    VeriFinController controller,
+    Map<Object?, Object?> receipt,
+  ) => runLedgerWrite(() async {
+    final paidAt = receipt['paidAt'];
+    final amount = receipt['amount'];
+    final type = switch (receipt['type']) {
+      'expense' => EntryType.expense,
+      'income' => EntryType.income,
+      _ => null,
+    };
+    final method = receipt['paymentMethod'];
+    if (paidAt is! int ||
+        amount is! num ||
+        !amount.isFinite ||
+        amount <= 0 ||
+        type == null ||
+        method is! String ||
+        method.trim().isEmpty) {
+      return true;
+    }
+
+    final paidAmount = normalizeCurrencyAmount(amount.toDouble(), 'CNY');
+    int distance(LedgerEntry entry) =>
+        (entry.occurredAt.millisecondsSinceEpoch - paidAt).abs();
+    final possibleEntries = controller.entries.where(
+      (entry) =>
+          entry.type == type &&
+          entry.currencyCode == 'CNY' &&
+          entry.amount == paidAmount &&
+          distance(entry) <= _receiptTimeToleranceMs,
+    );
+    final fundingAccount = AutoBillSuggestions.matchingPaymentAccount(
+      controller.accounts.where((account) => account.currencyCode == 'CNY'),
+      {...receipt, 'sourcePackage': _alipay},
+    );
+    final recentId = receipt['id'];
+    final identifiedDraft = recentId is String
+        ? possibleEntries
+              .where((entry) => entry.id == 'auto-bill-$recentId')
+              .firstOrNull
+        : null;
+    if (identifiedDraft != null &&
+        fundingAccount != null &&
+        identifiedDraft.accountId.isNotEmpty &&
+        identifiedDraft.accountId != fundingAccount.id) {
+      return true;
+    }
+    final LedgerEntry entry;
+    if (identifiedDraft != null) {
+      entry = identifiedDraft;
+    } else {
+      if (fundingAccount == null)
+        return possibleEntries.isNotEmpty || recentId != null;
+      final matches =
+          possibleEntries
+              .where((entry) => entry.accountId == fundingAccount.id)
+              .toList()
+            ..sort((a, b) => distance(a).compareTo(distance(b)));
+      if (matches.isEmpty) {
+        // An already captured transaction with no account is not evidence for a new draft.
+        final confirmed = controller.autoBillAccountHistory(_alipay).toSet();
+        return recentId != null ||
+            possibleEntries.any(
+              (entry) =>
+                  entry.accountId.isEmpty && confirmed.contains(entry.id),
+            );
+      }
+      entry = matches.first;
+      if (matches.length > 1 && distance(matches[1]) == distance(entry))
+        return true;
+    }
+
+    final merchant = (receipt['merchant'] as String?)?.trim() ?? '';
+    final product = (receipt['product'] as String?)?.trim() ?? '';
+    final note = identifiedDraft != null
+        ? (receipt['note'] as String?)?.trim() ?? ''
+        : {merchant, product}.where((value) => value.isNotEmpty).join(' · ');
+    if (note.isEmpty || entry.note == note) return true;
+    final before = entry.note.trim();
+    final merchantOnly =
+        merchant.isNotEmpty &&
+        RegExp('^${RegExp.escape(merchant)}[\\s·:：]*\$').hasMatch(before);
+    if (before.isNotEmpty &&
+        !_alipayDefaultRemark.hasMatch(before) &&
+        !merchantOnly &&
+        !(identifiedDraft != null && before == receipt['before'])) {
+      return true;
+    }
+
+    final result = await controller.saveEntryAggregateDraftResult(
+      entry: entry.copyWith(note: note),
+      isNew: false,
+      refunds: controller.refundsForEntry(entry.id),
+      attachments: controller.attachmentsForEntry(entry.id),
+    );
+    if (!result.isSuccess) {
+      controller.logger?.warning(
+        'Could not correct the Alipay remark',
+        source: 'auto-capture',
+      );
+      return true;
+    }
+    return {
+      'title': l10nForPreference(controller.localePreference)
+          .autoCaptureAlipayRemarkUpdated,
+      'note': note,
+    };
   });
 
   static Future<bool> commit(
@@ -249,14 +366,19 @@ class AutoBillOverlayBridge {
     final normalized = normalizeCurrencyAmount(amount, 'CNY');
     if (normalized <= 0) return false;
     var finalNote = note.trim();
-    if (type == EntryType.expense && source == 'com.tencent.mm') {
+    final supplementMethod = switch (source) {
+      'com.tencent.mm' when type == EntryType.expense => 'wechatNoteSupplement',
+      _alipay when type != EntryType.transfer => 'alipayNoteSupplement',
+      _ => null,
+    };
+    if (supplementMethod != null) {
       try {
         final supplement = await _channel.invokeMapMethod<Object?, Object?>(
-          'wechatNoteSupplement',
+          supplementMethod,
           id,
         );
         finalNote =
-            _matchingWechatNote(
+            _matchingDraftRemark(
               supplement,
               note: finalNote,
               amount: normalized,
@@ -267,7 +389,7 @@ class AutoBillOverlayBridge {
         // Flutter-only hosts and older native bridges can save the original note.
       } on PlatformException catch (error) {
         controller.logger?.warning(
-          'Could not read WeChat product supplement: ${error.code}',
+          'Could not read a payment remark supplement: ${error.code}',
           source: 'auto-capture',
         );
       }

@@ -335,18 +335,11 @@ class AutoBillSuggestions {
   static final _cardSuffix = RegExp(r'^\d{4}$');
   static final _ccbName = RegExp(r'^(?:中国建设银行|建设银行|建行)');
 
-  static Account? _suggestAccount(
-    VeriFinController controller,
+  /// Resolve a stated payment method without guessing from past transactions.
+  static Account? matchingPaymentAccount(
+    Iterable<Account> available,
     Map<Object?, Object?> draft,
-    AutoBillMerchantIndex index,
-    EntryType type,
-    DateTime occurredAt,
-    String merchant,
-    Iterable<LedgerEntry> merchantHistory,
   ) {
-    final available = controller.accounts.where(
-      (a) => !a.hidden && a.currencyCode == 'CNY',
-    );
     final method = _normalized(draft['paymentMethod']);
     final isCcb = _ccbName.hasMatch(method);
     final ccbCardType = switch (method) {
@@ -403,11 +396,30 @@ class AutoBillSuggestions {
       },
       _ => const <String>{},
     };
-    final explicitMethod = available
+    return available
         .where((account) => methodNames.contains(_normalized(account.name)))
         .singleOrNull;
-    if (explicitMethod != null) return explicitMethod;
+  }
 
+  static Account? _suggestAccount(
+    VeriFinController controller,
+    Map<Object?, Object?> draft,
+    AutoBillMerchantIndex index,
+    EntryType type,
+    DateTime occurredAt,
+    String merchant,
+    Iterable<LedgerEntry> merchantHistory,
+  ) {
+    final available = controller.accounts.where(
+      (a) => !a.hidden && a.currencyCode == 'CNY',
+    );
+    final explicit = matchingPaymentAccount(available, draft);
+    if (explicit != null ||
+        _cardSuffix.hasMatch(_normalized(draft['bankLast4']))) {
+      return explicit;
+    }
+    final method = _normalized(draft['paymentMethod']);
+    final source = draft['sourcePackage'];
     final accountsById = {for (final account in available) account.id: account};
     final sourceIds = source is String
         ? controller.autoBillAccountHistory(source)

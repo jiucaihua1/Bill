@@ -155,13 +155,16 @@ internal object WalletBillFields {
         )
     }
 
+    private fun hasAlipayDetailTitle(lines: List<String>, groupedRows: Boolean): Boolean =
+        lines.any { it == "账单详情" || groupedRows && "账单详情" in it.split(' ') }
+
+    fun isAlipayDetail(text: String, groupedRows: Boolean = false): Boolean =
+        hasAlipayDetailTitle(linesOf(text), groupedRows)
+
     fun alipayDetail(text: String, groupedRows: Boolean = false): ParsedBill? {
         val allLines = linesOf(text)
         // XRiver exposes the navigation title after the scroll body in tree order.
-        if (allLines.none { line ->
-                line == "账单详情" || groupedRows && "账单详情" in line.split(' ')
-            }
-        ) return null
+        if (!hasAlipayDetailTitle(allLines, groupedRows)) return null
         val lines = allLines.takeWhile { !it.startsWith("账单管理") && !it.startsWith("我的消费图鉴") }
         val status = lines.indexOf("交易成功")
         if (status < 1) return null

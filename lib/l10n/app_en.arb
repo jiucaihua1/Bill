@@ -1435,6 +1435,7 @@
   "autoCaptureReviewNotifications": "Bill review notifications",
   "autoCaptureNotificationFlow": "Use the notification if the review panel cannot appear over the current app.",
   "autoCaptureCcbName": "China Construction Bank",
+  "autoCaptureAlipayRemarkUpdated": "Alipay transaction note updated",
   "autoCaptureTodayExpense": "Today's spending {amount}",
   "@autoCaptureTodayExpense": {
     "placeholders": { "amount": { "type": "String" } }

@@ -1,6 +1,5 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
-
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -3827,6 +3826,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get autoCaptureCcbName => '建设银行';
+
+  @override
+  String get autoCaptureAlipayRemarkUpdated => '已更正支付宝账单备注';
 
   @override
   String autoCaptureTodayExpense(String amount) {

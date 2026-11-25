@@ -2422,6 +2422,7 @@
   "autoCaptureReviewNotifications": "待确认账单通知",
   "autoCaptureNotificationFlow": "无法在当前页面显示面板时，可从通知打开账单。",
   "autoCaptureCcbName": "建设银行",
+  "autoCaptureAlipayRemarkUpdated": "已更正支付宝账单备注",
   "autoCaptureTodayExpense": "今日支出 {amount}",
   "@autoCaptureTodayExpense": {
     "placeholders": { "amount": { "type": "String" } }

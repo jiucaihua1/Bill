@@ -2,6 +2,8 @@ package com.xiaohe.ledger
 
 import android.app.Dialog
 import android.app.KeyguardManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -19,6 +21,7 @@ import android.view.Display
 import android.view.Window
 import android.view.WindowManager
 import androidx.core.content.ContextCompat
+import androidx.core.app.NotificationCompat
 import io.flutter.embedding.android.FlutterTextureView
 import io.flutter.embedding.android.FlutterView
 import io.flutter.embedding.engine.FlutterEngine
@@ -34,6 +37,8 @@ object AutoBillOverlay {
     private var ready = false
     private var mainForeground = false
     private var current: Review? = null
+    private val pendingAlipayCorrections = ArrayDeque<Runnable>()
+    private const val REMARK_CHANNEL = "verifin_auto_bill_remark_updated"
 
     private class Review(
         val context: Context,
@@ -66,6 +71,7 @@ object AutoBillOverlay {
                     ready = true
                     current?.takeIf { it.dialog == null }?.let(::prepare)
                     result.success(null)
+                    while (pendingAlipayCorrections.isNotEmpty()) pendingAlipayCorrections.removeFirst().run()
                 }
                 "updateNotificationSummary" -> {
                     val summary = call.arguments as? String
@@ -75,6 +81,10 @@ object AutoBillOverlay {
                 "wechatNoteSupplement" -> {
                     val id = call.arguments as? String
                     result.success(id?.let(AutoBillParser::wechatNoteSupplement))
+                }
+                "alipayNoteSupplement" -> {
+                    val id = call.arguments as? String
+                    result.success(id?.let(AutoBillParser::alipayNoteSupplement))
                 }
                 else -> result.notImplemented()
             }
@@ -87,6 +97,70 @@ object AutoBillOverlay {
                 ledgerChannel.invokeMethod("enrichWechatNote", supplement)
             }
         }
+    }
+
+    internal fun correctAlipayNote(context: Context, fields: Map<String, Any>, onMissing: (() -> Unit)?) {
+        val app = context.applicationContext
+        fun captureAllowed(): Boolean = AutoBillParser.isAutoEnabled(app) &&
+            AutoBillParser.isPlatformEnabled(app, AutoBillParser.PKG_ALIPAY) &&
+            app.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == false
+        handler.post {
+            if (!captureAllowed()) return@post
+            if (AppLockPreferences.isEnabled(app)) {
+                onMissing?.invoke()
+                return@post
+            }
+            val work = Runnable {
+                if (!captureAllowed() || AppLockPreferences.isEnabled(app)) return@Runnable
+                ledgerChannel.invokeMethod("correctAlipayNote", fields, object : MethodChannel.Result {
+                    override fun success(value: Any?) {
+                        if (value == false) {
+                            Log.i("VeriAutoBill", "Alipay detail has no matching ledger entry")
+                            if (captureAllowed()) onMissing?.invoke()
+                        }
+                        val update = value as? Map<*, *> ?: return
+                        val title = update["title"] as? String ?: return
+                        val note = update["note"] as? String ?: return
+                        Log.i("VeriAutoBill", "Alipay remark updated on existing entry")
+                        if (captureAllowed() && !AppLockPreferences.isEnabled(app)) showRemarkUpdate(app, title, note)
+                    }
+                    override fun error(code: String, message: String?, details: Any?) {
+                        Log.w("VeriAutoBill", "Alipay remark correction unavailable")
+                    }
+                    override fun notImplemented() = Unit
+                })
+            }
+            if (ready) {
+                work.run()
+            } else {
+                try {
+                    LedgerFlutterRuntime.get(app, fromOverlay = true)
+                    if (pendingAlipayCorrections.size >= 8) pendingAlipayCorrections.removeFirst()
+                    pendingAlipayCorrections.addLast(work)
+                    handler.postDelayed({ pendingAlipayCorrections.remove(work) }, 10_000L)
+                } catch (error: RuntimeException) {
+                    Log.w("VeriAutoBill", "Ledger unavailable for Alipay remark correction: ${error.javaClass.simpleName}")
+                }
+            }
+        }
+    }
+
+    private fun showRemarkUpdate(context: Context, title: String, note: String) {
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return
+        if (!manager.areNotificationsEnabled()) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager.getNotificationChannel(REMARK_CHANNEL) == null) {
+            manager.createNotificationChannel(NotificationChannel(REMARK_CHANNEL, title, NotificationManager.IMPORTANCE_LOW))
+        }
+        val notification = NotificationCompat.Builder(context, REMARK_CHANNEL)
+            .setSmallIcon(R.drawable.ic_quick_entry_tile)
+            .setContentTitle(title)
+            .setContentText(note)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(note))
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setSilent(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .build()
+        manager.notify(4210, notification)
     }
 
     fun setMainForeground(foreground: Boolean) {

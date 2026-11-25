@@ -67,6 +67,7 @@ object AutoBillParser {
     private const val DETAIL_FRESHNESS_MS = 35_000L
     private const val RECENT_WECHAT_PURCHASE_MS = 35_000L
     private const val WECHAT_DETAIL_TIME_TOLERANCE_MS = 15_000L
+    private const val ALIPAY_DETAIL_TIME_TOLERANCE_MS = 35_000L
     private const val DRAFT_PREFIX = "pending_bill."
     private const val DETECTION_NOTIFICATION_ID = 4209
     const val DETECTION_CHANNEL_ID = "verifin_auto_bill_detected"
@@ -83,6 +84,7 @@ object AutoBillParser {
     }
     private val recentBills = mutableListOf<RecentBill>()
     private val lastScreenBills = mutableMapOf<String, Triple<String, Double, String?>>()
+    private var lastAlipayDetail: ParsedBill? = null
     private var wechatPurchaseSession = 0L
 
     data class ParsedBill(
@@ -194,6 +196,22 @@ object AutoBillParser {
             !isPlatformEnabled(context, pkg)
         ) return false
         if (pkg == PKG_WECHAT && handleWechatDetail(context, text, receiptRows)) return true
+        if (pkg == PKG_ALIPAY) {
+            val detail = readAlipayDetail(text, receiptRows)
+            if (detail != null) {
+                if (detail.type != "expense" || notice.amount != detail.amount ||
+                    !isFreshAlipayDetail(detail)
+                ) return false
+                WalletRemarkTrace.input(pkg, "notification_ocr_detail", text, "parsed", detail)
+                correctAlipayDetail(context, detail) {
+                    if (isFreshAlipayDetail(detail) && isPlatformEnabled(context, notice.source)) {
+                        dispatchScreenBill(context, pkg, detail)
+                    }
+                }
+                return true
+            }
+            if (isAlipayDetail(text, receiptRows)) return false
+        }
         val bill = parseNotificationPaymentScreen(notice, text, amountText, receiptRows) ?: return false
         val amount = bill.amount
         val previous = lastScreenBills[pkg]
@@ -228,8 +246,7 @@ object AutoBillParser {
         notice: PaymentNotice, text: String, amountText: String, receiptRows: String? = null,
     ): ParsedBill? {
         if (notice.target == PKG_ALIPAY) {
-            val detail = WalletBillFields.alipayDetail(text)
-                ?: receiptRows?.let { WalletBillFields.alipayDetail(it, groupedRows = true) }
+            val detail = readAlipayDetail(text, receiptRows)
             if (detail != null) {
                 val time = detail.occurredAt
                 // A fresh notification must not attach to an older open receipt.
@@ -290,12 +307,26 @@ object AutoBillParser {
         val wechatTexts = if (pkg == PKG_WECHAT) texts + eventTexts else emptyList()
         val wechatPage = wechatTexts.joinToString("\n")
         if (pkg == PKG_WECHAT && handleWechatDetail(context, wechatPage)) return true
+        if (pkg == PKG_ALIPAY) {
+            val page = texts.joinToString("\n")
+            val combined = (texts + eventTexts).distinct().joinToString("\n")
+            if (isAlipayDetail(combined, alipayRows)) {
+                val detail = readAlipayDetail(page, alipayRows) ?: readAlipayDetail(combined, null)
+                if (detail != null && (windowChanged || detail != lastAlipayDetail)) {
+                    lastAlipayDetail = detail
+                    WalletRemarkTrace.input(pkg, "accessibility_detail", combined, "parsed", detail)
+                    correctAlipayDetail(context, detail)
+                }
+                return true
+            }
+            if (windowChanged) lastAlipayDetail = null
+        }
         val merchantReturn = wechatTexts.any { compactOcrLine(it) == "返回商家" }
         val merchantDone = wechatTexts.any { compactOcrLine(it) == "完成" } && !merchantReturn
         val alipayResult = if (pkg == PKG_ALIPAY) {
             alipayRows?.let(::parseAlipayCheckout)
-                ?: parseAlipayScreen(texts.joinToString("\n"))
-                ?: parseAlipayScreen((texts + eventTexts).joinToString("\n"))
+                ?: parseAlipayCheckout(texts.joinToString("\n"))
+                ?: parseAlipayCheckout((texts + eventTexts).joinToString("\n"))
         } else null
         val parsed = alipayResult ?: if (hasWechatTransferResultMarkers(wechatTexts)) {
             parseWechatTransferResult(wechatPage)
@@ -411,6 +442,90 @@ object AutoBillParser {
         )
     }
 
+    private fun isAlipayDetail(text: String, rows: String?): Boolean =
+        WalletBillFields.isAlipayDetail(text) ||
+            rows?.let { WalletBillFields.isAlipayDetail(it, groupedRows = true) } == true
+
+    private fun readAlipayDetail(text: String, rows: String?): ParsedBill? =
+        WalletBillFields.alipayDetail(text) ?: rows?.let { WalletBillFields.alipayDetail(it, groupedRows = true) }
+
+    private fun isFreshAlipayDetail(detail: ParsedBill): Boolean =
+        detail.occurredAt?.let { System.currentTimeMillis() - it in 0L..DETAIL_FRESHNESS_MS } == true
+
+    private fun correctAlipayDetail(context: Context, detail: ParsedBill, onMissing: (() -> Unit)? = null) {
+        val paidAt = detail.occurredAt ?: return
+        if (detail.paymentMethod.isNullOrBlank()) {
+            onMissing?.invoke()
+            return
+        }
+        val now = SystemClock.elapsedRealtime()
+        fun distance(candidate: RecentBill) = kotlin.math.abs(checkNotNull(candidate.occurredAt) - paidAt)
+        val sameAmountAndTime = recentBills.filter {
+            it.pkg == PKG_ALIPAY && it.draftId != null && now - it.capturedAt < DRAFT_TTL_MS &&
+                it.bill.amount == detail.amount && it.bill.type == detail.type &&
+                it.occurredAt != null && distance(it) <= ALIPAY_DETAIL_TIME_TOLERANCE_MS
+        }
+        val candidates = sameAmountAndTime.filter { sameAlipayPaymentMethod(it.bill, detail) }.sortedBy(::distance)
+        val original = candidates.firstOrNull()
+        if (original != null && candidates.getOrNull(1)?.let(::distance) == distance(original)) {
+            WalletRemarkTrace.draft(PKG_ALIPAY, "detail_ambiguous", detail)
+            return
+        }
+        val fields = mutableMapOf<String, Any>("amount" to detail.amount, "type" to detail.type, "paidAt" to paidAt)
+        fields["paymentMethod"] = detail.paymentMethod
+        detail.merchant?.let { fields["merchant"] = it }
+        detail.product?.let { fields["product"] = it }
+        detail.bankLast4?.let { fields["bankLast4"] = it }
+        if (original != null) {
+            val id = checkNotNull(original.draftId)
+            fields["id"] = id
+            val before = AutoBillRules.note(original.bill)
+            val note = AutoBillRules.note(original.bill.copy(
+                merchant = detail.merchant ?: original.bill.merchant,
+                product = detail.product ?: original.bill.product,
+            ))
+            fields["before"] = before
+            fields["note"] = note
+            if (note.isNotBlank() && note != before) {
+                val prefs = context.getSharedPreferences(AutoCapturePermissions.PREFS_NAME, Context.MODE_PRIVATE)
+                val raw = prefs.getString(DRAFT_PREFIX + id, null)
+                if (raw != null) {
+                    try {
+                        val draft = JSONObject(raw)
+                        if (draft.optString("note") in setOf(before, original.noteSupplement)) {
+                            prefs.edit().putString(DRAFT_PREFIX + id, draft.put("note", note).toString()).apply()
+                        }
+                    } catch (_: org.json.JSONException) {
+                        Log.w("VeriAutoBill", "Stored Alipay draft could not be enriched")
+                    }
+                }
+                original.noteSupplement = note
+            }
+        }
+        val possibleDraft = sameAmountAndTime.any { it.bill.paymentMethod.isNullOrBlank() }
+        AutoBillOverlay.correctAlipayNote(context, fields, onMissing.takeUnless { original != null || possibleDraft })
+    }
+
+    private fun sameAlipayPaymentMethod(first: ParsedBill, second: ParsedBill): Boolean {
+        if (first.bankLast4 != null || second.bankLast4 != null) {
+            return first.bankLast4 != null && first.bankLast4 == second.bankLast4
+        }
+        fun normalized(method: String?): String = method.orEmpty().filterNot(Char::isWhitespace).removePrefix("支付宝")
+        val method = normalized(first.paymentMethod)
+        return method.isNotEmpty() && method == normalized(second.paymentMethod)
+    }
+
+    @Synchronized
+    internal fun alipayNoteSupplement(id: String): Map<String, Any>? {
+        val original = recentBills.firstOrNull { it.pkg == PKG_ALIPAY && it.draftId == id } ?: return null
+        if (SystemClock.elapsedRealtime() - original.capturedAt >= DRAFT_TTL_MS) return null
+        return mapOf(
+            "before" to AutoBillRules.note(original.bill), "note" to (original.noteSupplement ?: return null),
+            "amount" to original.bill.amount, "occurredAt" to (original.occurredAt ?: return null),
+        )
+    }
+
+    @Synchronized
     private fun dispatchScreenBill(context: Context, pkg: String, bill: ParsedBill, onNew: () -> Unit = {}) {
         val key = Triple(bill.type, bill.amount, bill.orderNumber ?: bill.occurredAt?.toString())
         if (lastScreenBills.put(pkg, key) == key) return
@@ -587,15 +702,13 @@ object AutoBillParser {
         return ParsedBill(amount = amount, type = type, note = note, sourceLabel = "微信自动识别")
     }
 
-    private fun parseAlipayScreen(text: String): ParsedBill? =
-        WalletBillFields.alipayDetail(text) ?: parseAlipayCheckout(text)
-
     @Synchronized
     internal fun handleAlipayCheckoutControls(
         context: Context,
         rows: String,
         noticeAmount: Double? = null,
     ): Boolean {
+        if (WalletBillFields.isAlipayDetail(rows, groupedRows = true)) return false
         val bill = parseAlipayCheckout(rows) ?: return false
         if (bill.merchant == null || bill.paymentMethod == null ||
             noticeAmount != null && noticeAmount != bill.amount
@@ -620,8 +733,8 @@ object AutoBillParser {
     private fun parseAlipay(rawText: String, isScreen: Boolean): ParsedBill? {
         val lines = WalletBillFields.linesOf(rawText)
         if (isScreen) {
-            parseAlipayScreen(rawText)?.let { return it }
             if ("账单详情" in lines) return null
+            parseAlipayCheckout(rawText)?.let { return it }
         }
         val text = lines.filterNot { it.startsWith("我的消费图鉴") }.joinToString("\n")
         val isIncome = text.contains("收款成功") || text.contains("收款到账") ||
@@ -714,7 +827,9 @@ object AutoBillParser {
         val ageClock = SystemClock.elapsedRealtime()
         val now = System.currentTimeMillis()
         recentBills.removeAll {
-            val retention = if (it.noteSupplement == null) it.lifetime else DRAFT_TTL_MS
+            val retention = if (it.noteSupplement != null || it.pkg == PKG_ALIPAY && it.draftId != null) {
+                DRAFT_TTL_MS
+            } else it.lifetime
             ageClock - it.capturedAt >= retention
         }
         val purchaseSession = wechatPurchaseSession.takeIf { pkg == PKG_WECHAT && bill.note == "微信支付" }
@@ -773,7 +888,7 @@ object AutoBillParser {
             return null
         }
         WalletRemarkTrace.draft(pkg, "written", bill, note)
-        if (purchaseSession != null) {
+        if (purchaseSession != null || pkg == PKG_ALIPAY) {
             currentBill.draftId = id
             currentBill.occurredAt = occurredAt
         }
@@ -849,6 +964,7 @@ object AutoBillParser {
         editor.apply()
         recentBills.clear()
         lastScreenBills.clear()
+        lastAlipayDetail = null
         AutoBillRules.clear()
     }
 

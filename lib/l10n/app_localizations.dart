@@ -7082,6 +7082,12 @@ abstract class AppLocalizations {
   /// **'建设银行'**
   String get autoCaptureCcbName;
 
+  /// No description provided for @autoCaptureAlipayRemarkUpdated.
+  ///
+  /// In zh, this message translates to:
+  /// **'已更正支付宝账单备注'**
+  String get autoCaptureAlipayRemarkUpdated;
+
   /// No description provided for @autoCaptureTodayExpense.
   ///
   /// In zh, this message translates to:
