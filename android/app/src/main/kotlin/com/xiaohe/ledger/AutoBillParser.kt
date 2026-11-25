@@ -67,7 +67,7 @@ object AutoBillParser {
     private const val DETAIL_FRESHNESS_MS = 35_000L
     private const val RECENT_WECHAT_PURCHASE_MS = 35_000L
     private const val WECHAT_DETAIL_TIME_TOLERANCE_MS = 15_000L
-    private const val ALIPAY_DETAIL_TIME_TOLERANCE_MS = 35_000L
+    private const val ALIPAY_DETAIL_TIME_TOLERANCE_MS = 60_000L
     private const val DRAFT_PREFIX = "pending_bill."
     private const val DETECTION_NOTIFICATION_ID = 4209
     const val DETECTION_CHANNEL_ID = "verifin_auto_bill_detected"

@@ -14,8 +14,9 @@ import 'widgets/widget_service.dart';
 
 String autoBookkeepingNotificationSummary(VeriFinController controller) {
   final expense = dayExpenseTotal(controller.entries, DateTime.now());
-  return l10nForPreference(controller.localePreference)
-      .autoCaptureTodayExpense(formatExpenseAmount(expense));
+  return l10nForPreference(
+    controller.localePreference,
+  ).autoCaptureTodayExpense(formatExpenseAmount(expense));
 }
 
 class AutoBillReviewData {
@@ -73,9 +74,11 @@ class AutoBillReviewData {
 class AutoBillOverlayBridge {
   static const _channel = MethodChannel('verifin/auto_bill_overlay');
   static const _alipay = 'com.eg.android.AlipayGphone';
-  static const _receiptTimeToleranceMs = 35000;
+  static const _receiptTimeToleranceMs = 60000;
+  static final _remarkWhitespace = RegExp(r'\s+');
   static final _alipayDefaultRemark = RegExp(
-    r'^支付宝\s*(?:(?:支付|收款|转账)(?:成功)?|账单|自动识别)?\s*[。.!！]?$',
+    r'^支付宝(?:(?:扫码)?(?:支付|付款|收款|转账)(?:成功|完成)?|账单)?'
+    r'(?:[·:：\-—]?自动识别)?[。.!！]?$',
   );
   static Future<void> _lastLedgerWrite = Future<void>.value();
 
@@ -273,12 +276,7 @@ class AutoBillOverlayBridge {
         : {merchant, product}.where((value) => value.isNotEmpty).join(' · ');
     if (note.isEmpty || entry.note == note) return true;
     final before = entry.note.trim();
-    final merchantOnly =
-        merchant.isNotEmpty &&
-        RegExp('^${RegExp.escape(merchant)}[\\s·:：]*\$').hasMatch(before);
-    if (before.isNotEmpty &&
-        !_alipayDefaultRemark.hasMatch(before) &&
-        !merchantOnly &&
+    if (!_isAlipayRemarkPlaceholder(before, merchant) &&
         !(identifiedDraft != null && before == receipt['before'])) {
       return true;
     }
@@ -297,11 +295,28 @@ class AutoBillOverlayBridge {
       return true;
     }
     return {
-      'title': l10nForPreference(controller.localePreference)
-          .autoCaptureAlipayRemarkUpdated,
+      'title': l10nForPreference(
+        controller.localePreference,
+      ).autoCaptureAlipayRemarkUpdated,
       'note': note,
     };
   });
+
+  static bool _isAlipayRemarkPlaceholder(String note, String merchant) {
+    String compact(String text) => text
+        .replaceAll(_remarkWhitespace, '')
+        .replaceAll('（', '(')
+        .replaceAll('）', ')');
+    final before = compact(note);
+    if (before.isEmpty || _alipayDefaultRemark.hasMatch(before)) return true;
+    final name = compact(merchant);
+    return name.isNotEmpty &&
+        RegExp(
+          r'^(?:支付宝(?:支付|付款|收款)?[:：·]|(?:商户(?:名称)?|收款方)[:：])?'
+          '${RegExp.escape(name)}'
+          r'[·:：。.!！]*$',
+        ).hasMatch(before);
+  }
 
   static Future<bool> commit(
     VeriFinController controller,
