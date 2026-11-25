@@ -38,7 +38,8 @@ object AutoBillOverlay {
     private var mainForeground = false
     private var current: Review? = null
     private val pendingAlipayCorrections = ArrayDeque<Runnable>()
-    private const val REMARK_CHANNEL = "verifin_auto_bill_remark_updated"
+    // Android keeps the importance of an already registered channel.
+    private const val REMARK_CHANNEL = "verifin_auto_bill_remark_alert"
 
     private class Review(
         val context: Context,
@@ -149,15 +150,15 @@ object AutoBillOverlay {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         if (!manager.areNotificationsEnabled()) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager.getNotificationChannel(REMARK_CHANNEL) == null) {
-            manager.createNotificationChannel(NotificationChannel(REMARK_CHANNEL, title, NotificationManager.IMPORTANCE_LOW))
+            manager.createNotificationChannel(NotificationChannel(REMARK_CHANNEL, title, NotificationManager.IMPORTANCE_HIGH))
         }
         val notification = NotificationCompat.Builder(context, REMARK_CHANNEL)
             .setSmallIcon(R.drawable.ic_quick_entry_tile)
             .setContentTitle(title)
             .setContentText(note)
             .setStyle(NotificationCompat.BigTextStyle().bigText(note))
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_SOUND)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .build()
         manager.notify(4210, notification)
