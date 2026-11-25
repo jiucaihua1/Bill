@@ -205,10 +205,19 @@ void main() {
     final toolModeField = find.byKey(const Key('ai_tool_mode_field'));
     await tester.ensureVisible(toolModeField);
     await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: toolModeField, matching: find.byType(EditableText)),
+      findsNothing,
+    );
+    tester.testTextInput.log.clear();
     expect(find.text('自动（推荐）'), findsOneWidget);
     expect(find.text('优先使用原生协议，不支持时自动兼容'), findsNothing);
     await tester.tap(toolModeField);
     await tester.pumpAndSettle();
+    expect(
+      tester.testTextInput.log.map((call) => call.method),
+      isNot(contains('TextInput.show')),
+    );
     expect(find.text('用于不支持原生工具调用的模型或中转服务'), findsOneWidget);
     await tester.tap(find.text('兼容模式'));
     await tester.pumpAndSettle();

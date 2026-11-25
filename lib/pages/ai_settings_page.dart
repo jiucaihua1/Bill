@@ -40,7 +40,6 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
   final TextEditingController _apiKeyController = TextEditingController();
   final TextEditingController _modelController = TextEditingController();
   final TextEditingController _modelListUrlController = TextEditingController();
-  final TextEditingController _toolModeController = TextEditingController();
   late final _editableFields = [
     _baseUrlController,
     _apiKeyController,
@@ -53,6 +52,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
   bool _obscureKey = true;
   bool _testing = false;
   bool _fetchingModels = false;
+  bool _toolModeFocused = false;
   int _fetchToken = 0;
   String _providerId = customAiProviderId;
   AiToolCallMode _toolCallMode = AiToolCallMode.auto;
@@ -92,7 +92,6 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
     _apiKeyController.dispose();
     _modelController.dispose();
     _modelListUrlController.dispose();
-    _toolModeController.dispose();
     super.dispose();
   }
 
@@ -116,7 +115,6 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
       _modelListUrlController.text = settings.modelListUrl;
       _providerId = aiProviderPresetFor(settings.providerId).id;
       _toolCallMode = settings.toolCallMode;
-      _toolModeController.text = _toolModeLabel(settings.toolCallMode);
       _draftToSave = _current();
     } finally {
       _fillingFields = false;
@@ -370,7 +368,6 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
   void _selectToolCallMode(AiToolCallMode selected) {
     setState(() {
       _toolCallMode = selected;
-      _toolModeController.text = _toolModeLabel(selected);
       _draftToSave = _draftToSave.copyWith(toolCallMode: selected);
       final profile = _detectedProfile;
       if (profile != null) {
@@ -667,17 +664,26 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                         },
                         onSelected: _selectToolCallMode,
                         semanticLabel: l10n.aiToolModeTitle,
-                        builder: (context, openMenu, menuOpen) => TextField(
+                        builder: (context, openMenu, menuOpen) => InkWell(
                           key: const Key('ai_tool_mode_field'),
-                          controller: _toolModeController,
-                          readOnly: true,
-                          autofillHints: null,
-                          showCursor: false,
-                          enableInteractiveSelection: false,
+                          borderRadius: BorderRadius.circular(
+                            VeriStyleTokens.of(context).innerRadius,
+                          ),
                           onTap: _testing ? null : openMenu,
-                          decoration: _configInputDecoration(
-                            label: l10n.aiToolModeTitle,
-                            suffixIcon: const Icon(Icons.expand_more),
+                          onFocusChange: (focused) =>
+                              setState(() => _toolModeFocused = focused),
+                          child: InputDecorator(
+                            isFocused: _toolModeFocused || menuOpen,
+                            decoration: _configInputDecoration(
+                              label: l10n.aiToolModeTitle,
+                              suffixIcon: const Icon(Icons.expand_more),
+                            ).copyWith(enabled: !_testing),
+                            child: Text(
+                              _toolModeLabel(_toolCallMode),
+                              style: theme.textTheme.bodyLarge,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
                       ),
