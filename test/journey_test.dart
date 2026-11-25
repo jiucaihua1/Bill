@@ -35,7 +35,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // 首页「最近交易」反映原币金额；单币种账本默认隐藏重复单位。
-    await tester.scrollUntilVisible(find.text('最近交易'), 200, scrollable: firstVerticalScrollable());
+    await tester.scrollUntilVisible(
+      find.text('最近交易'),
+      200,
+      scrollable: firstVerticalScrollable(),
+    );
     expect(find.text('-45'), findsAtLeastNWidgets(1));
 
     // 资产页：账户余额同步为 -45。
