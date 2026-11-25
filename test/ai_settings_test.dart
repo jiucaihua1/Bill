@@ -65,7 +65,16 @@ void main() {
       'https://example.com/v1',
     );
     await tester.enterText(_textField('API Key（可选）'), 'secret');
-    await tester.enterText(_textField('模型'), 'model');
+    final modelField = _textField('模型');
+    await tester.enterText(modelField, 'model');
+    // An earlier debounce can expire while the next word is being composed.
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'modelx',
+        selection: TextSelection.collapsed(offset: 6),
+        composing: TextRange(start: 5, end: 6),
+      ),
+    );
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pump();
 
@@ -74,6 +83,21 @@ void main() {
     expect(controller.aiSettings.apiKey, 'secret');
     expect(controller.aiSettings.model, 'model');
     expect(controller.aiSettings.isConfigured, isTrue);
+    final editable = tester.widget<EditableText>(
+      find.descendant(of: modelField, matching: find.byType(EditableText)),
+    );
+    expect(editable.focusNode.hasFocus, isTrue);
+
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'modelx',
+        selection: TextSelection.collapsed(offset: 6),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+    expect(controller.aiSettings.model, 'modelx');
+    expect(editable.focusNode.hasFocus, isTrue);
   });
 
   testWidgets('选择预设渠道后 Base URL 只读，空 Key 也可保存', (tester) async {

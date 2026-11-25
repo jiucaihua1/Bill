@@ -35,11 +35,20 @@ class AiSettingsPage extends StatefulWidget {
 
 class _AiSettingsPageState extends State<AiSettingsPage> {
   late final AutoSave _autoSave;
+  late AiSettings _draftToSave;
   final TextEditingController _baseUrlController = TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
   final TextEditingController _modelController = TextEditingController();
   final TextEditingController _modelListUrlController = TextEditingController();
   final TextEditingController _toolModeController = TextEditingController();
+  late final _editableFields = [
+    _baseUrlController,
+    _apiKeyController,
+    _modelController,
+    _modelListUrlController,
+  ];
+  final List<VoidCallback> _detachTextListeners = [];
+  bool _fillingFields = false;
   bool _seeded = false;
   bool _obscureKey = true;
   bool _testing = false;
@@ -58,13 +67,12 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
       final controller = VeriFinScope.of(context);
       _autoSave = AutoSave(save: _save, logger: controller.logger);
       final settings = controller.aiSettings;
-      _baseUrlController.text = settings.baseUrl;
-      _apiKeyController.text = settings.apiKey;
-      _modelController.text = settings.model;
-      _modelListUrlController.text = settings.modelListUrl;
-      _providerId = aiProviderPresetFor(settings.providerId).id;
-      _toolCallMode = settings.toolCallMode;
-      _toolModeController.text = _toolModeLabel(settings.toolCallMode);
+      _fillFields(settings);
+      _detachTextListeners.addAll(
+        _editableFields.map(
+          (field) => bindAutoSaveText(field, _onConfigChanged),
+        ),
+      );
       final cached = controller.aiCapabilityProfile;
       if (cached?.matches(settings) == true) {
         _detectedProfile = cached;
@@ -76,6 +84,9 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
 
   @override
   void dispose() {
+    for (final detach in _detachTextListeners) {
+      detach();
+    }
     _autoSave.dispose();
     _baseUrlController.dispose();
     _apiKeyController.dispose();
@@ -96,17 +107,25 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
 
   AiProviderPreset get _provider => aiProviderPresetFor(_providerId);
 
-  Future<bool> _save() async {
-    final detected = _detectedProfile;
-    final saved = await VeriFinScope.of(
-      context,
-    ).saveAiSettingsDraft(_current(), detectedProfile: detected);
-    if (!mounted || !saved) {
-      return false;
+  void _fillFields(AiSettings settings) {
+    _fillingFields = true;
+    try {
+      _baseUrlController.text = settings.baseUrl;
+      _apiKeyController.text = settings.apiKey;
+      _modelController.text = settings.model;
+      _modelListUrlController.text = settings.modelListUrl;
+      _providerId = aiProviderPresetFor(settings.providerId).id;
+      _toolCallMode = settings.toolCallMode;
+      _toolModeController.text = _toolModeLabel(settings.toolCallMode);
+      _draftToSave = _current();
+    } finally {
+      _fillingFields = false;
     }
-    FocusScope.of(context).unfocus();
-    return true;
   }
+
+  Future<bool> _save() => VeriFinScope.of(
+    context,
+  ).saveAiSettingsDraft(_draftToSave, detectedProfile: _detectedProfile);
 
   Future<void> _clearConfig() async {
     final l10n = AppLocalizations.of(context);
@@ -130,18 +149,12 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
     if (!mounted || !saved) {
       return;
     }
-    _baseUrlController.clear();
-    _apiKeyController.clear();
-    _modelController.clear();
-    _modelListUrlController.clear();
-    _providerId = customAiProviderId;
     _fetchToken += 1;
     _fetchingModels = false;
-    _toolCallMode = AiToolCallMode.auto;
-    _toolModeController.text = _toolModeLabel(AiToolCallMode.auto);
     _detectedProfile = null;
     FocusScope.of(context).unfocus();
     setState(() {
+      _fillFields(const AiSettings());
       _statusIsError = false;
       _statusText = null;
     });
@@ -178,13 +191,9 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
     final provider = aiProviderPresetFor(selected);
     _fetchToken += 1;
     setState(() {
-      _providerId = provider.id;
-      _baseUrlController.text = provider.baseUrl;
-      _apiKeyController.clear();
-      _modelController.clear();
-      _modelListUrlController.clear();
-      _toolCallMode = AiToolCallMode.auto;
-      _toolModeController.text = _toolModeLabel(AiToolCallMode.auto);
+      _fillFields(
+        AiSettings(providerId: provider.id, baseUrl: provider.baseUrl),
+      );
       _detectedProfile = null;
       _statusIsError = false;
       _statusText = null;
@@ -254,13 +263,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
           !_sameConnectionDraft(settings, provider)) {
         return;
       }
-      setState(() {
-        _modelController.text = selected;
-        _detectedProfile = null;
-        _statusIsError = false;
-        _statusText = null;
-      });
-      _autoSave.schedule();
+      _modelController.text = selected;
     } on AiException catch (error) {
       if (!mounted || token != _fetchToken) {
         return;
@@ -368,6 +371,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
     setState(() {
       _toolCallMode = selected;
       _toolModeController.text = _toolModeLabel(selected);
+      _draftToSave = _draftToSave.copyWith(toolCallMode: selected);
       final profile = _detectedProfile;
       if (profile != null) {
         _statusText = _capabilityStatus(profile, _current());
@@ -413,20 +417,34 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
   }
 
   void _onConfigChanged() {
-    // 输入法组合期间不落库，避免把半截拼音/候选串写成 API Key 或模型名。
-    if (_baseUrlController.value.composing.isValid ||
-        _apiKeyController.value.composing.isValid ||
-        _modelController.value.composing.isValid ||
-        _modelListUrlController.value.composing.isValid) {
+    if (_fillingFields ||
+        _editableFields.any((field) => field.value.composing.isValid)) {
       return;
     }
-    setState(() {
-      _detectedProfile = null;
-      _statusText = null;
-      _statusIsError = false;
-    });
+    final next = _current();
+    if (next == _draftToSave) return;
+    final updateUi =
+        _statusText != null ||
+        _detectedProfile != null ||
+        _canClear(next) != _canClear(_draftToSave);
+    // 保存已结束输入法组合的快照，防抖结束时可能已经开始下一段拼写。
+    _draftToSave = next;
+    if (updateUi) {
+      setState(() {
+        _detectedProfile = null;
+        _statusText = null;
+        _statusIsError = false;
+      });
+    }
     _autoSave.schedule();
   }
+
+  bool _canClear(AiSettings settings) =>
+      settings.baseUrl.isNotEmpty ||
+      settings.apiKey.isNotEmpty ||
+      settings.model.isNotEmpty ||
+      settings.modelListUrl.isNotEmpty ||
+      settings.providerId != customAiProviderId;
 
   InputDecoration _configInputDecoration({
     required String label,
@@ -488,14 +506,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                       icon: Icons.delete_outline,
                       tooltip: l10n.aiClearConfig,
                       destructive: true,
-                      onPressed:
-                          (_baseUrlController.text.isEmpty &&
-                              _apiKeyController.text.isEmpty &&
-                              _modelController.text.isEmpty &&
-                              _modelListUrlController.text.isEmpty &&
-                              _providerId == customAiProviderId)
-                          ? null
-                          : _clearConfig,
+                      onPressed: _canClear(_draftToSave) ? _clearConfig : null,
                     ),
                   ],
                 ),
@@ -568,9 +579,6 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                       TextField(
                         controller: _baseUrlController,
                         readOnly: !_provider.isCustom,
-                        onChanged: _provider.isCustom
-                            ? (_) => _onConfigChanged()
-                            : null,
                         keyboardType: TextInputType.url,
                         autocorrect: false,
                         decoration: _configInputDecoration(
@@ -588,7 +596,6 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                         const SizedBox(height: 10),
                         TextField(
                           controller: _modelListUrlController,
-                          onChanged: (_) => _onConfigChanged(),
                           keyboardType: TextInputType.url,
                           autocorrect: false,
                           decoration: _configInputDecoration(
@@ -600,7 +607,6 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                       const SizedBox(height: 10),
                       TextField(
                         controller: _apiKeyController,
-                        onChanged: (_) => _onConfigChanged(),
                         obscureText: _obscureKey,
                         autocorrect: false,
                         enableSuggestions: false,
@@ -620,7 +626,6 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                       const SizedBox(height: 10),
                       TextField(
                         controller: _modelController,
-                        onChanged: (_) => _onConfigChanged(),
                         autocorrect: false,
                         decoration: _configInputDecoration(
                           label: l10n.aiProviderModelLabel,
