@@ -70,7 +70,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('全部时间'));
+    await tester.tap(find.text('本年'));
     await tester.pumpAndSettle();
     expect(
       find.byKey(
@@ -675,6 +675,10 @@ void main() {
       await tester.pumpAndSettle();
       final picker = find.byType(CategoryPickerSheet);
       final dining = find.descendant(of: picker, matching: find.text('食品餐饮'));
+      expect(
+        find.descendant(of: picker, matching: find.text('早餐')),
+        findsNothing,
+      );
       await tester.ensureVisible(dining);
       await tester.pumpAndSettle();
       await tester.tap(dining);
@@ -1035,7 +1039,7 @@ void main() {
         .toList();
     expect(metrics.map((m) => m.label), ['支出', '平均每笔支出']);
     expect(metrics.last.value, '20');
-    await tester.tap(find.text('全部时间'));
+    await tester.tap(find.text('本年'));
     await tester.pumpAndSettle();
     expect(
       find.byKey(
@@ -1273,12 +1277,13 @@ void main() {
     );
 
     await pumpApp(tester, store);
-    await openTransactionsFromHome(tester);
+    await tester.tap(find.byTooltip('搜索交易'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('去年的一笔'), findsOneWidget);
+    expect(find.text('本年'), findsOneWidget);
+    expect(find.textContaining('去年的一笔'), findsNothing);
 
     // 只切换时间筛选：应视为「有筛选」，显示无匹配而不是「暂无交易」。
-    await tester.tap(find.text('全部时间'));
+    await tester.tap(find.text('本年'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('本月').last);
     await tester.pumpAndSettle();
@@ -1286,6 +1291,13 @@ void main() {
 
     // 清空筛选把时间维度一并复位。
     await tester.tap(find.byTooltip('清空筛选'));
+    await tester.pumpAndSettle();
+    expect(find.text('本年'), findsOneWidget);
+    expect(find.textContaining('去年的一笔'), findsNothing);
+
+    await tester.tap(find.text('本年'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('全部时间'));
     await tester.pumpAndSettle();
     expect(find.textContaining('去年的一笔'), findsOneWidget);
   });

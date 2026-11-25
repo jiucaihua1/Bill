@@ -4,7 +4,6 @@ import 'package:xiaohe/app/app_theme.dart';
 import 'package:xiaohe/app/models.dart';
 import 'package:xiaohe/app/veri_fin_scope.dart';
 import 'package:xiaohe/local_storage/local_storage.dart';
-import 'package:xiaohe/pages/pending_refunds_page.dart';
 import 'package:xiaohe/pages/refund_editor.dart';
 import 'package:xiaohe/pages/transaction_detail_page.dart';
 
@@ -386,7 +385,7 @@ void main() {
     expect(result!.refund!.baseAmount, 360);
   });
 
-  testWidgets('待退款清单：显示待到账退款并可标记已到账', (WidgetTester tester) async {
+  testWidgets('原支出详情：旧待到账退款设置实际到账日期后才生效', (WidgetTester tester) async {
     final store = LocalKeyValueStore();
     final controller = await makeController(store);
     final bookId = controller.activeBook.id;
@@ -409,7 +408,7 @@ void main() {
       accountId: '',
       initiatedAt: DateTime(2026, 7, 4),
     );
-    expect(controller.pendingRefunds.length, 1);
+    expect(controller.refundsForEntry('e3').single.settledAt, isNull);
 
     await tester.binding.setSurfaceSize(const Size(460, 2000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -418,23 +417,31 @@ void main() {
         controller: controller,
         child: zhMaterialApp(
           theme: buildVeriFinTheme(Brightness.light),
-          home: const PendingRefundsPage(),
+          home: TransactionDetailPage(entryId: 'e3'),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('退货订单'), findsOneWidget);
-    expect(find.text('标记已到账'), findsOneWidget);
-
+    await tester.tap(find.textContaining('待到账'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(FilledButton, '保存'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '保存'))
+          .onPressed,
+      isNull,
+    );
     await tester.tap(find.text('标记已到账'));
     await tester.pumpAndSettle();
-    expect(find.text('退款日期'), findsOneWidget);
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('保存'));
     await tester.pumpAndSettle();
 
-    // 核销前再次确认实际到账/本位币冲抵额；保存后净额降为 60。
-    expect(controller.pendingRefunds, isEmpty);
+    final refund = controller.refundsForEntry('e3').single;
+    expect(refund.settledAt, isNotNull);
+    expect(refund.occurredAt, DateTime(2026, 7, 4));
     expect(controller.entries.firstWhere((e) => e.id == 'e3').netAmount, 60);
   });
 

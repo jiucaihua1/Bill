@@ -1056,6 +1056,7 @@ Future<String?> showCategoryPickerSheet(
   String? topLevelLabel,
   String? allLabel,
   bool useGrid = false,
+  bool initiallyCollapseRoots = false,
 }) {
   return showVeriModalSheet<String>(
     context: context,
@@ -1073,6 +1074,7 @@ Future<String?> showCategoryPickerSheet(
             title: title,
             topLevelLabel: topLevelLabel,
             allLabel: allLabel,
+            initiallyCollapseRoots: initiallyCollapseRoots,
           ),
   );
 }

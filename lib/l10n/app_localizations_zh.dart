@@ -1699,6 +1699,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchHint => '搜索备注、分类、账户或金额';
 
   @override
+  String get searchTransactions => '搜索交易';
+
+  @override
   String get clearFilters => '清空筛选';
 
   @override
@@ -1750,13 +1753,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get refundArrivalDateLabel => '到账日期';
 
   @override
-  String get refundInitiatedDateLabel => '发起日期';
-
-  @override
   String get refundAmountShort => '退款金额';
-
-  @override
-  String get refundIsSettledLabel => '已到账（钱已退回账户）';
 
   @override
   String get refundMarkSettled => '标记已到账';
@@ -1775,25 +1772,6 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String refundNetLabel(String amount) {
     return '净支出 $amount';
-  }
-
-  @override
-  String refundPendingTotal(String amount) {
-    return '待到账 $amount';
-  }
-
-  @override
-  String get pendingRefundsTitle => '待到账退款';
-
-  @override
-  String get pendingRefundsSubtitle => '已登记、还没到账的退款';
-
-  @override
-  String get pendingRefundsEmpty => '没有待到账的退款';
-
-  @override
-  String pendingRefundsCount(int count) {
-    return '$count 笔在路上';
   }
 
   @override

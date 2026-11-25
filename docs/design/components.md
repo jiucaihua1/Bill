@@ -141,8 +141,7 @@
 | `EntryTagField` | Widget | `common_widgets.dart` | 单笔详情的标签行，可横滑查看各标签名称，点击打开多选。 |
 | `AttachmentsEditor` | Widget | `attachments_editor.dart` | 多图片附件横向缩略图、全屏查看和逐张删除；默认自带标题与拍照/相册添加入口，记账页的轻量元数据布局通过 `showHeader:false` / `showAddButton:false` 只复用缩略图条，添加入口由页面标签触发 |
 | `TagSelectorSheet` / `pickEntryTags` | Widget / Sheet 函数 | `entry_sheets.dart` / `sheets.dart` | 交易标签多选（即时新建）/ 接 controller 的弹窗封装。**标签同样是账本内数据**（`Tag.bookId`）：列表取 `controller.tags`（当前账本），跨账本数据用 `tagsForBook(bookId)` |
-| `RefundSection` / `showRefundSheet` | Widget / Sheet 函数 | `refund_editor.dart` | 支出详情页的受控「退款」区（列退款明细+净支出+添加）/ 添加·编辑退款弹窗（金额截剩余可退、到账账户、已到账开关+到账日期、发起日期、备注、删除）；默认剩余可退金额按原币 minor unit 归一化；Sheet 确认只把退款草稿交回父交易，父交易页自动保存时与本体、附件原子提交。待退款清单独立编辑时由调用方在 Sheet 确认后提交 |
-| `PendingRefundsPage` | Widget | `pending_refunds_page.dart` | 「待退款」清单页（汇总当前账本所有待到账退款、一键标记已到账核销）；入口在交易列表页头 |
+| `RefundSection` / `showRefundSheet` | Widget / Sheet 函数 | `refund_editor.dart` | 支出详情页的受控退款区及到账退款编辑弹窗。记录金额、到账账户、到账日期和备注。默认剩余可退金额按原币 minor unit 归一化。旧待到账记录可选择实际到账日期或删除。退款草稿由父交易页与本体、附件一起原子保存 |
 
 ## 族 7 — 表单 / 设置行 / 通用列表行
 

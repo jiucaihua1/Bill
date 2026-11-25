@@ -72,7 +72,7 @@ void main() {
     final homeListPadding = homeList.padding! as EdgeInsets;
     // Scaffold 已为停靠底栏让位，列表末项只需少量留白。
     expect(homeListPadding.bottom, 12);
-    expect(find.text('日常账本'), findsOneWidget);
+    expect(find.byTooltip('搜索交易'), findsOneWidget);
 
     await tapBottomTab(tester, 1);
     expect(find.text('周收支'), findsOneWidget);
@@ -82,6 +82,7 @@ void main() {
 
     await tapBottomTab(tester, 3);
     expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+    expect(find.text('日常账本'), findsOneWidget);
   });
 
   testWidgets('页面挂载前的导航点击在挂载后继续执行', (tester) async {
@@ -220,7 +221,7 @@ void main() {
     await tester.pump(VeriRootNavigationStyle.defaultSwitchDuration);
     await tester.pumpAndSettle();
     expect(controller.page!.round(), 0);
-    expect(find.text('日常账本'), findsOneWidget);
+    expect(find.byTooltip('搜索交易'), findsOneWidget);
 
     final exitHint = find.text('再次返回退出程序');
     await tester.binding.handlePopRoute();
@@ -282,7 +283,7 @@ void main() {
     await tester.pump(VeriRootNavigationStyle.defaultSwitchDuration);
     await tester.pumpAndSettle();
     expect(controller.page!.round(), 0, reason: '应落在最后点选的首页');
-    expect(find.text('日常账本'), findsOneWidget);
+    expect(find.byTooltip('搜索交易'), findsOneWidget);
   });
 
   testWidgets('连点不同 Tab 之后仍然响应，且底栏与页面一致', (WidgetTester tester) async {

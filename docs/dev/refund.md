@@ -1,6 +1,6 @@
 # 退款与报销
 
-退款是挂在原支出上的独立条目，与「报销」共用同一套机制。模型见 `lib/app/models/ledger_entry.dart`，数学见 `ledger_math.dart`，UI 见 `refund_editor.dart`、`pending_refunds_page.dart`。
+退款是挂在原支出上的独立条目，与报销共用同一套机制。模型见 `lib/app/models/ledger_entry.dart`，计算见 `ledger_math.dart`，原支出的退款界面见 `refund_editor.dart`。
 
 ## 数据模型
 
@@ -11,7 +11,7 @@
 
 ## 金额口径
 
-- 只有「已到账」（`settledAt != null`）的退款影响账户余额与原支出净额；待到账退款不进余额、不进净额、不进收支统计，只进「待退款」清单。
+- 只有已到账退款（`settledAt != null`）影响账户余额与原支出净额。旧数据或导入中的待到账退款不进余额、净额或收支统计。
 - 统计使用 `netBaseAmount = max(baseAmount - refundedBaseAmount, 0)`；账户余额使用退款自己的 `accountAmount`。
 - 退款不计收入，冲减原支出所在月份与分类；余额/资产趋势按退款 `settledAt` 生效，收支统计按原支出 `occurredAt`。
 - 禁止超额：Σ退款不得超过原金额，超出时提示并截到「剩余可退」。
@@ -25,9 +25,9 @@
 
 ## 界面
 
-- 原支出详情页的「退款」区列出每笔退款（金额/到账账户/状态/日期/备注）并可添加多笔；每笔可点开编辑。
-- 交易详情中的退款随父交易草稿、附件一起经 `saveEntryAggregate` 原子保存；待退款清单核销是独立明确命令。
-- 退款明细在原支出与「待退款」清单中管理，当前不进入通用交易时间线，也不提供退款自身的附件入口（见 [known-limitations.md](known-limitations.md) L2）。
+- 收到退款后，在原支出详情的「退款」区登记金额、到账账户、到账日期和备注。支持多笔退款。
+- 保留旧版或导入的待到账记录，可在原支出中选择实际到账日期后保存，或删除该记录。只打开编辑页不会改变状态或金额。
+- 退款随父交易草稿、附件一起经 `saveEntryAggregate` 原子保存。退款明细在原支出中管理（见 [known-limitations.md](known-limitations.md) L2）。
 - 当前不提供批量报销/批量退款；待报销交易逐笔在交易详情处理。
 - 编辑已有退款时，只修改发起/到账日期、备注或状态不得重算已保存的 `accountAmount` /
   `baseAmount`；这两者是历史实际到账与冻结冲抵事实。新建退款的预计金额仍可按当前日期汇率初始化。

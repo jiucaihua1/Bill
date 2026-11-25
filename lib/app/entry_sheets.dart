@@ -660,6 +660,7 @@ class CategoryPickerSheet extends StatefulWidget {
     this.title,
     this.topLevelLabel,
     this.allLabel,
+    this.initiallyCollapseRoots = false,
   });
 
   /// 当前类型下的全部分类（含各级子分类），由调用方按类型过滤后传入。
@@ -675,6 +676,7 @@ class CategoryPickerSheet extends StatefulWidget {
   /// 非空时在列表顶部加一个「全部」选项（筛选场景），点选返回 [categoryPickerAll]；
   /// 当 [selectedId] 为 [categoryPickerAll] 时该项高亮。
   final String? allLabel;
+  final bool initiallyCollapseRoots;
 
   @override
   State<CategoryPickerSheet> createState() => _CategoryPickerSheetState();
@@ -686,8 +688,11 @@ class _CategoryPickerSheetState extends State<CategoryPickerSheet> {
   @override
   void initState() {
     super.initState();
-    // 默认展开全部；但收起与当前选中项无关的分支，保持已选项可见。
-    _collapsed = <String>{};
+    _collapsed = {
+      if (widget.initiallyCollapseRoots)
+        for (final category in widget.categories)
+          if (category.parentId == null) category.id,
+    };
   }
 
   /// 按类型分区（支出→收入→转账）并按折叠状态前序展开：每个非空类型前插入一行

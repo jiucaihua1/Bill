@@ -15,7 +15,6 @@ import '../app/veri_fin_scope.dart';
 import '../l10n/app_localizations.dart';
 import 'budget_pages.dart';
 import 'home_metrics_settings_page.dart';
-import 'ledger_books_page.dart';
 import 'panel_settings_page.dart';
 import 'recurring_page.dart';
 import 'transactions_pages.dart';
@@ -171,13 +170,12 @@ class HomePage extends StatelessWidget {
               AppLocalizations.of(context).yearMonth(now),
               controller.activeBook.baseCurrencyCode,
             ),
-            trailing: FilterPill(
-              label: controller.activeBook.name,
-              icon: Icons.book_outlined,
-              flexibleLabel: true,
-              onTap: () => Navigator.of(context).push<void>(
+            trailing: HeaderAction(
+              icon: Icons.search_rounded,
+              tooltip: AppLocalizations.of(context).searchTransactions,
+              onPressed: () => Navigator.of(context).push<void>(
                 MaterialPageRoute<void>(
-                  builder: (context) => const LedgerBooksPage(),
+                  builder: (context) => const TransactionsPage(),
                 ),
               ),
             ),

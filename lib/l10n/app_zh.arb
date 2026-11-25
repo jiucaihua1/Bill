@@ -1144,6 +1144,7 @@
   "prevRange": "上一段",
   "nextRange": "下一段",
   "searchHint": "搜索备注、分类、账户或金额",
+  "searchTransactions": "搜索交易",
   "clearFilters": "清空筛选",
   "prevDay": "前一天",
   "nextDay": "后一天",
@@ -1161,9 +1162,7 @@
   "refundStatusPending": "待到账",
   "refundToAccountLabel": "到账账户",
   "refundArrivalDateLabel": "到账日期",
-  "refundInitiatedDateLabel": "发起日期",
   "refundAmountShort": "退款金额",
-  "refundIsSettledLabel": "已到账（钱已退回账户）",
   "refundMarkSettled": "标记已到账",
   "refundEmpty": "暂无退款，点下方添加",
   "refundDeleteConfirm": "确定删除这笔退款吗？删除后原支出净额会恢复。",
@@ -1180,25 +1179,6 @@
     "placeholders": {
       "amount": {
         "type": "String"
-      }
-    }
-  },
-  "refundPendingTotal": "待到账 {amount}",
-  "@refundPendingTotal": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
-  "pendingRefundsTitle": "待到账退款",
-  "pendingRefundsSubtitle": "已登记、还没到账的退款",
-  "pendingRefundsEmpty": "没有待到账的退款",
-  "pendingRefundsCount": "{count} 笔在路上",
-  "@pendingRefundsCount": {
-    "placeholders": {
-      "count": {
-        "type": "int"
       }
     }
   },

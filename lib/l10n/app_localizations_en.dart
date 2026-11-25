@@ -1743,6 +1743,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchHint => 'Search notes, categories, accounts, or amounts';
 
   @override
+  String get searchTransactions => 'Search transactions';
+
+  @override
   String get clearFilters => 'Clear filters';
 
   @override
@@ -1795,13 +1798,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refundArrivalDateLabel => 'Arrival date';
 
   @override
-  String get refundInitiatedDateLabel => 'Initiated date';
-
-  @override
   String get refundAmountShort => 'Refund amount';
-
-  @override
-  String get refundIsSettledLabel => 'Received (money is back)';
 
   @override
   String get refundMarkSettled => 'Mark as received';
@@ -1821,25 +1818,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String refundNetLabel(String amount) {
     return 'Net expense $amount';
-  }
-
-  @override
-  String refundPendingTotal(String amount) {
-    return 'Pending $amount';
-  }
-
-  @override
-  String get pendingRefundsTitle => 'Pending refunds';
-
-  @override
-  String get pendingRefundsSubtitle => 'Refunds requested but not yet received';
-
-  @override
-  String get pendingRefundsEmpty => 'No pending refunds';
-
-  @override
-  String pendingRefundsCount(int count) {
-    return '$count on the way';
   }
 
   @override

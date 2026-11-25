@@ -329,8 +329,10 @@ class ProfilePage extends StatelessWidget {
                 subtitle: AppLocalizations.of(context).subscriptionPeriodTotals,
                 onTap: () => Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
-                    builder: (_) =>
-                        const TransactionsPage(subscriptionsOnly: true),
+                    builder: (_) => const TransactionsPage(
+                      subscriptionsOnly: true,
+                      initialTimeFilter: TransactionTimeFilter.all,
+                    ),
                   ),
                 ),
               ),

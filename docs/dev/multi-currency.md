@@ -175,7 +175,7 @@ resolveRate(bookId, currencyCode, date)
 ### 退款/报销回款
 
 - `currencyCode` 强制等于原支出 `currencyCode`；`amount` 是原支出币种中的退款份额；`accountAmount` 是退款账户实际收到的金额；`baseAmount` 是本次冲抵的冻结本位币金额；
-- 待到账退款可先保存预计值，核销为已到账时再次确认实际到账金额和本位币金额；
+- 手动登记退款时记录实际到账。旧数据或导入的待到账退款可从原支出确认实际到账日期、金额和本位币金额；
 - 全部退款（含待到账）的原币 `amount` 合计不得超过原支出 `amount`；
 - `refundedBaseAmount` 只累计已到账退款并钳制到原支出 `baseAmount`；因汇率变化导致到账本位币价值高于原支出时，超出部分不把净支出变成负数，也不生成人工“汇兑收益”交易；
 - `saveEntryAggregate` 在一个提交边界内校验原支出、全部退款和附件，并按退款 `baseAmount` 重算缓存。

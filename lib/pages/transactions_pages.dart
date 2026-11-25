@@ -24,7 +24,6 @@ import '../app/veri_fin_scope.dart';
 import '../l10n/app_localizations.dart';
 import 'ai_entry_sheet.dart';
 import 'entry_detail_page.dart';
-import 'pending_refunds_page.dart';
 import 'sheets.dart';
 import 'transaction_detail_page.dart';
 
@@ -159,7 +158,7 @@ class TransactionsPage extends StatefulWidget {
     this.accountId,
     this.initialCategoryId,
     this.subscriptionsOnly = false,
-    this.initialTimeFilter = TransactionTimeFilter.all,
+    this.initialTimeFilter = TransactionTimeFilter.year,
     this.initialPeriodAnchor,
     this.title,
   });
@@ -499,33 +498,15 @@ class _TransactionsPageState extends State<TransactionsPage> {
                                   });
                                 },
                               )
-                            else ...<Widget>[
-                              // 常驻入口：待退款为零时也必须在，否则该功能全应用无路可进。
+                            else if (entries.isNotEmpty)
                               HeaderAction(
-                                icon: Icons.schedule,
-                                tooltip: AppLocalizations.of(
-                                  context,
-                                ).pendingRefundsTitle,
-                                onPressed: () =>
-                                    Navigator.of(context).push<void>(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) =>
-                                            const PendingRefundsPage(),
-                                      ),
-                                    ),
+                                icon: Icons.checklist,
+                                tooltip: l10n.multiSelect,
+                                onPressed: () {
+                                  VeriHaptics.tap();
+                                  setState(() => _selectionMode = true);
+                                },
                               ),
-                              if (entries.isNotEmpty)
-                                HeaderAction(
-                                  icon: Icons.checklist,
-                                  tooltip: AppLocalizations.of(
-                                    context,
-                                  ).multiSelect,
-                                  onPressed: () {
-                                    VeriHaptics.tap();
-                                    setState(() => _selectionMode = true);
-                                  },
-                                ),
-                            ],
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -625,9 +606,11 @@ class _TransactionsPageState extends State<TransactionsPage> {
                                       _scopeFilter = TransactionScopeFilter.all;
                                       // 按天视图与时间档同属时间维度，清空必须一起复位。
                                       _dateMode = false;
-                                      _timeFilter = TransactionTimeFilter.all;
+                                      _timeFilter = widget.initialTimeFilter;
                                       _customRange = null;
-                                      _periodAnchor = DateTime.now();
+                                      _periodAnchor =
+                                          widget.initialPeriodAnchor ??
+                                          DateTime.now();
                                     });
                                   }
                                 : null,
@@ -871,8 +854,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
         .toList();
   }
 
-  // 时间维度（按天进入 / 选了时间档）也是筛选：列表为空要显示「没有匹配交易」，
-  // 「清空筛选」也必须能清掉它。
+  // 默认期间属于页面入口；仅用户切换的档位或期间需要清空。
   bool get _hasSecondaryFilters =>
       _query.isNotEmpty ||
       (widget.accountId == null && _selectedAccountId != null) ||
@@ -880,9 +862,13 @@ class _TransactionsPageState extends State<TransactionsPage> {
       _selectedTagId != null ||
       _reimbursementFilter != ReimbursementFilter.all ||
       _scopeFilter != TransactionScopeFilter.all ||
-      // 只算时间筛选，不算「按天进入」：日历里点开一个空日期仍应显示「暂无交易」，
-      // 而不是「没有匹配交易」。
-      _timeFilter != TransactionTimeFilter.all;
+      (!_dateMode &&
+          (_timeFilter != widget.initialTimeFilter ||
+              (_timeFilter != TransactionTimeFilter.all &&
+                  !DateUtils.isSameDay(
+                    _periodAnchor,
+                    widget.initialPeriodAnchor ?? DateTime.now(),
+                  ))));
 
   bool _matchesSecondaryFilters(
     LedgerEntry entry,
@@ -1103,6 +1089,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
       selectedId: _selectedCategoryId ?? categoryPickerAll,
       title: AppLocalizations.of(context).filterCategoryTitle,
       allLabel: AppLocalizations.of(context).categoryAll,
+      initiallyCollapseRoots: true,
     );
     if (selected != null && mounted) {
       setState(() {

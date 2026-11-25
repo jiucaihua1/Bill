@@ -79,9 +79,6 @@ class RefundSection extends StatelessWidget {
     }
     final l10n = AppLocalizations.of(context);
     final controller = VeriFinScope.of(context);
-    final pendingTotal = refunds
-        .where((refund) => refund.isPendingRefund)
-        .fold<double>(0, (sum, refund) => sum + refund.amount);
     final netBaseAmount = (expense.baseAmount - _settledBaseTotal)
         .clamp(0.0, expense.baseAmount)
         .toDouble();
@@ -116,18 +113,6 @@ class RefundSection extends StatelessWidget {
                 ),
             ],
           ),
-          if (pendingTotal > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                l10n.refundPendingTotal(
-                  formatUserMoney(pendingTotal, expense.currencyCode),
-                ),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: veriSemantic(context, veriBlue),
-                ),
-              ),
-            ),
           const SizedBox(height: 4),
           if (refunds.isEmpty)
             Padding(
@@ -240,19 +225,14 @@ Future<RefundEditResult?> showRefundSheet({
   required LedgerEntry expense,
   required List<LedgerEntry> refunds,
   LedgerEntry? existing,
-  bool markSettled = false,
 }) {
   return showVeriModalSheet<RefundEditResult>(
     context: context,
     showDragHandle: true,
     isScrollControlled: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
-    builder: (_) => _RefundSheet(
-      expense: expense,
-      refunds: refunds,
-      existing: existing,
-      markSettled: markSettled,
-    ),
+    builder: (_) =>
+        _RefundSheet(expense: expense, refunds: refunds, existing: existing),
   );
 }
 
@@ -261,8 +241,7 @@ typedef _RefundSnapshot = ({
   String accountId,
   double? accountAmount,
   double baseAmount,
-  bool settled,
-  DateTime settledAt,
+  DateTime? settledAt,
   DateTime initiatedAt,
   String note,
 });
@@ -272,13 +251,11 @@ class _RefundSheet extends StatefulWidget {
     required this.expense,
     required this.refunds,
     this.existing,
-    this.markSettled = false,
   });
 
   final LedgerEntry expense;
   final List<LedgerEntry> refunds;
   final LedgerEntry? existing;
-  final bool markSettled;
 
   @override
   State<_RefundSheet> createState() => _RefundSheetState();
@@ -294,8 +271,7 @@ class _RefundSheetState extends State<_RefundSheet> {
   bool _accountAmountTouched = false;
   bool _baseAmountTouched = false;
   ConversionSource _conversionSource = ConversionSource.identity;
-  late bool _settled;
-  late DateTime _settledAt;
+  DateTime? _settledAt;
   late DateTime _initiatedAt;
   late String _note;
   late _RefundSnapshot _initialSnapshot;
@@ -324,25 +300,19 @@ class _RefundSheetState extends State<_RefundSheet> {
       _accountAmount = existing.accountAmount;
       _baseAmount = existing.baseAmount;
       _conversionSource = existing.conversionSource;
-      _settled = existing.settledAt != null;
-      _settledAt = existing.settledAt ?? DateTime.now();
+      _settledAt = existing.settledAt;
       _initiatedAt = existing.occurredAt;
       _note = existing.note;
     } else {
       _amount = _maxRefund;
       _accountId = widget.expense.accountId;
       _baseAmount = 0;
-      _settled = true;
       _settledAt = DateTime.now();
-      _initiatedAt = DateTime.now();
+      _initiatedAt = _settledAt!;
       _note = '';
       _resolveAmounts(forceAccount: true, forceBase: true);
     }
     _initialSnapshot = _snapshot;
-    if (existing != null && widget.markSettled && !_settled) {
-      _settled = true;
-      _settledAt = DateTime.now();
-    }
     _noteController.text = _note;
   }
 
@@ -413,7 +383,6 @@ class _RefundSheetState extends State<_RefundSheet> {
     accountId: _accountId,
     accountAmount: _accountAmount,
     baseAmount: _baseAmount,
-    settled: _settled,
     settledAt: _settledAt,
     initiatedAt: _initiatedAt,
     note: _note.trim(),
@@ -553,7 +522,7 @@ class _RefundSheetState extends State<_RefundSheet> {
     note: _note.trim(),
     occurredAt: _initiatedAt,
     refundOf: widget.expense.id,
-    settledAt: _settled ? _settledAt : null,
+    settledAt: _settledAt,
   );
 
   Future<bool> _save() async {
@@ -561,7 +530,8 @@ class _RefundSheetState extends State<_RefundSheet> {
       _amount,
       widget.expense.currencyCode,
     );
-    if (amount <= 0 ||
+    if (_settledAt == null ||
+        amount <= 0 ||
         amount > _maxRefund ||
         _maxRefund <= 0 ||
         _baseAmount <= 0 ||
@@ -606,7 +576,9 @@ class _RefundSheetState extends State<_RefundSheet> {
     );
     final account = _selectedAccount;
     final baseCode = controller.activeBook.baseCurrencyCode;
+    final settledAt = _settledAt;
     final canSave =
+        settledAt != null &&
         _amount > 0 &&
         _baseAmount > 0 &&
         (_accountId.isEmpty || (_accountAmount ?? 0) > 0) &&
@@ -727,20 +699,25 @@ class _RefundSheetState extends State<_RefundSheet> {
                   ),
                 DetailInfoRow(
                   label: l10n.refundDateLabel,
-                  value:
-                      '${l10n.dateMonthDay(_settledAt)}  ${relativeDay(l10n, _settledAt)}',
+                  value: settledAt == null
+                      ? l10n.refundMarkSettled
+                      : '${l10n.dateMonthDay(settledAt)}  ${relativeDay(l10n, settledAt)}',
                   onTap: () async {
+                    final today = DateUtils.dateOnly(DateTime.now());
+                    final date = settledAt ?? today;
                     final picked = await showDatePicker(
                       context: context,
-                      initialDate: _settledAt,
+                      initialDate: date,
                       firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
+                      lastDate: date.isAfter(today) ? date : today,
                     );
                     if (picked != null && mounted) {
                       setState(() {
-                        _settled = true;
                         _settledAt = picked;
-                        _initiatedAt = picked;
+                        // 旧待到账退款已有独立的发起日期。
+                        if (widget.existing?.isPendingRefund != true) {
+                          _initiatedAt = picked;
+                        }
                       });
                     }
                   },

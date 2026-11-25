@@ -3248,6 +3248,12 @@ abstract class AppLocalizations {
   /// **'搜索备注、分类、账户或金额'**
   String get searchHint;
 
+  /// No description provided for @searchTransactions.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索交易'**
+  String get searchTransactions;
+
   /// No description provided for @clearFilters.
   ///
   /// In zh, this message translates to:
@@ -3350,23 +3356,11 @@ abstract class AppLocalizations {
   /// **'到账日期'**
   String get refundArrivalDateLabel;
 
-  /// No description provided for @refundInitiatedDateLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'发起日期'**
-  String get refundInitiatedDateLabel;
-
   /// No description provided for @refundAmountShort.
   ///
   /// In zh, this message translates to:
   /// **'退款金额'**
   String get refundAmountShort;
-
-  /// No description provided for @refundIsSettledLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'已到账（钱已退回账户）'**
-  String get refundIsSettledLabel;
 
   /// No description provided for @refundMarkSettled.
   ///
@@ -3397,36 +3391,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'净支出 {amount}'**
   String refundNetLabel(String amount);
-
-  /// No description provided for @refundPendingTotal.
-  ///
-  /// In zh, this message translates to:
-  /// **'待到账 {amount}'**
-  String refundPendingTotal(String amount);
-
-  /// No description provided for @pendingRefundsTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'待到账退款'**
-  String get pendingRefundsTitle;
-
-  /// No description provided for @pendingRefundsSubtitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'已登记、还没到账的退款'**
-  String get pendingRefundsSubtitle;
-
-  /// No description provided for @pendingRefundsEmpty.
-  ///
-  /// In zh, this message translates to:
-  /// **'没有待到账的退款'**
-  String get pendingRefundsEmpty;
-
-  /// No description provided for @pendingRefundsCount.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 笔在路上'**
-  String pendingRefundsCount(int count);
 
   /// No description provided for @pickTypeTitle.
   ///
