@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -3562,7 +3563,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiChatClearMessage =>
-      'This deletes the current conversation and cannot be undone.';
+      'This deletes the chat history for the selected ledger and cannot be undone.';
 
   @override
   String get aiChatClearConfirm => 'Clear';
@@ -3820,6 +3821,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiRetryAnswer => 'Answer again';
+
+  @override
+  String get aiChatCopyReply => 'Copy';
+
+  @override
+  String get aiChatCopyFailed => 'Couldn\'t copy the reply. Try again.';
+
+  @override
+  String aiChatStepsSummary(int count) {
+    return 'Query steps · $count';
+  }
+
+  @override
+  String aiChatStepsRunning(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count steps',
+      one: '1 step',
+    );
+    return 'Processing $_temp0';
+  }
 
   @override
   String get aiPrivacyNotice =>

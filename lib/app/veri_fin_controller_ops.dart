@@ -1635,6 +1635,37 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   /// 备份、初始化保留（API Key 明文存本机）。
   AiSettings get aiSettings => _aiSettings;
 
+  List<AiChatMessage> aiChatHistoryForBook(String bookId) =>
+      AiChatHistory.decode(_store.read(_aiChatHistoryKey(bookId)), bookId);
+
+  void saveAiChatHistoryForBook(String bookId, List<AiChatMessage> messages) {
+    if (!_ledgerBooks.any((book) => book.id == bookId)) return;
+    final key = _aiChatHistoryKey(bookId);
+    try {
+      if (messages.isEmpty) {
+        _store.delete(key);
+      } else {
+        _store.write(key, AiChatHistory.encode(messages));
+      }
+    } catch (_, stackTrace) {
+      // 编码异常可能带出字段值，只记录固定错误信息。
+      _handlePersistError(
+        StateError('Failed to save AI chat history'),
+        stackTrace,
+      );
+    }
+  }
+
+  Future<void> _deleteAiChatHistory(String bookId) async {
+    final key = _aiChatHistoryKey(bookId);
+    if (_store.read(key) == null) return;
+    try {
+      await _store.deleteAndFlush(key);
+    } catch (error, stackTrace) {
+      _handlePersistError(error, stackTrace);
+    }
+  }
+
   void setAiSettings(AiSettings settings) {
     if (_aiSettings == settings) {
       return;
@@ -3387,6 +3418,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     _persistAssetSectionCollapsed();
     _persistAssetAccountOrders();
     _persistAssetSectionOrders();
+    await _deleteAiChatHistory(bookId);
     await _collectAttachmentOrphans();
     _markWidgetProjectionChanged();
     notifyListeners();
@@ -4649,6 +4681,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   /// 清空账目并恢复默认数据。只有 SQLite 原子整替成功后才更新内存和 KV；
   /// 失败时保持当前数据和界面状态，调用方必须把 false 当作失败处理。
   Future<bool> resetAllData() async {
+    final oldBookIds = _ledgerBooks.map((book) => book.id).toList();
     final nextBooks = List<LedgerBook>.of(_seedLedgerBooks);
     final nextAccounts = List<Account>.of(defaultAccounts);
     final nextGroups = List<AccountGroup>.of(defaultAccountGroups);
@@ -4716,6 +4749,9 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     }
     await _writeExternalNetworkPreference(null);
     await _collectAttachmentOrphans();
+    for (final bookId in oldBookIds) {
+      await _deleteAiChatHistory(bookId);
+    }
 
     for (final key in <String>[
       _themeKey,
@@ -5373,6 +5409,10 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       _invalidateDerivedViews();
       await _collectAttachmentOrphans();
       rethrow;
+    }
+    // 从备份恢复的账本可能复用 id；清掉恢复前的历史，避免串到另一份账目。
+    for (final book in oldBooks) {
+      await _deleteAiChatHistory(book.id);
     }
     _store.write(_activeBookKey, _activeBookId);
     _store.write(_profileKey, jsonEncode(_profile.toJson()));

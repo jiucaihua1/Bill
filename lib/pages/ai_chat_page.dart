@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:anchored_menu/anchored_menu.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 import '../app/ai/ai_agent_engine.dart';
@@ -17,6 +18,7 @@ import '../app/ai/ai_client.dart';
 import '../app/ai/ai_query_tool.dart';
 import '../app/app_theme.dart';
 import '../app/common_widgets.dart';
+import '../app/feedback.dart';
 import '../app/models.dart';
 import '../app/veri_fin_controller.dart';
 import '../app/veri_fin_scope.dart';
@@ -61,6 +63,8 @@ class _AiChatPageState extends State<AiChatPage> {
     if (_session == null) {
       final session = AiChatSessionController(
         engine: AiAgentEngine(tools: buildAiQueryTools()),
+        readHistory: scope.aiChatHistoryForBook,
+        writeHistory: scope.saveAiChatHistoryForBook,
         onCapabilityDetected: scope.setAiCapabilityProfile,
         onError: (message, error, stackTrace) => scope.logger?.error(
           message,
@@ -69,10 +73,11 @@ class _AiChatPageState extends State<AiChatPage> {
           stackTrace: stackTrace,
         ),
       );
+      session.ensureSelectedBook(scope.activeBook.id);
       session.addListener(_onSessionChanged);
       _session = session;
+      if (session.messages.isNotEmpty) _scrollToBottom(force: true);
     }
-    _session!.ensureSelectedBook(scope.activeBook.id);
   }
 
   void _onSessionChanged() {
@@ -108,6 +113,7 @@ class _AiChatPageState extends State<AiChatPage> {
   }
 
   void _selectBook(String bookId) {
+    _scrollToBottom(force: true);
     _session?.selectBook(bookId);
   }
 
@@ -129,18 +135,19 @@ class _AiChatPageState extends State<AiChatPage> {
     });
   }
 
-  Future<void> _send() async {
-    final text = _input.text.trim();
+  void _send({AiChatMessage? retryOf}) {
+    final text = (retryOf?.sourceUserInput ?? _input.text).trim();
     final session = _session;
     if (text.isEmpty || session == null || session.isStreaming) {
       return;
     }
     final scope = VeriFinScope.of(context);
+    final settings = scope.aiSettings;
+    if (!settings.isConfigured) return;
     final l10n = AppLocalizations.of(context);
     final book = _bookForScope(scope);
     final moneyDisplay = scope.moneyCodeDisplayForBook(book.id);
     final snapshot = scope.aiLedgerSnapshotForBook(book.id);
-    final settings = scope.aiSettings;
     final transport =
         widget.debugTransport ??
         (List<AiAgentMessage> messages, List<Map<String, Object?>> tools) =>
@@ -155,7 +162,8 @@ class _AiChatPageState extends State<AiChatPage> {
             );
     final capability = scope.aiCapabilityProfile;
     final mode = resolveAiAgentMode(settings: settings, capability: capability);
-    _input.clear();
+    if (retryOf == null) _input.clear();
+    _scrollToBottom(force: true);
     session.send(
       AiChatRequest(
         text: text,
@@ -168,8 +176,8 @@ class _AiChatPageState extends State<AiChatPage> {
         streamTransport: transport,
         completeTransport: completeTransport,
       ),
+      retryOf: retryOf,
     );
-    _scrollToBottom(force: true);
   }
 
   void _stopGeneration() {
@@ -178,6 +186,7 @@ class _AiChatPageState extends State<AiChatPage> {
 
   Future<void> _clearHistory() async {
     final l10n = AppLocalizations.of(context);
+    final bookId = _session?.selectedBookId;
     final confirmed = await showConfirmDialog(
       context,
       title: l10n.aiChatClearHistory,
@@ -185,8 +194,34 @@ class _AiChatPageState extends State<AiChatPage> {
       confirmLabel: l10n.aiChatClearConfirm,
       destructive: true,
     );
-    if (confirmed && mounted) {
+    if (confirmed && mounted && _session?.selectedBookId == bookId) {
       _session?.clear();
+    }
+  }
+
+  Future<void> _copyReply(String text) async {
+    final l10n = AppLocalizations.of(context);
+    final feedback = VeriFeedbackHost.of(context);
+    final logger = VeriFinScope.of(context).logger;
+    try {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (!mounted) return;
+      unawaited(
+        feedback.showMessage(
+          message: l10n.copiedToClipboard,
+          tone: VeriFeedbackTone.success,
+          duration: VeriFeedbackDuration.short,
+        ),
+      );
+    } catch (_, stackTrace) {
+      logger?.error('复制 AI 回答失败', source: 'ai', stackTrace: stackTrace);
+      if (!mounted) return;
+      unawaited(
+        feedback.showMessage(
+          message: l10n.aiChatCopyFailed,
+          tone: VeriFeedbackTone.error,
+        ),
+      );
     }
   }
 
@@ -221,7 +256,7 @@ class _AiChatPageState extends State<AiChatPage> {
                   title: l10n.aiChatTitle,
                   showBack: true,
                   actions: <Widget>[
-                    if (configured)
+                    if (configured || messages.isNotEmpty)
                       Visibility(
                         visible: messages.isNotEmpty,
                         maintainSize: true,
@@ -234,7 +269,7 @@ class _AiChatPageState extends State<AiChatPage> {
                           destructive: true,
                         ),
                       ),
-                    if (configured)
+                    if (configured || messages.isNotEmpty)
                       HeaderAction(
                         icon: Icons.settings_outlined,
                         tooltip: l10n.aiSettingsTitle,
@@ -244,10 +279,10 @@ class _AiChatPageState extends State<AiChatPage> {
                 ),
               ),
               Expanded(
-                child: configured
-                    ? (messages.isEmpty
-                          ? _buildEmptyState(context, book)
-                          : _buildMessageList(context))
+                child: messages.isNotEmpty
+                    ? _buildMessageList(canRetry: configured && !streaming)
+                    : configured
+                    ? _buildEmptyState(context, book)
                     : _buildUnconfigured(context),
               ),
               if (configured) _buildInputBar(context, book),
@@ -277,32 +312,27 @@ class _AiChatPageState extends State<AiChatPage> {
     );
   }
 
-  Widget _buildMessageList(BuildContext context) {
+  Widget _buildMessageList({required bool canRetry}) {
     final messages = _session!.messages;
-    final showBookLabel =
-        messages.map((message) => message.bookId).toSet().length > 1;
     return ListView.builder(
       controller: _scroll,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
       itemCount: messages.length,
       itemBuilder: (context, index) {
         final message = messages[index];
-        final retryText =
-            message.status == AiChatMessageStatus.error &&
-                index > 0 &&
-                messages[index - 1].role == AiChatRole.user
-            ? messages[index - 1].text
-            : null;
+        final finishedReply =
+            message.role == AiChatRole.assistant &&
+            message.status != AiChatMessageStatus.streaming;
         return _MessageView(
+          key: ValueKey<Object>(message.identity),
           message: message,
-          showBookLabel: showBookLabel,
-          onRetry: retryText == null || _session!.isStreaming
-              ? null
-              : () async {
-                  _session!.selectBook(message.bookId);
-                  _input.text = retryText;
-                  await _send();
-                },
+          onCopy: finishedReply && message.text.trim().isNotEmpty
+              ? () => unawaited(_copyReply(message.text))
+              : null,
+          onRetry:
+              canRetry && finishedReply && message.sourceUserInput.isNotEmpty
+              ? () => _send(retryOf: message)
+              : null,
         );
       },
     );
@@ -345,8 +375,11 @@ class _AiChatPageState extends State<AiChatPage> {
                   avatar: const Icon(Icons.chat_bubble_outline, size: 16),
                   label: Text(hint),
                   onPressed: () {
-                    _input.text = hint;
-                    _send();
+                    _input.value = TextEditingValue(
+                      text: hint,
+                      selection: TextSelection.collapsed(offset: hint.length),
+                    );
+                    _inputFocus.requestFocus();
                   },
                 ),
               ),
@@ -558,13 +591,14 @@ class _SendButton extends StatelessWidget {
 
 class _MessageView extends StatelessWidget {
   const _MessageView({
+    super.key,
     required this.message,
-    required this.showBookLabel,
+    this.onCopy,
     this.onRetry,
   });
 
   final AiChatMessage message;
-  final bool showBookLabel;
+  final VoidCallback? onCopy;
   final VoidCallback? onRetry;
 
   @override
@@ -574,16 +608,6 @@ class _MessageView extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: <Widget>[
-          if (showBookLabel)
-            Padding(
-              padding: const EdgeInsets.only(top: 5, bottom: 2, right: 4),
-              child: Text(
-                message.bookName,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
           Align(
             alignment: Alignment.centerRight,
             child: Container(
@@ -619,17 +643,7 @@ class _MessageView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          if (showBookLabel)
-            Padding(
-              padding: const EdgeInsets.only(top: 5, bottom: 2, left: 2),
-              child: Text(
-                message.bookName,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          for (final step in message.steps) AiAgentStepView(step: step),
+          if (message.steps.isNotEmpty) AiAgentStepsView(steps: message.steps),
           for (final display in message.displays) ...<Widget>[
             AiResultView(
               display: display,
@@ -667,8 +681,26 @@ class _MessageView extends StatelessWidget {
             ),
           if (message.errorText != null) ...<Widget>[
             const SizedBox(height: 8),
-            _ErrorBubble(text: message.errorText!, onRetry: onRetry),
+            _ErrorBubble(text: message.errorText!),
           ],
+          if (onCopy != null || onRetry != null)
+            Wrap(
+              spacing: 4,
+              children: <Widget>[
+                if (onCopy != null)
+                  TextButton.icon(
+                    onPressed: onCopy,
+                    icon: const Icon(Icons.copy_outlined, size: 16),
+                    label: Text(AppLocalizations.of(context).aiChatCopyReply),
+                  ),
+                if (onRetry != null)
+                  TextButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh_outlined, size: 17),
+                    label: Text(AppLocalizations.of(context).aiRetryAnswer),
+                  ),
+              ],
+            ),
         ],
       ),
     );
@@ -760,10 +792,9 @@ class _BlockedMarkdownImage extends StatelessWidget {
 
 /// 助手出错时的提示气泡（红边淡底，比裸红字更精致）。
 class _ErrorBubble extends StatelessWidget {
-  const _ErrorBubble({required this.text, this.onRetry});
+  const _ErrorBubble({required this.text});
 
   final String text;
-  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -782,29 +813,13 @@ class _ErrorBubble extends StatelessWidget {
           Icon(Icons.error_outline, size: 18, color: scheme.onErrorContainer),
           const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  text,
-                  style: TextStyle(
-                    color: scheme.onErrorContainer,
-                    fontSize: 14,
-                    height: 1.45,
-                  ),
-                ),
-                if (onRetry != null)
-                  TextButton(
-                    onPressed: onRetry,
-                    style: TextButton.styleFrom(
-                      foregroundColor: scheme.onErrorContainer,
-                      padding: const EdgeInsets.only(top: 6),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(AppLocalizations.of(context).aiRetryAnswer),
-                  ),
-              ],
+            child: Text(
+              text,
+              style: TextStyle(
+                color: scheme.onErrorContainer,
+                fontSize: 14,
+                height: 1.45,
+              ),
             ),
           ),
         ],

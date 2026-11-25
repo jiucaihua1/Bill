@@ -232,7 +232,8 @@
 
 | 名称 | 类型 | 位置 | 用途 |
 |---|---|---|---|
-| `AiChatPage` | 页面 Widget | `ai_chat_page.dart` | 全屏 AI 财务 Agent 对话页（消息气泡 + 工具步骤 + 单块 Composer）；只持有输入、焦点和滚动状态，消息/流式/取消由 `AiChatSessionController` 管理。Composer 上方为多行输入、下方为操作行，账本选择位于操作行右侧并直接用 `AnchoredMenuChoice` 展开，默认选中全局活动账本，切换不改变全局账本；发送按钮在流式时原位切换为停止；会话只保留页面内存，离开即清空；清空当前对话位于 Header 设置按钮左侧，无对话时保留同宽占位以保证设置按钮位置固定；已配置时 Header 提供 AI 设置入口，未配置时用 `EmptyState` 插画引导配置；`debugTransport` / `debugCompleteTransport` 供测试注入结构化传输 |
+| `AiChatPage` | 页面 Widget | `ai_chat_page.dart` | 全屏 AI 对话页。`AiChatSessionController` 管理消息、流式和取消。Composer 的账本选择器默认选中全局活动账本，切换后载入所选账本的本机历史与查询上下文。发送按钮在流式时原位切换为停止；清空当前账本对话位于设置按钮左侧。空状态快捷提问填入输入框供编辑，助手回答可复制或重新回答。未配置时可查看已有历史，无历史时由 `EmptyState` 引导配置。`debugTransport` / `debugCompleteTransport` 供测试注入 |
+| `AiAgentStepsView` / `AiAgentStepView` | Widget | `ai_agent_step_view.dart` | 一轮有多个工具步骤时默认只显示一行，展开后查看各步骤卡、范围和摘要；单步直接沿用步骤卡 |
 | `AiAgentStepView` | Widget | `ai_agent_step_view.dart` | Agent 工具调用与重试的紧凑可折叠步骤卡；只展示本地化参数与结果摘要，不展示协议 JSON / reasoning / 底层异常 |
 | `AiResultView` | Widget | `ai_result_view.dart` | 把 `AiResultDisplay` 渲染成统计卡 / 柱状排行 / 折线趋势 / **只读交易列表** / 表格（新增展示类型在此加一支）；只依赖自包含展示 DTO，不读取 Controller；按消息生成时的本位币与单位口径渲染 |
 | `AiProviderPreset` / `aiProviderPresets` / `customAiProviderPreset` / `aiProviderPresetFor` / `aiModelListUrlFor` | 值类 / 常量 / 纯函数 | `lib/app/ai/ai_provider_presets.dart` | 8 个内置 OpenAI-compatible 渠道 + 自定义渠道的稳定注册表；Base URL、Logo、模型列表规则和搜索别名集中维护，渠道 ID 不得复用 |

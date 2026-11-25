@@ -36,9 +36,12 @@ class AiChatMessage {
     this.successfulToolCalls = 0,
     this.provenance,
     this.errorText,
-  }) : displays = List<AiResultDisplay>.unmodifiable(displays),
+    Object? identity,
+  }) : identity = identity ?? Object(),
+       displays = List<AiResultDisplay>.unmodifiable(displays),
        steps = List<AiAgentStep>.unmodifiable(steps);
 
+  final Object identity;
   final AiChatRole role;
   final String bookId;
   final String bookName;
@@ -63,6 +66,7 @@ class AiChatMessage {
     String? errorText,
   }) {
     return AiChatMessage(
+      identity: identity,
       role: role,
       bookId: bookId,
       bookName: bookName,
@@ -108,21 +112,25 @@ typedef AiSessionCapabilityCallback =
     void Function(AiCapabilityProfile profile);
 typedef AiSessionErrorCallback =
     void Function(String message, Object error, StackTrace? stackTrace);
+typedef AiChatHistoryReader = List<AiChatMessage> Function(String bookId);
+typedef AiChatHistoryWriter =
+    void Function(String bookId, List<AiChatMessage> messages);
 
-/// 页面内存内的 AI 会话状态机。
-///
-/// 负责消息、流式生命周期、取消、重试和能力更新；不访问 BuildContext，
-/// 也不持久化聊天内容。
+/// AI 会话状态机。按账本读取、保存历史，流式缓冲仍由当前页面持有。
 class AiChatSessionController extends ChangeNotifier {
   AiChatSessionController({
     required this.engine,
     required this.onCapabilityDetected,
     required this.onError,
+    this.readHistory,
+    this.writeHistory,
   });
 
   final AiAgentEngine engine;
   final AiSessionCapabilityCallback onCapabilityDetected;
   final AiSessionErrorCallback onError;
+  final AiChatHistoryReader? readHistory;
+  final AiChatHistoryWriter? writeHistory;
 
   final List<AiChatMessage> _messages = <AiChatMessage>[];
   String? _selectedBookId;
@@ -140,25 +148,43 @@ class AiChatSessionController extends ChangeNotifier {
   bool get isStreaming => _streaming;
 
   void ensureSelectedBook(String bookId) {
-    _selectedBookId ??= bookId;
+    if (_selectedBookId == null) _restoreBook(bookId);
   }
 
   void selectBook(String bookId) {
     if (_streaming || bookId == _selectedBookId) return;
-    _selectedBookId = bookId;
+    _restoreBook(bookId);
     notifyListeners();
+  }
+
+  void _restoreBook(String bookId) {
+    _selectedBookId = bookId;
+    final history = readHistory?.call(bookId) ?? const <AiChatMessage>[];
+    _messages
+      ..clear()
+      ..addAll(history);
+  }
+
+  void _saveHistory() {
+    if (_selectedBookId case final bookId?) {
+      writeHistory?.call(bookId, messages);
+    }
   }
 
   void clear() {
     if (_streaming || _messages.isEmpty) return;
     _messages.clear();
+    _saveHistory();
     notifyListeners();
   }
 
-  void send(AiChatRequest request) {
+  void send(AiChatRequest request, {AiChatMessage? retryOf}) {
     final text = request.text.trim();
     if (text.isEmpty || _streaming) return;
-    final priorMessages = _priorMessages();
+    if (_selectedBookId != request.ledger.bookId) {
+      _restoreBook(request.ledger.bookId);
+    }
+    final priorMessages = _priorMessages(retryOf);
     final assistant = AiChatMessage(
       role: AiChatRole.assistant,
       bookId: request.ledger.bookId,
@@ -181,7 +207,6 @@ class AiChatSessionController extends ChangeNotifier {
     );
     _activeCancellation = cancellation;
     _activeStreamBuffer = buffer;
-    _selectedBookId = request.ledger.bookId;
     _messages.add(
       AiChatMessage(
         role: AiChatRole.user,
@@ -195,6 +220,8 @@ class AiChatSessionController extends ChangeNotifier {
     _messages.add(assistant);
     _activeAssistantIndex = _messages.length - 1;
     _streaming = true;
+    // 先保存问题。若进程在回答途中退出，仍能从历史重试这一轮。
+    _saveHistory();
     notifyListeners();
 
     engine
@@ -255,6 +282,7 @@ class AiChatSessionController extends ChangeNotifier {
         ),
       );
     }
+    _saveHistory();
     notifyListeners();
   }
 
@@ -406,7 +434,7 @@ class AiChatSessionController extends ChangeNotifier {
   }
 
   void _handleDone(int requestId, AiChatRequest request) {
-    if (requestId != _requestSerial) return;
+    if (requestId != _requestSerial || !_streaming) return;
     _activeStreamBuffer?.flush();
     _activeStreamBuffer?.dispose();
     _activeStreamBuffer = null;
@@ -434,11 +462,19 @@ class AiChatSessionController extends ChangeNotifier {
     _activeAssistantIndex = null;
     _activeCancellation = null;
     _activeStreamBuffer = null;
+    _saveHistory();
   }
 
-  List<AiTextMessage> _priorMessages() {
+  List<AiTextMessage> _priorMessages(AiChatMessage? retryOf) {
+    final retryIndex = retryOf == null
+        ? -1
+        : _messages.indexWhere(
+            (message) => message.identity == retryOf.identity,
+          );
+    // 重试使用原提问之前的上下文，避免旧答案影响新回答。
+    final prior = retryIndex > 0 ? _messages.take(retryIndex - 1) : _messages;
     return <AiTextMessage>[
-      for (final message in _messages)
+      for (final message in prior)
         if (message.status == AiChatMessageStatus.done &&
             message.text.trim().isNotEmpty)
           AiTextMessage(
@@ -500,6 +536,7 @@ class AiChatSessionController extends ChangeNotifier {
 
   @override
   void dispose() {
+    stop();
     _requestSerial += 1;
     _activeCancellation?.cancel();
     _activeStreamBuffer?.dispose();

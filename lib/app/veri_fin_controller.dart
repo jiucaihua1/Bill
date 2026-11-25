@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart' hide Category;
 import '../data/ledger_repository.dart';
 import '../local_storage/local_storage.dart';
 import 'ai/ai_capabilities.dart';
+import 'ai/ai_chat_history.dart';
+import 'ai/ai_chat_session_controller.dart';
 import 'ai/ai_ledger_snapshot.dart';
 import 'ai/ai_settings.dart';
 import 'app_lock.dart';
@@ -114,6 +116,7 @@ const String _runningBalanceKey = 'verifin.entry_running_balance.v1';
 const String _aiSettingsKey = 'verifin.ai.v1';
 const String _aiCapabilitiesKey = 'verifin.ai_capabilities.v1';
 const String _legacyAiChatHistoryKey = 'verifin.ai_chat.v1';
+String _aiChatHistoryKey(String bookId) => 'verifin.ai_chat.v2.$bookId';
 const String _homeTrendKey = 'verifin.home_metrics.v1';
 const String _onboardingKey = 'verifin.onboarding.v1';
 

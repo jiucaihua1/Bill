@@ -6407,7 +6407,7 @@ abstract class AppLocalizations {
   /// No description provided for @aiChatClearMessage.
   ///
   /// In zh, this message translates to:
-  /// **'将删除当前所有对话，无法恢复。'**
+  /// **'将删除当前账本的聊天记录，无法恢复。'**
   String get aiChatClearMessage;
 
   /// No description provided for @aiChatClearConfirm.
@@ -6877,6 +6877,30 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'重新回答'**
   String get aiRetryAnswer;
+
+  /// No description provided for @aiChatCopyReply.
+  ///
+  /// In zh, this message translates to:
+  /// **'复制'**
+  String get aiChatCopyReply;
+
+  /// No description provided for @aiChatCopyFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'无法复制回答，请重试'**
+  String get aiChatCopyFailed;
+
+  /// No description provided for @aiChatStepsSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'查询步骤 · {count} 项'**
+  String aiChatStepsSummary(int count);
+
+  /// No description provided for @aiChatStepsRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'正在处理 {count} 个步骤'**
+  String aiChatStepsRunning(int count);
 
   /// No description provided for @aiPrivacyNotice.
   ///

@@ -9,6 +9,7 @@ import 'package:xiaohe/app/ai/ai_error.dart';
 import 'package:xiaohe/app/ai/ai_settings.dart';
 import 'package:xiaohe/app/models.dart';
 import 'package:xiaohe/app/veri_fin_scope.dart';
+import 'package:xiaohe/local_storage/local_storage.dart';
 import 'package:xiaohe/pages/ai_chat_page.dart';
 import 'package:xiaohe/pages/ai_settings_page.dart';
 import 'package:xiaohe/pages/transaction_detail_page.dart';
@@ -547,13 +548,31 @@ void main() {
     expect(find.text('无法连接到服务器'), findsOneWidget);
   });
 
-  testWidgets('离开并重开页面后不恢复旧对话', (tester) async {
-    final controller = await makeController()
+  testWidgets('离开并重开页面后恢复当前账本对话', (tester) async {
+    final store = LocalKeyValueStore();
+    final controller = await makeController(store)
       ..setAiSettings(
         const AiSettings(baseUrl: 'http://x/v1', apiKey: 'k', model: 'm'),
       );
+    addTearDown(controller.dispose);
     final transport = _scripted(<List<AiCompletionEvent>>[
-      _answer('这次回答只在当前页面保留'),
+      <AiCompletionEvent>[
+        const AiToolCallDelta(
+          index: 0,
+          id: 'call_saved_summary',
+          name: 'summary',
+          arguments: '{"range":"thisMonth"}',
+        ),
+        const AiToolCallDelta(
+          index: 1,
+          id: 'call_saved_trend',
+          name: 'trend',
+          arguments: '{"range":"last7Days","type":"expense"}',
+        ),
+        const AiCompletionFinished(AiFinishReason.toolCalls),
+        const AiStreamDone(),
+      ],
+      _answer('这次回答保存在本地'),
     ]);
 
     await tester.pumpWidget(
@@ -568,21 +587,36 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_upward_rounded));
     await tester.pump();
     await _pumpAsync(tester);
-    expect(find.text('这次回答只在当前页面保留'), findsOneWidget);
+    expect(find.text('这次回答保存在本地'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
+    final restored = await makeController(store);
+    addTearDown(restored.dispose);
     await tester.pumpWidget(
       VeriFinScope(
-        controller: controller,
+        controller: restored,
         child: zhMaterialApp(home: AiChatPage(debugTransport: transport)),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('分类排行'), findsNothing);
-    expect(find.text('这次回答只在当前页面保留'), findsNothing);
-    addTearDown(controller.dispose);
+    await tester.scrollUntilVisible(
+      find.text('分类排行'),
+      -160,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('分类排行'), findsOneWidget);
+    expect(find.text('这次回答保存在本地'), findsOneWidget);
+    expect(find.textContaining('收支汇总'), findsWidgets);
+    expect(find.text('基于账本查询 · 2 次'), findsOneWidget);
+    final steps = find.text('查询步骤 · 2 项');
+    expect(steps, findsOneWidget);
+    expect(find.text('查询收支汇总'), findsNothing);
+    await tester.ensureVisible(steps);
+    await tester.tap(steps);
+    await tester.pumpAndSettle();
+    expect(find.text('查询收支汇总'), findsOneWidget);
   });
 
   testWidgets('Markdown 远程图片不会触发网络加载', (tester) async {

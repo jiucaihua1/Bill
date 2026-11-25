@@ -1,5 +1,6 @@
 // ignore: unused_import
 import 'package:intl/intl.dart' as intl;
+
 import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
@@ -3473,7 +3474,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiChatClearHistory => '清空聊天记录';
 
   @override
-  String get aiChatClearMessage => '将删除当前所有对话，无法恢复。';
+  String get aiChatClearMessage => '将删除当前账本的聊天记录，无法恢复。';
 
   @override
   String get aiChatClearConfirm => '清空';
@@ -3718,6 +3719,22 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiRetryAnswer => '重新回答';
+
+  @override
+  String get aiChatCopyReply => '复制';
+
+  @override
+  String get aiChatCopyFailed => '无法复制回答，请重试';
+
+  @override
+  String aiChatStepsSummary(int count) {
+    return '查询步骤 · $count 项';
+  }
+
+  @override
+  String aiChatStepsRunning(int count) {
+    return '正在处理 $count 个步骤';
+  }
 
   @override
   String get aiPrivacyNotice =>
