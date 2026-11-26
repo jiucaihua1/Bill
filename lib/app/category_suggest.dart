@@ -10,8 +10,8 @@ import 'models.dart';
 /// - 金额接近度（越接近越相关，精确相同最强，是「我又输入 2.8」这类场景的关键）；
 /// - 时段接近度（弱先验）。
 ///
-/// 取相关度达标的历史集合，按相关度加权投票出主导类型与分类，并从相关度最高的那笔
-/// （样本）带出标签与备注。无把握则各字段留空——宁可不猜。
+/// 取相关度达标的历史集合，按相关度加权投票出主导类型与分类。标签取主导类型中
+/// 相关度最高的样本，备注优先在选定的分类内匹配。无把握则各字段留空。
 ///
 /// 自行推断出的类型只可能是支出或收入（见 [_kAutoInferableTypes]）。
 class EntrySuggestion {
@@ -103,6 +103,7 @@ class _Scored {
 /// [expenseCategoryIds]/[incomeCategoryIds] 用于把推断出的分类校验到对应类型的清单；
 /// [note]/[amount]/[currencyCode]/[hour] 为当前正在录入的备注、金额、原币与小时（0–23）。
 /// [minimumNoteSimilarity] 大于零时，只有达到备注阈值的历史才参与打分。
+/// [noteCategoryId] 给定时，只从该分类的匹配样本带出备注。
 EntrySuggestion suggestEntry({
   required Iterable<LedgerEntry> history,
   required Set<String> expenseCategoryIds,
@@ -112,6 +113,7 @@ EntrySuggestion suggestEntry({
   required String currencyCode,
   required int hour,
   EntryType? forcedType,
+  String? noteCategoryId,
   double minimumNoteSimilarity = 0,
 }) {
   final noteTokens = _tokenize(note);
@@ -189,7 +191,7 @@ EntrySuggestion suggestEntry({
     type = dominant.key;
   }
 
-  // 主导类型内：加权选分类，并取相关度最高的样本带出标签/备注。
+  // 主导类型内按相关度排序样本，再加权选分类。
   final ofType = relevant.where((s) => s.entry.type == type).toList()
     ..sort((a, b) => b.relevance.compareTo(a.relevance));
   final candidateIds = switch (type) {
@@ -222,7 +224,14 @@ EntrySuggestion suggestEntry({
   }
 
   final exemplar = ofType.first.entry;
-  final exemplarNote = exemplar.note.trim();
+  final matchedNoteCategoryId = noteCategoryId ?? categoryId;
+  final noteEntry = matchedNoteCategoryId == null
+      ? exemplar
+      : ofType
+            .where((scored) => scored.entry.categoryId == matchedNoteCategoryId)
+            .firstOrNull
+            ?.entry;
+  final exemplarNote = noteEntry?.note.trim() ?? '';
   return EntrySuggestion(
     type: type,
     categoryId: categoryId,

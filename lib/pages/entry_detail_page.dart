@@ -598,13 +598,12 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
 
   void _onNoteChanged(String _) {
     // TextField 仅在用户编辑文本时调用，光标、选区和程序化赋值不触发识别。
+    _noteTouched = true;
     if (!_autoSuggestEnabled) {
       if (_isDraft) setState(() {});
       return;
     }
-    // 用户真的在输备注：标记已改（不再回填备注），并安排按新备注重算类型/分类/标签
-    // （防抖 300ms，见 [_scheduleSuggestion]）。
-    _noteTouched = true;
+    // 按新备注重算类型、分类和标签。
     _scheduleSuggestion();
   }
 
@@ -628,12 +627,21 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
   ///
   /// [suggestAccount] 为 false 时不动账户：保存前 flush 挂起的识别时，页面上显示的
   /// 账户已经是用户看到的样子，不能在落账瞬间再换一个。
-  void _recomputeSuggestion({bool suggestAccount = true}) {
-    _cancelPendingSuggestion();
-    if (!mounted || !_autoSuggestEnabled) {
+  /// [noteOnly] 用于在用户选定的分类或币种下刷新备注。
+  void _recomputeSuggestion({
+    bool suggestAccount = true,
+    bool noteOnly = false,
+  }) {
+    if (!noteOnly) _cancelPendingSuggestion();
+    if (!mounted) return;
+    if (noteOnly && _noteTouched) return;
+    if (!_autoSuggestEnabled) {
+      _updateSuggestedNote(null);
       return;
     }
     final controller = VeriFinScope.of(context);
+    final baseCode = controller.activeBook.baseCurrencyCode;
+    final currencyCode = _currencyCode ?? baseCode;
     final suggestion = suggestEntry(
       history: controller.entries,
       expenseCategoryIds: controller
@@ -644,14 +652,16 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
           .categoriesForType(EntryType.income)
           .map((c) => c.id)
           .toSet(),
-      note: _noteController.text,
+      // 回填的历史备注只是当前识别结果，不能成为下一次识别的输入。
+      note: _noteTouched ? _noteController.text : '',
       amount: _amount,
-      currencyCode: _currencyCode ?? controller.activeBook.baseCurrencyCode,
+      currencyCode: currencyCode,
       hour: _occurredAt.hour,
       // 用户已手动选过类型：不再翻转类型，只在该类型内识别分类/标签/备注。
-      forcedType: _typeTouched ? _type : null,
+      forcedType: noteOnly || _typeTouched ? _type : null,
+      noteCategoryId: noteOnly || _categoryTouched ? _categoryId : null,
     );
-    if (!suggestion.isEmpty) {
+    if (!noteOnly && !suggestion.isEmpty) {
       setState(() {
         if (!_typeTouched && suggestion.type != null) {
           _type = suggestion.type!;
@@ -662,18 +672,26 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
         if (!_tagsTouched && _tagIds.isEmpty && suggestion.tagIds != null) {
           _tagIds = List<String>.of(suggestion.tagIds!);
         }
-        if (!_noteTouched &&
-            !_noteFocus.hasFocus &&
-            _noteController.text.isEmpty &&
-            suggestion.note != null) {
-          _noteController.text = suggestion.note!;
-        }
       });
     }
     // 分类定下来之后（无论是识别出来的还是用户选的）再预选账户。
     if (suggestAccount) {
       _applyCategoryAccountSuggestion(controller);
     }
+    _updateSuggestedNote(
+      (_currencyCode ?? baseCode) == currencyCode ? suggestion.note : null,
+    );
+  }
+
+  void _updateSuggestedNote(String? suggestion) {
+    if (!_draftFree || _noteTouched) return;
+    final current = _noteController.text;
+    final next = suggestion ?? '';
+    if (current == next || (current.isEmpty && _noteFocus.hasFocus)) return;
+    _noteController.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: next.length),
+    );
   }
 
   /// 自动识别开启时，按分类预选「这个分类上次用过的账户」；用户手动改过账户、
@@ -1876,6 +1894,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
         forceBase: true,
       );
     });
+    _recomputeSuggestion(noteOnly: true, suggestAccount: false);
   }
 
   Future<void> _editAmount() async {
@@ -2147,6 +2166,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
       _typeTouched = true;
     });
     _applyCategoryAccountSuggestion(VeriFinScope.of(context));
+    _recomputeSuggestion(noteOnly: true, suggestAccount: false);
   }
 
   void _toggleCategoryBranch(String id, bool expanded) {
@@ -2177,6 +2197,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
     if (!mounted || selected == null) {
       return;
     }
+    final previousCurrency = _currencyCode;
     setState(() {
       _accountTouched = true;
       if (selected.id.isEmpty) {
@@ -2204,6 +2225,9 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
         forceBase: true,
       );
     });
+    if (_currencyCode != previousCurrency) {
+      _recomputeSuggestion(noteOnly: true, suggestAccount: false);
+    }
   }
 
   Future<void> _pickToAccount(List<Account> accounts) async {
