@@ -1129,6 +1129,7 @@ class EntryMetadataPill extends StatelessWidget {
     required this.onTap,
     this.icon,
     this.compact = false,
+    this.minHeight,
     this.selected = false,
     this.toggle = false,
   });
@@ -1137,6 +1138,7 @@ class EntryMetadataPill extends StatelessWidget {
   final VoidCallback? onTap;
   final IconData? icon;
   final bool compact;
+  final double? minHeight;
   final bool selected;
   final bool toggle;
 
@@ -1165,7 +1167,9 @@ class EntryMetadataPill extends StatelessWidget {
           onTap: onTap,
           customBorder: const StadiumBorder(),
           child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: compact ? 34 : 38),
+            constraints: BoxConstraints(
+              minHeight: minHeight ?? (compact ? 34 : 38),
+            ),
             child: Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: compact ? 6 : 12,

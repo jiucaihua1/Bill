@@ -1277,7 +1277,7 @@ void main() {
     );
 
     await pumpApp(tester, store);
-    await tester.tap(find.byTooltip('搜索交易'));
+    await tester.tap(find.byTooltip('全部流水'));
     await tester.pumpAndSettle();
     expect(find.text('本年'), findsOneWidget);
     expect(find.textContaining('去年的一笔'), findsNothing);

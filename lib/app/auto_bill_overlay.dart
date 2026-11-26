@@ -40,6 +40,7 @@ class AutoBillReviewData {
             {'id': account.id, 'name': account.name},
       ],
       'tags': [for (final tag in controller.tags) tag.toJson()],
+      'frequentNotes': AutoBillSuggestions.frequentNotes(controller),
       'theme': controller.themePreference.name,
       'numberPadLayout': controller.numberPadLayout.name,
       'themeColors': controller.themeColorPreference.encode(),
@@ -63,6 +64,20 @@ class AutoBillReviewData {
     for (final account in _list('accounts'))
       account['id']! as String: account['name']! as String,
   };
+  late final Map<String, List<String>> _frequentNotes = {
+    for (final entry
+        in (fields['frequentNotes'] as Map<Object?, Object?>? ?? const {})
+            .entries)
+      entry.key as String: (entry.value as List<Object?>).cast<String>(),
+  };
+
+  List<String> notesFor(String categoryId, EntryType type) {
+    final notes = <String>{
+      ...?_frequentNotes[categoryId],
+      ...?_frequentNotes[AutoBillSuggestions.frequentNoteTypeKey(type)],
+    };
+    return notes.take(AutoBillSuggestions.frequentNotesPerKey).toList();
+  }
 
   Iterable<Map<String, Object?>> _list(String key) =>
       (fields[key]! as List<Object?>).cast<Map<Object?, Object?>>().map(

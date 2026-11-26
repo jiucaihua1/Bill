@@ -171,8 +171,8 @@ class HomePage extends StatelessWidget {
               controller.activeBook.baseCurrencyCode,
             ),
             trailing: HeaderAction(
-              icon: Icons.search_rounded,
-              tooltip: AppLocalizations.of(context).searchTransactions,
+              icon: Icons.receipt_long_rounded,
+              tooltip: AppLocalizations.of(context).allTransactions,
               onPressed: () => Navigator.of(context).push<void>(
                 MaterialPageRoute<void>(
                   builder: (context) => const TransactionsPage(),

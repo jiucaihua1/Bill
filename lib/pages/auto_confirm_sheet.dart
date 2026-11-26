@@ -363,6 +363,7 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
     final bottomInset = widget.keyboardHandledByWindow
         ? 0.0
         : MediaQuery.viewInsetsOf(context).bottom;
+    final frequentNotes = widget.data.notesFor(_categoryId, _type);
     final allCategories = _categoriesForType(_type);
     final topCategories = allCategories
         .where((c) => c.parentId == null)
@@ -627,6 +628,39 @@ class _AutoConfirmCaptureSheetState extends State<AutoConfirmCaptureSheet> {
                       ],
                     ),
                     Divider(height: 16, color: tokens.borderColor),
+                    if (frequentNotes.isNotEmpty) ...[
+                      TextFieldTapRegion(
+                        child: ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _noteController,
+                          builder: (context, editing, _) => EntryMetadataStrip(
+                            children: [
+                              for (final note in frequentNotes)
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 152,
+                                  ),
+                                  child: EntryMetadataPill(
+                                    compact: true,
+                                    minHeight: 30,
+                                    label: Text(note),
+                                    selected: editing.text == note,
+                                    onTap: () {
+                                      _noteController.value = TextEditingValue(
+                                        text: note,
+                                        selection: TextSelection.collapsed(
+                                          offset: note.length,
+                                        ),
+                                      );
+                                      VeriHaptics.tick();
+                                    },
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     Row(
                       children: <Widget>[
                         Text(

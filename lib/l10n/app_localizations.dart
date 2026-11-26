@@ -1322,12 +1322,6 @@ abstract class AppLocalizations {
   /// **'点柱状图查看当天金额和交易'**
   String get panelRecentDailyDesc;
 
-  /// 看板日常面板:切到本周时的卡片标题
-  ///
-  /// In zh, this message translates to:
-  /// **'本周统计'**
-  String get panelThisWeekLabel;
-
   /// 看板日常面板:资产汇总卡片标题
   ///
   /// In zh, this message translates to:
@@ -1748,12 +1742,6 @@ abstract class AppLocalizations {
   /// **'还没有交易'**
   String get homeNoEntriesTitle;
 
-  /// No description provided for @homeNoEntriesDesc.
-  ///
-  /// In zh, this message translates to:
-  /// **'点击右下角加号开始第一笔记账。'**
-  String get homeNoEntriesDesc;
-
   /// 图表气泡等处的「几月几日」短日期
   ///
   /// In zh, this message translates to:
@@ -1981,18 +1969,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'债务'**
   String get totalLiabilitiesLabel;
-
-  /// No description provided for @assetsAmount.
-  ///
-  /// In zh, this message translates to:
-  /// **'总资产 {amount}'**
-  String assetsAmount(String amount);
-
-  /// No description provided for @liabilitiesAmount.
-  ///
-  /// In zh, this message translates to:
-  /// **'债务 {amount}'**
-  String liabilitiesAmount(String amount);
 
   /// No description provided for @assetCreditDebt.
   ///
@@ -2642,12 +2618,6 @@ abstract class AppLocalizations {
   /// **'选择账单日'**
   String get pickStatementDay;
 
-  /// No description provided for @accountNoteEditTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'编辑账户备注'**
-  String get accountNoteEditTitle;
-
   /// No description provided for @accountReportTitle.
   ///
   /// In zh, this message translates to:
@@ -3230,11 +3200,77 @@ abstract class AppLocalizations {
   /// **'搜索备注、分类、账户或金额'**
   String get searchHint;
 
-  /// No description provided for @searchTransactions.
+  /// No description provided for @allTransactions.
   ///
   /// In zh, this message translates to:
-  /// **'搜索交易'**
-  String get searchTransactions;
+  /// **'全部流水'**
+  String get allTransactions;
+
+  /// No description provided for @batchMore.
+  ///
+  /// In zh, this message translates to:
+  /// **'更多'**
+  String get batchMore;
+
+  /// No description provided for @batchAppendTags.
+  ///
+  /// In zh, this message translates to:
+  /// **'追加标签'**
+  String get batchAppendTags;
+
+  /// No description provided for @batchReplaceTags.
+  ///
+  /// In zh, this message translates to:
+  /// **'替换标签'**
+  String get batchReplaceTags;
+
+  /// No description provided for @batchCreateTagsFirst.
+  ///
+  /// In zh, this message translates to:
+  /// **'请先在当前账本创建标签'**
+  String get batchCreateTagsFirst;
+
+  /// No description provided for @batchReimbursementGroup.
+  ///
+  /// In zh, this message translates to:
+  /// **'报销'**
+  String get batchReimbursementGroup;
+
+  /// No description provided for @batchMarkReimbursable.
+  ///
+  /// In zh, this message translates to:
+  /// **'标记待报销'**
+  String get batchMarkReimbursable;
+
+  /// No description provided for @batchClearReimbursable.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消待报销'**
+  String get batchClearReimbursable;
+
+  /// No description provided for @batchStatisticsGroup.
+  ///
+  /// In zh, this message translates to:
+  /// **'统计口径'**
+  String get batchStatisticsGroup;
+
+  /// No description provided for @batchRestoreStatistics.
+  ///
+  /// In zh, this message translates to:
+  /// **'恢复正常计入'**
+  String get batchRestoreStatistics;
+
+  /// No description provided for @batchNoApplicableEntries.
+  ///
+  /// In zh, this message translates to:
+  /// **'所选交易中无可更改项'**
+  String get batchNoApplicableEntries;
+
+  /// No description provided for @batchUpdatedCount.
+  ///
+  /// In zh, this message translates to:
+  /// **'已更新 {count} 笔交易'**
+  String batchUpdatedCount(int count);
 
   /// No description provided for @clearFilters.
   ///
@@ -3332,12 +3368,6 @@ abstract class AppLocalizations {
   /// **'到账账户'**
   String get refundToAccountLabel;
 
-  /// No description provided for @refundArrivalDateLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'到账日期'**
-  String get refundArrivalDateLabel;
-
   /// No description provided for @refundAmountShort.
   ///
   /// In zh, this message translates to:
@@ -3379,12 +3409,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'选择类型'**
   String get pickTypeTitle;
-
-  /// No description provided for @noteEditTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'编辑备注'**
-  String get noteEditTitle;
 
   /// No description provided for @noAccountTransferCurrencyChangeTitle.
   ///
@@ -4436,12 +4460,6 @@ abstract class AppLocalizations {
   /// **'周期月数'**
   String get subscriptionMonthsLabel;
 
-  /// No description provided for @subscriptionMonthsHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'例如，季付填 3'**
-  String get subscriptionMonthsHint;
-
   /// No description provided for @subscriptionMonthsOptional.
   ///
   /// In zh, this message translates to:
@@ -4561,12 +4579,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'订阅支出'**
   String get subscriptionExpenses;
-
-  /// No description provided for @recognizedFromNotes.
-  ///
-  /// In zh, this message translates to:
-  /// **'按备注识别'**
-  String get recognizedFromNotes;
 
   /// No description provided for @subscriptionEmptyHint.
   ///
@@ -5059,12 +5071,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'小禾记账基于 LumiDesk 的 Veri Fin 二次开发。感谢原作者和支持者。'**
   String get creditsIntro;
-
-  /// Settings row trailing text: how many supporters the thanks list holds
-  ///
-  /// In zh, this message translates to:
-  /// **'{count} 位'**
-  String creditsSupporterCount(int count);
 
   /// No description provided for @openLinkFailed.
   ///
@@ -7111,12 +7117,6 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'允许后可在当前应用上方确认账单。'**
   String get autoCaptureOverlayFlow;
-
-  /// No description provided for @autoCaptureOverlayEdit.
-  ///
-  /// In zh, this message translates to:
-  /// **'打开完整记账页'**
-  String get autoCaptureOverlayEdit;
 
   /// No description provided for @autoCaptureNotificationsDisabled.
   ///

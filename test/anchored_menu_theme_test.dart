@@ -8,19 +8,18 @@ void main() {
     test('主题将设计令牌桥接给 anchored_menu：$brightness', () {
       final theme = buildVeriFinTheme(brightness);
       final menuTheme = theme.extension<AnchoredMenuThemeData>();
+      final tokens = theme.extension<VeriStyleTokens>()!;
 
       expect(menuTheme, isNotNull);
-      expect(menuTheme!.surfaceColor, veriElevatedSurfaceColor(brightness));
-      expect(
-        menuTheme.borderColor,
-        brightness == Brightness.dark
-            ? Colors.white.withValues(alpha: 0.12)
-            : veriLine,
-      );
-      expect(menuTheme.foregroundColor, theme.colorScheme.onSurface);
+      expect(menuTheme!.surfaceColor, tokens.raisedSurfaceColor);
+      expect(menuTheme.borderColor, tokens.borderColor);
+      expect(menuTheme.foregroundColor, tokens.inkColor);
       expect(menuTheme.selectedColor, theme.colorScheme.primary);
       expect(menuTheme.panelBorderRadius, BorderRadius.circular(veriRadiusXl));
-      expect(menuTheme.itemBorderRadius, BorderRadius.circular(veriRadiusLg));
+      expect(
+        menuTheme.itemBorderRadius,
+        BorderRadius.circular(tokens.innerRadius),
+      );
       expect(menuTheme.minWidth, 168);
     });
   }

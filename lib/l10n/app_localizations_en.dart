@@ -658,9 +658,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Pick a bar to view the day\'s total and transactions';
 
   @override
-  String get panelThisWeekLabel => 'This week';
-
-  @override
   String get panelAssetSummaryLabel => 'Assets';
 
   @override
@@ -892,10 +889,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeNoEntriesTitle => 'No transactions yet';
 
   @override
-  String get homeNoEntriesDesc =>
-      'Tap the plus button to record your first entry.';
-
-  @override
   String dateMonthDay(DateTime date) {
     final intl.DateFormat dateDateFormat = intl.DateFormat('MMM d', localeName);
     final String dateString = dateDateFormat.format(date);
@@ -1038,16 +1031,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get totalLiabilitiesLabel => 'Debt';
-
-  @override
-  String assetsAmount(String amount) {
-    return 'Total assets $amount';
-  }
-
-  @override
-  String liabilitiesAmount(String amount) {
-    return 'Debt $amount';
-  }
 
   @override
   String get assetCreditDebt => 'Credit balances owed';
@@ -1401,9 +1384,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pickStatementDay => 'Choose statement day';
 
   @override
-  String get accountNoteEditTitle => 'Edit account note';
-
-  @override
   String get accountReportTitle => 'Account report';
 
   @override
@@ -1735,7 +1715,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchHint => 'Search notes, categories, accounts, or amounts';
 
   @override
-  String get searchTransactions => 'Search transactions';
+  String get allTransactions => 'All transactions';
+
+  @override
+  String get batchMore => 'More';
+
+  @override
+  String get batchAppendTags => 'Add tags';
+
+  @override
+  String get batchReplaceTags => 'Replace tags';
+
+  @override
+  String get batchCreateTagsFirst => 'Create a tag in this book first';
+
+  @override
+  String get batchReimbursementGroup => 'Reimbursement';
+
+  @override
+  String get batchMarkReimbursable => 'Mark as reimbursable';
+
+  @override
+  String get batchClearReimbursable => 'Clear reimbursement flag';
+
+  @override
+  String get batchStatisticsGroup => 'Totals';
+
+  @override
+  String get batchRestoreStatistics => 'Include in totals';
+
+  @override
+  String get batchNoApplicableEntries =>
+      'No selected transactions can be changed';
+
+  @override
+  String batchUpdatedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Updated $count transactions',
+      one: 'Updated 1 transaction',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get clearFilters => 'Clear filters';
@@ -1787,9 +1809,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get refundToAccountLabel => 'Destination account';
 
   @override
-  String get refundArrivalDateLabel => 'Arrival date';
-
-  @override
   String get refundAmountShort => 'Refund amount';
 
   @override
@@ -1814,9 +1833,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pickTypeTitle => 'Choose type';
-
-  @override
-  String get noteEditTitle => 'Edit note';
 
   @override
   String noAccountTransferCurrencyChangeTitle(String from, String to) {
@@ -2469,9 +2485,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get subscriptionMonthsLabel => 'Billing period in months';
 
   @override
-  String get subscriptionMonthsHint => 'Enter 3 for quarterly';
-
-  @override
   String get subscriptionMonthsOptional => 'Leave blank if unknown';
 
   @override
@@ -2537,9 +2550,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get subscriptionExpenses => 'Subscriptions';
-
-  @override
-  String get recognizedFromNotes => 'From entry notes';
 
   @override
   String get subscriptionEmptyHint =>
@@ -2820,11 +2830,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get creditsIntro =>
       'Xiaohe Ledger is based on Veri Fin by LumiDesk. Thank you to the original authors and supporters.';
-
-  @override
-  String creditsSupporterCount(int count) {
-    return '$count people';
-  }
 
   @override
   String get openLinkFailed => 'Could not open the browser. Please try again.';
@@ -3968,9 +3973,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get autoCaptureOverlayFlow =>
       'Allow this to review detected bills over the current app.';
-
-  @override
-  String get autoCaptureOverlayEdit => 'Open full editor';
 
   @override
   String get autoCaptureNotificationsDisabled =>

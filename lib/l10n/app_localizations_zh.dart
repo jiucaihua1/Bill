@@ -639,9 +639,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get panelRecentDailyDesc => '点柱状图查看当天金额和交易';
 
   @override
-  String get panelThisWeekLabel => '本周统计';
-
-  @override
   String get panelAssetSummaryLabel => '资产汇总';
 
   @override
@@ -864,9 +861,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get homeNoEntriesTitle => '还没有交易';
 
   @override
-  String get homeNoEntriesDesc => '点击右下角加号开始第一笔记账。';
-
-  @override
   String dateMonthDay(DateTime date) {
     final intl.DateFormat dateDateFormat = intl.DateFormat('M月d日', localeName);
     final String dateString = dateDateFormat.format(date);
@@ -1009,16 +1003,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get totalLiabilitiesLabel => '债务';
-
-  @override
-  String assetsAmount(String amount) {
-    return '总资产 $amount';
-  }
-
-  @override
-  String liabilitiesAmount(String amount) {
-    return '债务 $amount';
-  }
 
   @override
   String get assetCreditDebt => '信用欠款';
@@ -1365,9 +1349,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pickStatementDay => '选择账单日';
 
   @override
-  String get accountNoteEditTitle => '编辑账户备注';
-
-  @override
   String get accountReportTitle => '账户报告';
 
   @override
@@ -1690,7 +1671,42 @@ class AppLocalizationsZh extends AppLocalizations {
   String get searchHint => '搜索备注、分类、账户或金额';
 
   @override
-  String get searchTransactions => '搜索交易';
+  String get allTransactions => '全部流水';
+
+  @override
+  String get batchMore => '更多';
+
+  @override
+  String get batchAppendTags => '追加标签';
+
+  @override
+  String get batchReplaceTags => '替换标签';
+
+  @override
+  String get batchCreateTagsFirst => '请先在当前账本创建标签';
+
+  @override
+  String get batchReimbursementGroup => '报销';
+
+  @override
+  String get batchMarkReimbursable => '标记待报销';
+
+  @override
+  String get batchClearReimbursable => '取消待报销';
+
+  @override
+  String get batchStatisticsGroup => '统计口径';
+
+  @override
+  String get batchRestoreStatistics => '恢复正常计入';
+
+  @override
+  String get batchNoApplicableEntries => '所选交易中无可更改项';
+
+  @override
+  String batchUpdatedCount(int count) {
+    return '已更新 $count 笔交易';
+  }
 
   @override
   String get clearFilters => '清空筛选';
@@ -1741,9 +1757,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get refundToAccountLabel => '到账账户';
 
   @override
-  String get refundArrivalDateLabel => '到账日期';
-
-  @override
   String get refundAmountShort => '退款金额';
 
   @override
@@ -1767,9 +1780,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get pickTypeTitle => '选择类型';
-
-  @override
-  String get noteEditTitle => '编辑备注';
 
   @override
   String noAccountTransferCurrencyChangeTitle(String from, String to) {
@@ -2412,9 +2422,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get subscriptionMonthsLabel => '周期月数';
 
   @override
-  String get subscriptionMonthsHint => '例如，季付填 3';
-
-  @override
   String get subscriptionMonthsOptional => '留空表示周期待定';
 
   @override
@@ -2478,9 +2485,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get subscriptionExpenses => '订阅支出';
-
-  @override
-  String get recognizedFromNotes => '按备注识别';
 
   @override
   String get subscriptionEmptyHint => '含会员或订阅关键词的支出会自动出现，也可从右上角选择已有支出账单。';
@@ -2757,11 +2761,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get creditsIntro => '小禾记账基于 LumiDesk 的 Veri Fin 二次开发。感谢原作者和支持者。';
-
-  @override
-  String creditsSupporterCount(int count) {
-    return '$count 位';
-  }
 
   @override
   String get openLinkFailed => '没能打开浏览器，请稍后再试。';
@@ -3843,9 +3842,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get autoCaptureOverlayFlow => '允许后可在当前应用上方确认账单。';
-
-  @override
-  String get autoCaptureOverlayEdit => '打开完整记账页';
 
   @override
   String get autoCaptureNotificationsDisabled => '请打开系统设置，允许小禾发送待确认账单通知。';

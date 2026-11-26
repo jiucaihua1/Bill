@@ -341,6 +341,11 @@ void main() {
     await tester.pumpAndSettle();
     await openReportsMonthlyTab(tester);
 
+    await tester.scrollUntilVisible(
+      find.text('预算执行'),
+      200,
+      scrollable: firstVerticalScrollable(),
+    );
     expect(find.text('预算执行'), findsOneWidget);
     expect(find.text('1 个超支'), findsOneWidget);
   });

@@ -105,6 +105,52 @@ class AutoBillSuggestions {
   }
 
   static const draftTagId = 'auto-bill-platform-suggestion';
+  static const frequentNotesPerKey = 5;
+
+  static String frequentNoteTypeKey(EntryType type) =>
+      '__type_${type.storageValue}';
+
+  static Map<String, List<String>> frequentNotes(
+    VeriFinController controller, {
+    int maxPerKey = frequentNotesPerKey,
+    int scanLimit = 500,
+  }) {
+    if (maxPerKey <= 0 || scanLimit <= 0) return const {};
+    final genericRemarks = _AutoBillRuleConfig.current.genericRemarks;
+    final counts = <String, Map<String, int>>{};
+
+    void tally(String key, String note) {
+      counts
+          .putIfAbsent(key, () => <String, int>{})
+          .update(note, (count) => count + 1, ifAbsent: () => 1);
+    }
+
+    // The active ledger's newest-first order makes first insertion the tie-break.
+    final history = controller.entries
+        .where((entry) => entry.type != EntryType.refund)
+        .take(scanLimit);
+    for (final entry in history) {
+      final note = entry.note.trim();
+      if (note.isEmpty ||
+          note.runes.length > 30 ||
+          genericRemarks.contains(_normalized(note))) {
+        continue;
+      }
+      if (entry.categoryId.isNotEmpty) tally(entry.categoryId, note);
+      tally(frequentNoteTypeKey(entry.type), note);
+    }
+
+    return counts.map((key, notes) {
+      final ranked = notes.entries.indexed.toList()
+        ..sort((a, b) {
+          final byCount = b.$2.value.compareTo(a.$2.value);
+          return byCount == 0 ? a.$1.compareTo(b.$1) : byCount;
+        });
+      return MapEntry(key, [
+        for (final (_, note) in ranked.take(maxPerKey)) note.key,
+      ]);
+    });
+  }
 
   /// Load once in the ledger engine before it starts accepting drafts.
   static Future<void> preloadRules({AppLogger? logger}) =>

@@ -102,11 +102,11 @@ void main() {
   });
 
   group('单币种账本：页头副标题不出现单位', () {
-    testWidgets('首页显示交易搜索，不带「单位：」', (tester) async {
+    testWidgets('首页显示全部流水入口，不带「单位：」', (tester) async {
       final controller = await makeController();
       await pumpPage(tester, controller, const HomePage());
 
-      expect(find.byTooltip('搜索交易'), findsOneWidget);
+      expect(find.byTooltip('全部流水'), findsOneWidget);
       expect(find.textContaining('单位：'), findsNothing);
     });
 

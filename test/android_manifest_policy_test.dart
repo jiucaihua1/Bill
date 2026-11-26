@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+const _appNamespace = 'com.xiaohe.ledger';
+
 void main() {
   test('正式 Manifest 明确禁用 Android 系统备份', () {
     final manifest = File(
@@ -30,12 +32,20 @@ void main() {
       'android/app/src/main/AndroidManifest.xml',
     ).readAsStringSync();
 
-    expect(manifest, contains('android:name=".WidgetConfigurationActivity"'));
+    expect(
+      manifest,
+      contains('android:name="$_appNamespace.WidgetConfigurationActivity"'),
+    );
     expect(manifest, contains('HomeWidgetScheduledUpdateReceiver'));
-    expect(manifest, contains('android:name=".QuickEntryWidgetProvider"'));
-    expect(manifest, contains('android:name=".BudgetWidgetProvider"'));
-    expect(manifest, contains('android:name=".NetWorthWidgetProvider"'));
-    expect(manifest, contains('android:name=".TrendWidgetProvider"'));
+    for (final provider in [
+      'QuickEntryWidgetProvider',
+      'BudgetWidgetProvider',
+      'NetWorthWidgetProvider',
+      'TrendWidgetProvider',
+      'DualMetricWidgetProvider',
+    ]) {
+      expect(manifest, contains('android:name="$_appNamespace.$provider"'));
+    }
   });
 
   test('桌面与分享入口关闭 Flutter 自动深链，避免 URI 被当作命名路由', () {
@@ -52,7 +62,7 @@ void main() {
       'WidgetConfigurationActivity',
     ]) {
       final match = RegExp(
-        '<activity\\s+android:name="\\.$activity"[\\s\\S]*?</activity>',
+        '<activity\\s+android:name="${RegExp.escape('$_appNamespace.$activity')}"[\\s\\S]*?</activity>',
       ).firstMatch(manifest);
       expect(match, isNotNull, reason: 'Manifest 缺少 $activity');
       expect(

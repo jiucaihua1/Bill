@@ -418,10 +418,6 @@
   "@panelRecentDailyDesc": {
     "description": "看板周统计:每日收支统计卡片描述"
   },
-  "panelThisWeekLabel": "本周统计",
-  "@panelThisWeekLabel": {
-    "description": "看板日常面板:切到本周时的卡片标题"
-  },
   "panelAssetSummaryLabel": "资产汇总",
   "@panelAssetSummaryLabel": {
     "description": "看板日常面板:资产汇总卡片标题"
@@ -613,7 +609,6 @@
   "commonNone": "暂无",
   "commonDone": "完成",
   "homeNoEntriesTitle": "还没有交易",
-  "homeNoEntriesDesc": "点击右下角加号开始第一笔记账。",
   "dateMonthDay": "{date}",
   "@dateMonthDay": {
     "description": "图表气泡等处的「几月几日」短日期",
@@ -727,25 +722,9 @@
   "showAssetAmounts": "显示资产金额",
   "totalAssetsLabel": "总资产",
   "totalLiabilitiesLabel": "债务",
-  "assetsAmount": "总资产 {amount}",
-  "@assetsAmount": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
-  "liabilitiesAmount": "债务 {amount}",
   "assetCreditDebt": "信用欠款",
   "assetDebtEmptyTitle": "暂无债务明细",
   "assetDebtEmptyDesc": "借入、借出和信用欠款会在这里显示。",
-  "@liabilitiesAmount": {
-    "placeholders": {
-      "amount": {
-        "type": "String"
-      }
-    }
-  },
   "netAssetsAmount": "净资产 {amount}",
   "@netAssetsAmount": {
     "placeholders": {
@@ -928,7 +907,6 @@
   "accountNameEditTitle": "编辑账户名称",
   "pickDueDay": "选择还款日",
   "pickStatementDay": "选择账单日",
-  "accountNoteEditTitle": "编辑账户备注",
   "accountReportTitle": "账户报告",
   "thisMonth": "本月",
   "dueToday": "就是今天",
@@ -1128,7 +1106,23 @@
   "prevRange": "上一段",
   "nextRange": "下一段",
   "searchHint": "搜索备注、分类、账户或金额",
-  "searchTransactions": "搜索交易",
+  "allTransactions": "全部流水",
+  "batchMore": "更多",
+  "batchAppendTags": "追加标签",
+  "batchReplaceTags": "替换标签",
+  "batchCreateTagsFirst": "请先在当前账本创建标签",
+  "batchReimbursementGroup": "报销",
+  "batchMarkReimbursable": "标记待报销",
+  "batchClearReimbursable": "取消待报销",
+  "batchStatisticsGroup": "统计口径",
+  "batchRestoreStatistics": "恢复正常计入",
+  "batchNoApplicableEntries": "所选交易中无可更改项",
+  "batchUpdatedCount": "已更新 {count} 笔交易",
+  "@batchUpdatedCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "clearFilters": "清空筛选",
   "prevDay": "前一天",
   "nextDay": "后一天",
@@ -1145,7 +1139,6 @@
   "refundStatusSettled": "已到账",
   "refundStatusPending": "待到账",
   "refundToAccountLabel": "到账账户",
-  "refundArrivalDateLabel": "到账日期",
   "refundAmountShort": "退款金额",
   "refundMarkSettled": "标记已到账",
   "refundEmpty": "暂无退款，点下方添加",
@@ -1167,7 +1160,6 @@
     }
   },
   "pickTypeTitle": "选择类型",
-  "noteEditTitle": "编辑备注",
   "noAccountTransferCurrencyChangeTitle": "转入币种由 {from} 改为 {to}",
   "@noAccountTransferCurrencyChangeTitle": {
     "placeholders": {
@@ -1720,7 +1712,6 @@
   "subscriptionMonthCount": "{months} 个月",
   "@subscriptionMonthCount": {"placeholders": {"months": {"type": "int"}}},
   "subscriptionMonthsLabel": "周期月数",
-  "subscriptionMonthsHint": "例如，季付填 3",
   "subscriptionMonthsOptional": "留空表示周期待定",
   "subscriptionMonthsInvalid": "请输入 1 到 9999 的整数",
   "activeSubscriptionItems": "今日分摊项目",
@@ -1743,7 +1734,6 @@
   "subscriptionPickerHint": "搜索备注、分类或金额",
   "noSubscriptionCandidates": "没有可选的支出账单",
   "subscriptionExpenses": "订阅支出",
-  "recognizedFromNotes": "按备注识别",
   "subscriptionEmptyHint": "含会员或订阅关键词的支出会自动出现，也可从右上角选择已有支出账单。",
   "dataAndTools": "数据与工具",
   "notEnabled": "未开启",
@@ -1952,15 +1942,6 @@
   "settingsSectionMore": "更多",
   "creditsTitle": "鸣谢",
   "creditsIntro": "小禾记账基于 LumiDesk 的 Veri Fin 二次开发。感谢原作者和支持者。",
-  "creditsSupporterCount": "{count} 位",
-  "@creditsSupporterCount": {
-    "description": "Settings row trailing text: how many supporters the thanks list holds",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
   "openLinkFailed": "没能打开浏览器，请稍后再试。",
   "themeMode": "主题模式",
   "themeColorLabel": "主题风格",
@@ -2430,7 +2411,6 @@
   "autoCaptureCcbHint": "用手机银行扣款通知辅助核对当前付款页",
   "autoCaptureOverlayPermission": "悬浮窗权限",
   "autoCaptureOverlayFlow": "允许后可在当前应用上方确认账单。",
-  "autoCaptureOverlayEdit": "打开完整记账页",
   "autoCaptureNotificationsDisabled": "请打开系统设置，允许小禾发送待确认账单通知。",
   "captureEntryNoTransaction": "没有识别到交易，请确认内容是账单截图或账单文本",
   "captureEntryFailedTitle": "识别失败",

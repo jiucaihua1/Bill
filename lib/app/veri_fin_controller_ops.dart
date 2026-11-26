@@ -3540,6 +3540,78 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     return changed;
   }
 
+  int applyEntriesTags(
+    Set<String> entryIds,
+    List<String> tagIds, {
+    required bool replace,
+  }) {
+    final available = tags.map((tag) => tag.id).toSet();
+    final selected = tagIds.where(available.contains).toSet();
+    if (selected.isEmpty && (!replace || tagIds.isNotEmpty)) return 0;
+
+    return _updateSelectedEntries(entryIds, (entry) {
+      final next = replace
+          ? selected.toList()
+          : <String>{...entry.tagIds, ...selected}.toList();
+      return listEquals(entry.tagIds, next)
+          ? null
+          : entry.copyWith(tagIds: next);
+    });
+  }
+
+  int setEntriesReimbursable(Set<String> entryIds, bool reimbursable) =>
+      _updateSelectedEntries(entryIds, (entry) {
+        if (entry.type != EntryType.expense ||
+            entry.reimbursable == reimbursable) {
+          return null;
+        }
+        return entry.copyWith(reimbursable: reimbursable);
+      });
+
+  int setEntriesStatisticsScope(
+    Set<String> entryIds,
+    EntryStatisticsScope scope,
+  ) => _updateSelectedEntries(entryIds, (entry) {
+    if (!EntryStatisticsScope.supports(entry.type) ||
+        scope.forType(entry.type) != scope) {
+      return null;
+    }
+    final excludeBudget = scope == EntryStatisticsScope.excludeBudget;
+    final excludeStatistics = scope == EntryStatisticsScope.excludeStatistics;
+    if (entry.excludedFromBudget == excludeBudget &&
+        entry.excludedFromStatistics == excludeStatistics) {
+      return null;
+    }
+    return entry.copyWith(
+      excludedFromBudget: excludeBudget,
+      excludedFromStatistics: excludeStatistics,
+    );
+  });
+
+  int _updateSelectedEntries(
+    Set<String> entryIds,
+    LedgerEntry? Function(LedgerEntry entry) update,
+  ) {
+    if (entryIds.isEmpty) return 0;
+    var changed = 0;
+    for (var index = 0; index < _entries.length; index++) {
+      final entry = _entries[index];
+      if (entry.bookId != _activeBookId || !entryIds.contains(entry.id)) {
+        continue;
+      }
+      final next = update(entry);
+      if (next != null) {
+        _writeLedgerEntryAt(index, next);
+        changed++;
+      }
+    }
+    if (changed > 0) {
+      _persistEntries(); // Also refreshes the widget projection.
+      notifyListeners();
+    }
+    return changed;
+  }
+
   List<LedgerEntry>? _safeBatchAccountEntries(Set<String> entryIds) {
     if (entryIds.isEmpty) {
       return null;

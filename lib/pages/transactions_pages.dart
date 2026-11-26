@@ -200,6 +200,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
   bool _selectionMode = false;
   bool _subscriptionFiltersOpen = false;
   final Set<String> _selectedIds = <String>{};
+  bool _batchUpdating = false;
 
   // 分页显示：列表只渲染前 _visibleCount 条交易，快滑到底部前
   // （extentAfter 阈值）预加载下一批，避免一次性构建成百上千个 widget。汇总/
@@ -413,19 +414,25 @@ class _TransactionsPageState extends State<TransactionsPage> {
             ),
       bottomNavigationBar: _selectionMode
           ? _BatchActionBar(
-              count: _selectedIds.length,
-              onSelectAll: () => setState(() {
-                _selectedIds
-                  ..clear()
-                  ..addAll(entries.map((e) => e.id));
-              }),
-              onDelete: _selectedIds.isEmpty ? null : _batchDelete,
-              onChangeCategory: _selectedIds.isEmpty
+              onSelectAll: _batchUpdating
+                  ? null
+                  : () => setState(() {
+                      _selectedIds
+                        ..clear()
+                        ..addAll(entries.map((e) => e.id));
+                    }),
+              onDelete: _selectedIds.isEmpty || _batchUpdating
+                  ? null
+                  : _batchDelete,
+              onChangeCategory: _selectedIds.isEmpty || _batchUpdating
                   ? null
                   : () => _batchChangeCategory(controller),
-              onChangeAccount: _selectedIds.isEmpty
+              onChangeAccount: _selectedIds.isEmpty || _batchUpdating
                   ? null
                   : () => _batchChangeAccount(controller),
+              onMore: _selectedIds.isEmpty || _batchUpdating
+                  ? null
+                  : () => _batchMore(controller),
             )
           : null,
       body: SafeArea(
@@ -1245,6 +1252,104 @@ class _TransactionsPageState extends State<TransactionsPage> {
     _exitSelection();
   }
 
+  Future<void> _batchMore(VeriFinController controller) async {
+    if (_batchUpdating || _selectedIds.isEmpty) return;
+    final l10n = AppLocalizations.of(context);
+    final entryIds = Set<String>.of(_selectedIds);
+    final bookId = controller.activeBook.id;
+    setState(() => _batchUpdating = true);
+    try {
+      final action = await showOptionSheet(
+        context: context,
+        title: l10n.batchMore,
+        values: _BatchMoreAction.values,
+        selected: _BatchMoreAction.appendTags,
+        showSelectedMarker: false,
+        labelOf: (action) => action.label(l10n),
+        sectionOf: (action) => action.section(l10n),
+      );
+      if (!mounted || action == null || controller.activeBook.id != bookId) {
+        return;
+      }
+      final changed = switch (action) {
+        _BatchMoreAction.appendTags ||
+        _BatchMoreAction.replaceTags => await _batchApplyTags(
+          controller,
+          entryIds,
+          bookId: bookId,
+          replace: action == _BatchMoreAction.replaceTags,
+        ),
+        _BatchMoreAction.markReimbursable ||
+        _BatchMoreAction.clearReimbursable => controller.setEntriesReimbursable(
+          entryIds,
+          action == _BatchMoreAction.markReimbursable,
+        ),
+        _BatchMoreAction.normal => controller.setEntriesStatisticsScope(
+          entryIds,
+          EntryStatisticsScope.normal,
+        ),
+        _BatchMoreAction.excludeBudget => controller.setEntriesStatisticsScope(
+          entryIds,
+          EntryStatisticsScope.excludeBudget,
+        ),
+        _BatchMoreAction.excludeStatistics =>
+          controller.setEntriesStatisticsScope(
+            entryIds,
+            EntryStatisticsScope.excludeStatistics,
+          ),
+      };
+      if (!mounted || changed == null) return;
+      if (changed == 0) {
+        _showBatchFeedback(
+          l10n.batchNoApplicableEntries,
+          VeriFeedbackTone.warning,
+        );
+        return;
+      }
+      final saved = await controller.waitForPendingWritesSucceeded();
+      if (!mounted || !saved) return;
+      VeriHaptics.commit();
+      _showBatchFeedback(
+        l10n.batchUpdatedCount(changed),
+        VeriFeedbackTone.success,
+      );
+      _exitSelection();
+    } finally {
+      if (mounted) setState(() => _batchUpdating = false);
+    }
+  }
+
+  Future<int?> _batchApplyTags(
+    VeriFinController controller,
+    Set<String> entryIds, {
+    required String bookId,
+    required bool replace,
+  }) async {
+    final tags = controller.tags;
+    if (tags.isEmpty) {
+      _showBatchFeedback(
+        AppLocalizations.of(context).batchCreateTagsFirst,
+        VeriFeedbackTone.warning,
+      );
+      return null;
+    }
+    final tagIds = await showTagSelectorSheet(
+      context,
+      tags: tags,
+      selectedIds: const [],
+    );
+    if (!mounted || tagIds == null || controller.activeBook.id != bookId) {
+      return null;
+    }
+    return controller.applyEntriesTags(entryIds, tagIds, replace: replace);
+  }
+
+  void _showBatchFeedback(String message, VeriFeedbackTone tone) {
+    unawaited(
+      VeriFeedbackHost.of(context).showMessage(message: message, tone: tone),
+    );
+  }
+
   Future<void> _batchChangeAccount(VeriFinController controller) async {
     final candidates = controller.batchAccountChangeCandidates(
       Set<String>.of(_selectedIds),
@@ -1665,24 +1770,79 @@ class _DateFilterBar extends StatelessWidget {
   }
 }
 
+enum _BatchMoreAction {
+  appendTags,
+  replaceTags,
+  markReimbursable,
+  clearReimbursable,
+  normal,
+  excludeBudget,
+  excludeStatistics;
+
+  String label(AppLocalizations l10n) => switch (this) {
+    appendTags => l10n.batchAppendTags,
+    replaceTags => l10n.batchReplaceTags,
+    markReimbursable => l10n.batchMarkReimbursable,
+    clearReimbursable => l10n.batchClearReimbursable,
+    normal => l10n.batchRestoreStatistics,
+    excludeBudget => l10n.excludedFromBudget,
+    excludeStatistics => l10n.excludedFromStatistics,
+  };
+
+  String section(AppLocalizations l10n) => switch (this) {
+    appendTags || replaceTags => l10n.tagLabel,
+    markReimbursable || clearReimbursable => l10n.batchReimbursementGroup,
+    normal || excludeBudget || excludeStatistics => l10n.batchStatisticsGroup,
+  };
+}
+
 class _BatchActionBar extends StatelessWidget {
   const _BatchActionBar({
-    required this.count,
     required this.onSelectAll,
     required this.onDelete,
     required this.onChangeCategory,
     required this.onChangeAccount,
+    required this.onMore,
   });
 
-  final int count;
-  final VoidCallback onSelectAll;
+  final VoidCallback? onSelectAll;
   final VoidCallback? onDelete;
   final VoidCallback? onChangeCategory;
   final VoidCallback? onChangeAccount;
+  final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) {
     final tokens = VeriStyleTokens.of(context);
+    final l10n = AppLocalizations.of(context);
+    final actions = [
+      _BatchAction(
+        icon: Icons.select_all,
+        label: l10n.selectAll,
+        onTap: onSelectAll,
+      ),
+      _BatchAction(
+        icon: Icons.category_outlined,
+        label: l10n.changeCategoryShort,
+        onTap: onChangeCategory,
+      ),
+      _BatchAction(
+        icon: Icons.account_balance_wallet_outlined,
+        label: l10n.changeAccountShort,
+        onTap: onChangeAccount,
+      ),
+      _BatchAction(
+        icon: Icons.more_horiz_rounded,
+        label: l10n.batchMore,
+        onTap: onMore,
+      ),
+      _BatchAction(
+        icon: Icons.delete_outline,
+        label: l10n.commonDelete,
+        destructive: true,
+        onTap: onDelete,
+      ),
+    ];
     return SafeArea(
       top: false,
       child: Container(
@@ -1692,30 +1852,7 @@ class _BatchActionBar extends StatelessWidget {
           border: Border(top: BorderSide(color: tokens.borderColor)),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: <Widget>[
-            _BatchAction(
-              icon: Icons.select_all,
-              label: AppLocalizations.of(context).selectAll,
-              onTap: onSelectAll,
-            ),
-            _BatchAction(
-              icon: Icons.category_outlined,
-              label: AppLocalizations.of(context).changeCategoryShort,
-              onTap: onChangeCategory,
-            ),
-            _BatchAction(
-              icon: Icons.account_balance_wallet_outlined,
-              label: AppLocalizations.of(context).changeAccountShort,
-              onTap: onChangeAccount,
-            ),
-            _BatchAction(
-              icon: Icons.delete_outline,
-              label: AppLocalizations.of(context).commonDelete,
-              destructive: true,
-              onTap: onDelete,
-            ),
-          ],
+          children: [for (final action in actions) Expanded(child: action)],
         ),
       ),
     );
@@ -1751,7 +1888,7 @@ class _BatchAction extends StatelessWidget {
             },
       borderRadius: BorderRadius.circular(veriRadiusSm),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -1759,6 +1896,8 @@ class _BatchAction extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: color,
                 fontWeight: FontWeight.w700,
