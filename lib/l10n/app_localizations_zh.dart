@@ -3142,9 +3142,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get uploadToWebdav => '上传到 WebDAV';
 
   @override
-  String get uploadNow => '立即上传';
-
-  @override
   String get restoreFromWebdav => '从 WebDAV 恢复';
 
   @override

@@ -5780,12 +5780,6 @@ abstract class AppLocalizations {
   /// **'上传到 WebDAV'**
   String get uploadToWebdav;
 
-  /// No description provided for @uploadNow.
-  ///
-  /// In zh, this message translates to:
-  /// **'立即上传'**
-  String get uploadNow;
-
   /// No description provided for @restoreFromWebdav.
   ///
   /// In zh, this message translates to:

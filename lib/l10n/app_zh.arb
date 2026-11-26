@@ -2099,7 +2099,6 @@
   "configuredLabel": "已配置",
   "notConfigured": "未配置",
   "uploadToWebdav": "上传到 WebDAV",
-  "uploadNow": "立即上传",
   "restoreFromWebdav": "从 WebDAV 恢复",
   "chooseBackup": "选择备份",
   "autoUploadWebdav": "自动上传到 WebDAV",

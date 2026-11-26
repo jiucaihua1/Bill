@@ -3220,9 +3220,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get uploadToWebdav => 'Upload to WebDAV';
 
   @override
-  String get uploadNow => 'Upload now';
-
-  @override
   String get restoreFromWebdav => 'Restore from WebDAV';
 
   @override

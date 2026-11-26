@@ -352,7 +352,9 @@ void main() {
     );
 
     // 旅行账本里把 e2 改成「日常账本的餐饮」：类型相同也不允许（跨账本）。
-    final changed = controller.setEntriesCategory(<String>{'e2'}, dining.id);
+    final changed = await controller.setEntriesCategory(<String>{
+      'e2',
+    }, dining.id);
     expect(changed, 0);
     expect(
       controller.entriesForBook(travelBookId).single.categoryId,
