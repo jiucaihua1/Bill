@@ -71,7 +71,7 @@ void main() {
       );
 
     // 目标是支出分类 transport，收入交易应被跳过。
-    final changed = controller.setEntriesCategory(<String>{
+    final changed = await controller.setEntriesCategory(<String>{
       'exp',
       'inc',
     }, 'transport');

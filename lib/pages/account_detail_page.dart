@@ -700,17 +700,18 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
     }
     final controller = VeriFinScope.of(context);
     if (recordEntry) {
-      final saved = controller.adjustAccountBalance(
+      final saved = await controller.adjustAccountBalance(
         account,
         amount,
         note: AppLocalizations.of(context).balanceAdjustNote,
       );
-      if (saved) {
+      if (!mounted) return;
+      if (saved == true) {
         VeriHaptics.commit();
       } else {
         VeriHaptics.emphasis();
       }
-      if (!saved && mounted) {
+      if (saved == false) {
         unawaited(
           VeriFeedbackHost.of(context).showMessage(
             message: AppLocalizations.of(

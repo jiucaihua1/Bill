@@ -29,7 +29,7 @@ void main() {
     var fired = 0;
     controller.onEntryAdded = () => fired++;
 
-    controller.adjustAccountBalance(
+    await controller.adjustAccountBalance(
       account,
       controller.accountBalance(account) + 100,
     );

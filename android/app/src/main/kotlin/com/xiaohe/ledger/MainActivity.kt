@@ -125,15 +125,23 @@ class MainActivity : FlutterFragmentActivity() {
                     pendingOpenAutoCaptureIntent = false
                     result.success(shouldOpen)
                 }
-                "consumeAutoConfirmDraft" -> {
+                "takeAutoConfirmRequest" -> {
                     val drafts = pendingAutoDraftIds.iterator()
                     var draft: Map<String, Any>? = null
                     while (draft == null && drafts.hasNext()) {
                         val id = drafts.next()
                         drafts.remove()
-                        draft = AutoBillParser.consumeDraft(this, id)
+                        draft = AutoBillParser.readNotificationDraft(this, id)
                     }
                     result.success(draft)
+                }
+                "finishAutoConfirmDraft" -> {
+                    val id = call.arguments as? String
+                    if (id != null && AUTO_DRAFT_ID_PATTERN.matches(id)) {
+                        pendingAutoDraftIds.remove(id)
+                        AutoBillParser.consumeDraft(this, id)
+                    }
+                    result.success(null)
                 }
                 "reconnectAutoNotificationListener" ->
                     result.success(AutoCapturePermissions.reconnectNotificationListener(this))

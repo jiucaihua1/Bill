@@ -43,6 +43,7 @@ class EntryDetailPage extends StatefulWidget {
     this.suggestedPlatformTag,
     this.autoCaptureSourcePackage,
     this.autoCaptureEntryId,
+    this.onResolveAutoCapture,
   }) : draftEntry = null,
        draftExtraAccounts = null,
        draftExtraCategories = null,
@@ -57,6 +58,7 @@ class EntryDetailPage extends StatefulWidget {
       suggestedPlatformTag = null,
       autoCaptureSourcePackage = null,
       autoCaptureEntryId = null,
+      onResolveAutoCapture = null,
       draftEntry = null,
       draftExtraAccounts = null,
       draftExtraCategories = null,
@@ -85,6 +87,7 @@ class EntryDetailPage extends StatefulWidget {
        suggestedPlatformTag = null,
        autoCaptureSourcePackage = null,
        autoCaptureEntryId = null,
+       onResolveAutoCapture = null,
        inlineNumberPad = false;
 
   final double initialAmount;
@@ -98,6 +101,7 @@ class EntryDetailPage extends StatefulWidget {
   final Tag? suggestedPlatformTag;
   final String? autoCaptureSourcePackage;
   final String? autoCaptureEntryId;
+  final Future<void> Function()? onResolveAutoCapture;
 
   /// 草稿编辑模式下要编辑的交易；非空即进入「返回草稿不落库」模式。
   final LedgerEntry? draftEntry;
@@ -2514,6 +2518,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
         );
       }
     }
+    await _config.onResolveAutoCapture?.call();
     if (!mounted) {
       return;
     }
@@ -2604,6 +2609,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
       return false;
     }
     _saved = true;
+    await _config.onResolveAutoCapture?.call();
     VeriHaptics.commit();
     if (mounted) {
       unawaited(

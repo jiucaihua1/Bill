@@ -939,6 +939,16 @@ object AutoBillParser {
     fun hasDraft(context: Context, id: String): Boolean = readDraft(context, id) != null
 
     @Synchronized
+    fun readNotificationDraft(context: Context, id: String): Map<String, Any>? {
+        val payload = readDraftPayload(context, id) ?: return null
+        val originalId = payload.optString("retryOf").takeIf(String::isNotEmpty)
+        val draft = originalId?.let { readDraft(context, it) }
+            ?: draftFields(originalId ?: id, payload)
+            ?: return null
+        return draft + ("notificationDraftId" to id)
+    }
+
+    @Synchronized
     fun consumeDraft(context: Context, id: String): Map<String, Any>? {
         val payload = readDraftPayload(context, id) ?: return null
         val retryOf = payload.optString("retryOf").takeIf(String::isNotEmpty)
@@ -1080,7 +1090,7 @@ object AutoBillParser {
             context,
             0,
             draftIntent(context, id),
-            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE,
+            PendingIntent.FLAG_IMMUTABLE,
         )
         val sign = if (bill.type == "income") "+" else "-"
         val title = if (wechatRetry) context.getString(R.string.wechat_retry_title)
@@ -1100,7 +1110,6 @@ object AutoBillParser {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setTimeoutAfter(DRAFT_TTL_MS)
-            .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .build()
         manager.notify(id, DETECTION_NOTIFICATION_ID, notification)

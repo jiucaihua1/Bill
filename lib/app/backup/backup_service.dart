@@ -114,7 +114,10 @@ class BackupService {
 
   /// 自动备份文件名，使用 [autoBackupFilePrefix] 前缀便于识别与清理。
   static String autoBackupFilename(DateTime now, [String ext = 'zip']) {
-    return '$autoBackupFilePrefix${_stamp(now)}.$ext';
+    // Multiple entry-triggered backups can run in the same second.
+    final micros = now.millisecond * 1000 + now.microsecond;
+    final suffix = micros == 0 ? '' : '-${micros.toString().padLeft(6, '0')}';
+    return '$autoBackupFilePrefix${_stamp(now)}$suffix.$ext';
   }
 
   /// 按需加密备份内容；[passphrase] 为空则原样返回明文文本。

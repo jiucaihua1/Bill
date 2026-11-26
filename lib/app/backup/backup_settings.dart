@@ -45,6 +45,7 @@ class BackupSettings {
     this.intervalHours = 24,
     this.retention = 10,
     this.lastBackupAt,
+    this.lastWebdavBackupAt,
   });
 
   final String directoryUri;
@@ -53,6 +54,7 @@ class BackupSettings {
   final int intervalHours;
   final int retention;
   final DateTime? lastBackupAt;
+  final DateTime? lastWebdavBackupAt;
 
   bool get hasDirectory => directoryUri.isNotEmpty;
 
@@ -66,7 +68,9 @@ class BackupSettings {
     int? intervalHours,
     int? retention,
     DateTime? lastBackupAt,
+    DateTime? lastWebdavBackupAt,
     bool clearLastBackupAt = false,
+    bool clearLastWebdavBackupAt = false,
     bool clearDirectory = false,
   }) {
     return BackupSettings(
@@ -80,12 +84,19 @@ class BackupSettings {
       lastBackupAt: clearLastBackupAt
           ? null
           : (lastBackupAt ?? this.lastBackupAt),
+      lastWebdavBackupAt: clearLastWebdavBackupAt
+          ? null
+          : (lastWebdavBackupAt ?? this.lastWebdavBackupAt),
     );
   }
 
   /// 仅按频率与上次备份时间判断在 [now] 是否到期（不要求已配置目录）。
   /// [afterEntry] 表示当前调用是否由「记账后」事件触发。供本地目录与 WebDAV 共用。
-  bool isFrequencyDue(DateTime now, {bool afterEntry = false}) {
+  bool isFrequencyDue(
+    DateTime now, {
+    bool afterEntry = false,
+    bool webdav = false,
+  }) {
     switch (frequency) {
       case BackupFrequency.manual:
         return false;
@@ -97,7 +108,7 @@ class BackupSettings {
         if (afterEntry) {
           return false;
         }
-        final last = lastBackupAt;
+        final last = webdav ? lastWebdavBackupAt : lastBackupAt;
         if (last == null) {
           return true;
         }
@@ -118,12 +129,15 @@ class BackupSettings {
       'frequency': frequency.name,
       'intervalHours': intervalHours,
       'retention': retention,
-      'lastBackupAt': lastBackupAt?.toIso8601String(),
+      'lastLocalBackupAt': lastBackupAt?.toIso8601String(),
+      'lastWebdavBackupAt': lastWebdavBackupAt?.toIso8601String(),
     };
   }
 
   static BackupSettings fromJson(Map<String, Object?> json) {
-    final rawLast = json['lastBackupAt'] as String?;
+    // The legacy shared time cannot tell us which destination was backed up.
+    final rawLast = json['lastLocalBackupAt'] as String?;
+    final rawLastWebdav = json['lastWebdavBackupAt'] as String?;
     final rawInterval = (json['intervalHours'] as num?)?.toInt() ?? 24;
     final rawRetention = (json['retention'] as num?)?.toInt() ?? 10;
     return BackupSettings(
@@ -133,6 +147,9 @@ class BackupSettings {
       intervalHours: rawInterval < 1 ? 1 : rawInterval,
       retention: rawRetention < 1 ? 1 : rawRetention,
       lastBackupAt: rawLast == null ? null : DateTime.tryParse(rawLast),
+      lastWebdavBackupAt: rawLastWebdav == null
+          ? null
+          : DateTime.tryParse(rawLastWebdav),
     );
   }
 

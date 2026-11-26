@@ -122,10 +122,10 @@ class AppCaptureBridge {
     }
   }
 
-  static Future<Map<String, Object?>?> consumeAutoConfirmDraft() async {
+  static Future<Map<String, Object?>?> takeAutoConfirmRequest() async {
     try {
       final raw = await _channel.invokeMapMethod<Object?, Object?>(
-        'consumeAutoConfirmDraft',
+        'takeAutoConfirmRequest',
       );
       if (raw == null) return null;
       return Map<String, Object?>.from(raw);
@@ -133,6 +133,17 @@ class AppCaptureBridge {
       return null;
     } on PlatformException {
       return null;
+    }
+  }
+
+  static Future<void> finishAutoConfirmDraft(String id) async {
+    try {
+      await _channel.invokeMethod<void>('finishAutoConfirmDraft', id);
+    } on MissingPluginException {
+      return;
+    } on PlatformException {
+      // The notification can still be reopened and reconciled by entry ID.
+      return;
     }
   }
 

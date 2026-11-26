@@ -1,6 +1,7 @@
 import '../external_network_guard.dart';
 import '../veri_fin_controller.dart';
 import 'backup_service.dart';
+import 'backup_settings.dart';
 import 'webdav_client.dart';
 import 'webdav_config.dart';
 
@@ -10,6 +11,7 @@ class BackupCoordinator {
   const BackupCoordinator._();
 
   static bool _running = false;
+  static bool _entryBackupPending = false;
 
   /// 应用打开（冷启动 / 回前台）时调用。
   static Future<void> maybeBackupOnOpen(VeriFinController controller) {
@@ -25,27 +27,41 @@ class BackupCoordinator {
     VeriFinController controller, {
     required bool afterEntry,
   }) async {
-    final settings = controller.backupSettings;
-    final webdav = controller.webdavConfig;
-    final now = DateTime.now();
-    if (!settings.isFrequencyDue(now, afterEntry: afterEntry)) {
-      return;
-    }
-    final toLocal = settings.hasDirectory;
-    final toWebdav =
-        controller.externalNetworkEnabled &&
-        webdav.isConfigured &&
-        webdav.autoUpload;
-    if (!toLocal && !toWebdav) {
-      return;
-    }
-    // 避免并发重入（打开与记账事件叠加）。
     if (_running) {
+      if (afterEntry &&
+          controller.backupSettings.frequency == BackupFrequency.onEntry) {
+        _entryBackupPending = true;
+      }
       return;
     }
     _running = true;
-    var allTargetsSucceeded = true;
-    var wroteBackup = false;
+    try {
+      var triggeredByEntry = afterEntry;
+      do {
+        _entryBackupPending = false;
+        await _runOnce(controller, afterEntry: triggeredByEntry);
+        triggeredByEntry = true;
+      } while (_entryBackupPending);
+    } finally {
+      _running = false;
+    }
+  }
+
+  static Future<void> _runOnce(
+    VeriFinController controller, {
+    required bool afterEntry,
+  }) async {
+    final settings = controller.backupSettings;
+    final webdav = controller.webdavConfig;
+    final now = DateTime.now();
+    final toLocal = settings.shouldAutoBackup(now, afterEntry: afterEntry);
+    final toWebdav =
+        controller.externalNetworkEnabled &&
+        webdav.isConfigured &&
+        webdav.autoUpload &&
+        settings.isFrequencyDue(now, afterEntry: afterEntry, webdav: true);
+    if (!toLocal && !toWebdav) return;
+
     PreparedBackup? prepared;
     try {
       // 只准备一次备份内容（未加密→zip、加密→文本信封），本地与 WebDAV 共用同一份，
@@ -64,9 +80,8 @@ class BackupCoordinator {
             settings: settings,
             prepared: prepared,
           );
-          wroteBackup = true;
+          controller.recordBackupTime(now, directoryUri: settings.directoryUri);
         } catch (error) {
-          allTargetsSucceeded = false;
           // 本地目录失败（授权失效、写坏被回读校验拦下等）不影响 WebDAV 尝试；
           // 记日志便于诊断，但不打断用户。
           controller.logger?.error('本地自动备份失败', source: 'backup', error: error);
@@ -82,13 +97,12 @@ class BackupCoordinator {
             prepared.filename,
             prepared.cachePath,
           ).timeout(const Duration(minutes: 5));
-          wroteBackup = true;
+          controller.recordWebdavBackupTime(now, webdav);
           // 与本地一致：按保留份数清理远端旧的自动备份，避免无限累积。
           await _pruneWebdav(webdav, settings.retention);
         } on ExternalNetworkDisabled {
           // Permission can change while preparing a local backup.
         } catch (error) {
-          allTargetsSucceeded = false;
           // WebDAV 失败不打断，但记日志便于诊断（网络 / 认证 / 服务器错误等）。
           controller.logger?.error(
             'WebDAV 自动备份失败',
@@ -96,12 +110,6 @@ class BackupCoordinator {
             error: error,
           );
         }
-      }
-      // Only advance the shared timestamp when every configured target has
-      // succeeded. A partial success must remain due so the failed target is
-      // retried and the UI does not imply that both destinations are current.
-      if (allTargetsSucceeded && wroteBackup) {
-        controller.recordBackupTime(now);
       }
     } catch (error) {
       // 兜底：任何未预期错误都不打断用户操作，但必须留下隐私友好的诊断线索。
@@ -111,7 +119,6 @@ class BackupCoordinator {
       if (pending != null) {
         await BackupService.deletePrepared(pending);
       }
-      _running = false;
     }
   }
 

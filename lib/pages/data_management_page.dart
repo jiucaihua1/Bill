@@ -157,7 +157,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
                         title: AppLocalizations.of(context).backupNow,
                         trailing: _lastBackupLabel(
                           AppLocalizations.of(context),
-                          controller.backupSettings,
+                          controller.backupSettings.lastBackupAt,
                         ),
                         trailingIcon: Icons.chevron_right,
                         onTap: () => _backupNow(context, controller),
@@ -353,7 +353,10 @@ class _DataManagementPageState extends State<DataManagementPage> {
                         SettingsRow(
                           icon: Icons.cloud_upload_outlined,
                           title: AppLocalizations.of(context).uploadToWebdav,
-                          trailing: AppLocalizations.of(context).uploadNow,
+                          trailing: _lastBackupLabel(
+                            AppLocalizations.of(context),
+                            controller.backupSettings.lastWebdavBackupAt,
+                          ),
                           trailingIcon: Icons.chevron_right,
                           onTap: () => _uploadToWebdav(context, controller),
                         ),
@@ -491,11 +494,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
     );
   }
 
-  static String _lastBackupLabel(
-    AppLocalizations l10n,
-    BackupSettings settings,
-  ) {
-    final last = settings.lastBackupAt;
+  static String _lastBackupLabel(AppLocalizations l10n, DateTime? last) {
     if (last == null) {
       return l10n.neverBackedUp;
     }
@@ -616,6 +615,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
     final feedback = VeriFeedbackHost.of(context);
     try {
       final now = DateTime.now();
+      final settings = controller.backupSettings;
       // 备份可能上 GB（打包 / 加密 / 写盘 / 校验），全程显示阶段进度并可取消。
       final result = await _runWithProgress(
         context,
@@ -624,7 +624,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
         (isCancelled) async {
           final cacheDirectory = await controller.ensureBackupCacheDirectory();
           return BackupService.writeManualBackup(
-            settings: controller.backupSettings,
+            settings: settings,
             content: controller.exportDataJson(),
             store: controller.attachmentStore,
             cacheDirectory: cacheDirectory,
@@ -641,7 +641,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
         }
         return;
       }
-      controller.recordBackupTime(now);
+      controller.recordBackupTime(now, directoryUri: settings.directoryUri);
       VeriHaptics.commit();
       unawaited(
         feedback.showMessage(
@@ -1104,7 +1104,7 @@ class _DataManagementPageState extends State<DataManagementPage> {
                   isCancelled: isCancelled,
                   authorization: authorization,
                 );
-                controller.recordBackupTime(now);
+                controller.recordWebdavBackupTime(now, config);
                 uploadedName = prepared.filename;
                 return true;
               } finally {

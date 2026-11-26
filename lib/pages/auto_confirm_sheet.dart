@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -103,6 +105,7 @@ Future<void> showAutoConfirmCaptureSheet(
   BuildContext context, {
   required Map<String, Object?> draft,
   bool preview = false,
+  Future<void> Function()? onResolveDraft,
 }) async {
   final controller = VeriFinScope.of(context);
   final data = AutoBillReviewData.fromController(controller, draft);
@@ -115,9 +118,20 @@ Future<void> showAutoConfirmCaptureSheet(
       data: data,
       draft: draft,
       preview: preview,
-      onSave: (changes) =>
-          AutoBillOverlayBridge.commit(controller, {...draft, ...changes}),
-      onClose: (_) => Navigator.of(sheetContext).pop(),
+      onSave: (changes) async {
+        final saved = await AutoBillOverlayBridge.commit(controller, {
+          ...draft,
+          ...changes,
+        });
+        if (saved) await onResolveDraft?.call();
+        return saved;
+      },
+      onClose: (saved) {
+        if (!preview && !saved && onResolveDraft != null) {
+          unawaited(onResolveDraft());
+        }
+        Navigator.of(sheetContext).pop();
+      },
     ),
   );
 }

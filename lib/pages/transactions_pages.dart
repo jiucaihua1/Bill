@@ -1234,10 +1234,11 @@ class _TransactionsPageState extends State<TransactionsPage> {
     if (selected == null || !mounted) {
       return;
     }
-    final changed = controller.setEntriesCategory(
+    final changed = await controller.setEntriesCategory(
       Set<String>.of(_selectedIds),
       selected,
     );
+    if (!mounted || changed == null) return;
     if (changed > 0) {
       VeriHaptics.commit();
     }
@@ -1271,9 +1272,9 @@ class _TransactionsPageState extends State<TransactionsPage> {
       if (!mounted || action == null || controller.activeBook.id != bookId) {
         return;
       }
-      final changed = switch (action) {
+      final changed = await (switch (action) {
         _BatchMoreAction.appendTags ||
-        _BatchMoreAction.replaceTags => await _batchApplyTags(
+        _BatchMoreAction.replaceTags => _batchApplyTags(
           controller,
           entryIds,
           bookId: bookId,
@@ -1297,7 +1298,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
             entryIds,
             EntryStatisticsScope.excludeStatistics,
           ),
-      };
+      });
       if (!mounted || changed == null) return;
       if (changed == 0) {
         _showBatchFeedback(
@@ -1306,8 +1307,6 @@ class _TransactionsPageState extends State<TransactionsPage> {
         );
         return;
       }
-      final saved = await controller.waitForPendingWritesSucceeded();
-      if (!mounted || !saved) return;
       VeriHaptics.commit();
       _showBatchFeedback(
         l10n.batchUpdatedCount(changed),

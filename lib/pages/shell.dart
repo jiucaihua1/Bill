@@ -649,10 +649,11 @@ class _VeriFinShellState extends State<VeriFinShell>
         _autoDraftRequested = false;
         await AppLockSessionScope.waitUntilUnlocked(context);
         if (!mounted) return;
-        final raw = await AppCaptureBridge.consumeAutoConfirmDraft();
+        final raw = await AppCaptureBridge.takeAutoConfirmRequest();
         if (!mounted || raw == null) continue;
         _autoDraftRequested = true;
         final draftId = raw['id'];
+        final notificationDraftId = raw['notificationDraftId'];
         final amount = raw['amount'];
         final timestamp = raw['occurredAt'];
         final type = switch (raw['type']) {
@@ -661,6 +662,7 @@ class _VeriFinShellState extends State<VeriFinShell>
           _ => null,
         };
         if (draftId is! String ||
+            notificationDraftId is! String ||
             type == null ||
             amount is! num ||
             !amount.isFinite ||
@@ -670,9 +672,18 @@ class _VeriFinShellState extends State<VeriFinShell>
         }
         final controller = VeriFinScope.of(context);
         final entryId = AutoBillOverlayBridge.entryIdForDraft(draftId);
-        if (controller.containsEntryId(entryId)) continue;
+        Future<void> resolveDraft() =>
+            AppCaptureBridge.finishAutoConfirmDraft(notificationDraftId);
+        if (controller.containsEntryId(entryId)) {
+          await resolveDraft();
+          continue;
+        }
         if (controller.activeBook.baseCurrencyCode == 'CNY') {
-          await showAutoConfirmCaptureSheet(context, draft: raw);
+          await showAutoConfirmCaptureSheet(
+            context,
+            draft: raw,
+            onResolveDraft: resolveDraft,
+          );
           continue;
         }
         final suggestions = AutoBillSuggestions.forDraft(controller, raw);
@@ -703,6 +714,7 @@ class _VeriFinShellState extends State<VeriFinShell>
               suggestedPlatformTag: platformTag,
               autoCaptureSourcePackage: raw['sourcePackage'] as String?,
               autoCaptureEntryId: entryId,
+              onResolveAutoCapture: resolveDraft,
             ),
           ),
         );

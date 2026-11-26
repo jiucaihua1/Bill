@@ -21,6 +21,10 @@ class WebdavConfig {
 
   bool get isConfigured => url.trim().isNotEmpty;
 
+  bool sameDestinationAs(WebdavConfig other) =>
+      normalizeCollectionUrl(url) == normalizeCollectionUrl(other.url) &&
+      username == other.username;
+
   WebdavConfig copyWith({
     String? url,
     String? username,

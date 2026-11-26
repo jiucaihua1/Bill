@@ -456,6 +456,13 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   Future<bool> saveRecurringRuleDraft(
     RecurringRule rule, {
     required bool isNew,
+  }) => _runLedgerMutation(
+    () => _saveRecurringRuleDraftInQueue(rule, isNew: isNew),
+  );
+
+  Future<bool> _saveRecurringRuleDraftInQueue(
+    RecurringRule rule, {
+    required bool isNew,
   }) async {
     final book = ledgerBooks
         .where((book) => book.id == rule.bookId)
@@ -523,7 +530,12 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   }
 
   /// Persists the active switches edited on the recurring-rule list as a batch.
-  Future<bool> saveRecurringActiveDraft(Map<String, bool> activeById) async {
+  Future<bool> saveRecurringActiveDraft(Map<String, bool> activeById) =>
+      _runLedgerMutation(() => _saveRecurringActiveDraftInQueue(activeById));
+
+  Future<bool> _saveRecurringActiveDraftInQueue(
+    Map<String, bool> activeById,
+  ) async {
     final next = _recurringRules
         .map(
           (rule) => activeById.containsKey(rule.id)
@@ -756,7 +768,10 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   /// Atomically posts all due recurring entries and advances only dates that
   /// were successfully materialized. A missing rate leaves that due date in
   /// place for retry. Returns -1 if persistence fails.
-  Future<int> applyDueRecurring(DateTime now) async {
+  Future<int> applyDueRecurring(DateTime now) =>
+      _runLedgerMutation(() => _applyDueRecurringInQueue(now));
+
+  Future<int> _applyDueRecurringInQueue(DateTime now) async {
     var generated = 0;
     final nextEntries = List<LedgerEntry>.of(_entries);
     final nextRules = List<RecurringRule>.of(_recurringRules);
@@ -852,6 +867,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     _backupSettings = _backupSettings.copyWith(
       directoryUri: uri,
       directoryLabel: label,
+      clearLastBackupAt: uri != _backupSettings.directoryUri,
     );
     _persistBackupSettings();
     notifyListeners();
@@ -861,6 +877,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   void clearBackupDirectory() {
     _backupSettings = _backupSettings.copyWith(
       clearDirectory: true,
+      clearLastBackupAt: true,
       frequency: BackupFrequency.manual,
     );
     _persistBackupSettings();
@@ -889,9 +906,23 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     notifyListeners();
   }
 
-  /// 备份成功后记录时间，供自动备份频率判断与「上次备份时间」展示。
-  void recordBackupTime(DateTime time) {
+  /// 记录本地目录的成功备份，较早开始的任务不能覆盖更新的记录。
+  void recordBackupTime(DateTime time, {String? directoryUri}) {
+    if (directoryUri != null && directoryUri != _backupSettings.directoryUri) {
+      return;
+    }
+    final previous = _backupSettings.lastBackupAt;
+    if (previous != null && !time.isAfter(previous)) return;
     _backupSettings = _backupSettings.copyWith(lastBackupAt: time);
+    _persistBackupSettings();
+    notifyListeners();
+  }
+
+  void recordWebdavBackupTime(DateTime time, WebdavConfig target) {
+    if (!_webdavConfig.sameDestinationAs(target)) return;
+    final previous = _backupSettings.lastWebdavBackupAt;
+    if (previous != null && !time.isAfter(previous)) return;
+    _backupSettings = _backupSettings.copyWith(lastWebdavBackupAt: time);
     _persistBackupSettings();
     notifyListeners();
   }
@@ -919,6 +950,10 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   WebdavConfig get webdavConfig => _webdavConfig;
 
   void setWebdavConfig(WebdavConfig config) {
+    if (!_webdavConfig.sameDestinationAs(config)) {
+      _backupSettings = _backupSettings.copyWith(clearLastWebdavBackupAt: true);
+      _persistBackupSettings();
+    }
     _webdavConfig = config;
     if (config.isConfigured) {
       _store.write(_webdavKey, config.encode());
@@ -938,12 +973,16 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     required int retention,
     required bool webdavAutoUpload,
   }) async {
-    final nextBackup = _backupSettings.copyWith(
-      frequency: frequency,
-      intervalHours: intervalHours < 1 ? 1 : intervalHours,
-      retention: retention < 1 ? 1 : retention,
-    );
-    final nextWebdav = _webdavConfig.copyWith(autoUpload: webdavAutoUpload);
+    BackupSettings withNewPreferences(BackupSettings settings) =>
+        settings.copyWith(
+          frequency: frequency,
+          intervalHours: intervalHours < 1 ? 1 : intervalHours,
+          retention: retention < 1 ? 1 : retention,
+        );
+    final previousBackup = _backupSettings;
+    final previousWebdav = _webdavConfig;
+    final nextBackup = withNewPreferences(previousBackup);
+    final nextWebdav = previousWebdav.copyWith(autoUpload: webdavAutoUpload);
     try {
       await _store.writeAndFlush(_backupSettingsKey, nextBackup.encode());
       if (nextWebdav.isConfigured) {
@@ -953,16 +992,20 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       _handlePersistError(error, stackTrace);
       return false;
     }
-    _backupSettings = nextBackup;
-    _webdavConfig = nextWebdav;
+    if (identical(_backupSettings, previousBackup)) {
+      _backupSettings = nextBackup;
+    } else {
+      // A backup can complete while preferences are being flushed.
+      _backupSettings = withNewPreferences(_backupSettings);
+      _persistBackupSettings();
+    }
+    if (identical(_webdavConfig, previousWebdav)) _webdavConfig = nextWebdav;
     notifyListeners();
     return true;
   }
 
   void clearWebdavConfig() {
-    _webdavConfig = const WebdavConfig();
-    _store.delete(_webdavKey);
-    notifyListeners();
+    setWebdavConfig(const WebdavConfig());
   }
 
   List<Category> categoriesForType(EntryType type) {
@@ -2204,6 +2247,30 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     double? rememberRateToBase,
     DateTime? rememberRateEffectiveDate,
     String? autoCaptureSourcePackage,
+  }) => _runLedgerMutation(
+    () => _saveEntryAggregateDraftResultInQueue(
+      entry: entry,
+      isNew: isNew,
+      suggestedTagLabel: suggestedTagLabel,
+      refunds: List.of(refunds),
+      attachments: List.of(attachments),
+      rememberRateCurrencyCode: rememberRateCurrencyCode,
+      rememberRateToBase: rememberRateToBase,
+      rememberRateEffectiveDate: rememberRateEffectiveDate,
+      autoCaptureSourcePackage: autoCaptureSourcePackage,
+    ),
+  );
+
+  Future<EntrySaveResult> _saveEntryAggregateDraftResultInQueue({
+    required LedgerEntry entry,
+    required bool isNew,
+    String? suggestedTagLabel,
+    List<LedgerEntry> refunds = const <LedgerEntry>[],
+    List<Attachment> attachments = const <Attachment>[],
+    String? rememberRateCurrencyCode,
+    double? rememberRateToBase,
+    DateTime? rememberRateEffectiveDate,
+    String? autoCaptureSourcePackage,
   }) async {
     final currentIndex = _entries.indexWhere((item) => item.id == entry.id);
     final entryRevision = _ledgerEntryRevision;
@@ -2599,6 +2666,24 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     List<Tag> candidateTags = const <Tag>[],
     Set<String> alwaysCreateAccountIds = const <String>{},
     List<ExchangeRate> candidateExchangeRates = const <ExchangeRate>[],
+  }) => _runLedgerMutation(
+    () => _applyImportEntriesInQueue(
+      entries: entries,
+      candidateAccounts: candidateAccounts,
+      candidateCategories: candidateCategories,
+      candidateTags: candidateTags,
+      alwaysCreateAccountIds: alwaysCreateAccountIds,
+      candidateExchangeRates: candidateExchangeRates,
+    ),
+  );
+
+  Future<bool> _applyImportEntriesInQueue({
+    required List<LedgerEntry> entries,
+    required List<Account> candidateAccounts,
+    required List<Category> candidateCategories,
+    List<Tag> candidateTags = const <Tag>[],
+    Set<String> alwaysCreateAccountIds = const <String>{},
+    List<ExchangeRate> candidateExchangeRates = const <ExchangeRate>[],
   }) async {
     if (entries.isEmpty && alwaysCreateAccountIds.isEmpty) {
       return false;
@@ -2793,6 +2878,14 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
 
   /// 只标注当前账本已有支出，不创建流水，也不更改金额、备注或账户。
   Future<bool> markSubscriptionExpenses(
+    String bookId,
+    Set<String> ids,
+    SubscriptionMark mark,
+  ) => _runLedgerMutation(
+    () => _markSubscriptionExpensesInQueue(bookId, ids, mark),
+  );
+
+  Future<bool> _markSubscriptionExpensesInQueue(
     String bookId,
     Set<String> ids,
     SubscriptionMark mark,
@@ -3049,7 +3142,10 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   }
 
   /// 删除一笔退款条目（原支出净额缓存随之恢复）。
-  Future<bool> deleteRefund(String refundId) async {
+  Future<bool> deleteRefund(String refundId) =>
+      _runLedgerMutation(() => _deleteRefundInQueue(refundId));
+
+  Future<bool> _deleteRefundInQueue(String refundId) async {
     final index = _entries.indexWhere(
       (e) => e.id == refundId && e.type == EntryType.refund,
     );
@@ -3123,6 +3219,13 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   Future<bool> changeEmptyLedgerBookBaseCurrency(
     String bookId,
     String currencyCode,
+  ) => _runLedgerMutation(
+    () => _changeEmptyLedgerBookBaseCurrencyInQueue(bookId, currencyCode),
+  );
+
+  Future<bool> _changeEmptyLedgerBookBaseCurrencyInQueue(
+    String bookId,
+    String currencyCode,
   ) async {
     final code = currencyCode.trim().toUpperCase();
     final bookIndex = _ledgerBooks.indexWhere((book) => book.id == bookId);
@@ -3176,6 +3279,13 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   /// 首版旧账本的一次性“重解释”：所有数字保持不变，只把它们的币种标签从
   /// 迁移占位 CNY 改为用户确认的币种。全部核心表在同一 SQLite 事务内替换。
   Future<bool> reinterpretLegacyLedgerBookCurrency(
+    String bookId,
+    String currencyCode,
+  ) => _runLedgerMutation(
+    () => _reinterpretLegacyLedgerBookCurrencyInQueue(bookId, currencyCode),
+  );
+
+  Future<bool> _reinterpretLegacyLedgerBookCurrencyInQueue(
     String bookId,
     String currencyCode,
   ) async {
@@ -3278,7 +3388,10 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     notifyListeners();
   }
 
-  Future<bool> deleteLedgerBook(String bookId) async {
+  Future<bool> deleteLedgerBook(String bookId) =>
+      _runLedgerMutation(() => _deleteLedgerBookInQueue(bookId));
+
+  Future<bool> _deleteLedgerBookInQueue(String bookId) async {
     final book = _ledgerBooks.where((item) => item.id == bookId).firstOrNull;
     if (book == null || book.isDefault) {
       return false;
@@ -3482,7 +3595,10 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     return <String>{...entryIds, ...refundIds};
   }
 
-  Future<bool> _deleteEntryIds(Set<String> entryIds) async {
+  Future<bool> _deleteEntryIds(Set<String> entryIds) =>
+      _runLedgerMutation(() => _deleteEntryIdsInQueue(entryIds));
+
+  Future<bool> _deleteEntryIdsInQueue(Set<String> entryIds) async {
     final entryRevision = _ledgerEntryRevision;
     final removeIds = _withDependentRefundIds(entryIds);
     if (!_entries.any((entry) => removeIds.contains(entry.id))) {
@@ -3517,39 +3633,30 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   }
 
   /// 批量改分类：只改与目标分类同类型的交易（类型不符的跳过）。返回改动数量。
-  int setEntriesCategory(Set<String> entryIds, String categoryId) {
-    final category = _categories.where((c) => c.id == categoryId).firstOrNull;
-    if (category == null || entryIds.isEmpty) {
-      return 0;
-    }
-    var changed = 0;
-    for (var i = 0; i < _entries.length; i++) {
-      final entry = _entries[i];
-      // 目标分类必须与该交易的账本一致（分类按账本隔离后的写入守卫）。
-      if (entryIds.contains(entry.id) &&
-          entry.bookId == category.bookId &&
-          entry.type == category.type) {
-        _writeLedgerEntryAt(i, entry.copyWith(categoryId: categoryId));
-        changed += 1;
-      }
-    }
-    if (changed > 0) {
-      _persistEntries();
-      notifyListeners();
-    }
-    return changed;
-  }
+  Future<int?> setEntriesCategory(Set<String> entryIds, String categoryId) =>
+      _runLedgerMutation(() async {
+        final category = categories
+            .where((c) => c.id == categoryId)
+            .firstOrNull;
+        if (category == null) return 0;
+        return _saveSelectedEntries(entryIds, (entry) {
+          if (entry.type != category.type || entry.categoryId == categoryId) {
+            return null;
+          }
+          return entry.copyWith(categoryId: categoryId);
+        });
+      });
 
-  int applyEntriesTags(
+  Future<int?> applyEntriesTags(
     Set<String> entryIds,
     List<String> tagIds, {
     required bool replace,
-  }) {
+  }) => _runLedgerMutation(() async {
     final available = tags.map((tag) => tag.id).toSet();
     final selected = tagIds.where(available.contains).toSet();
     if (selected.isEmpty && (!replace || tagIds.isNotEmpty)) return 0;
 
-    return _updateSelectedEntries(entryIds, (entry) {
+    return _saveSelectedEntries(entryIds, (entry) {
       final next = replace
           ? selected.toList()
           : <String>{...entry.tagIds, ...selected}.toList();
@@ -3557,59 +3664,71 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
           ? null
           : entry.copyWith(tagIds: next);
     });
-  }
-
-  int setEntriesReimbursable(Set<String> entryIds, bool reimbursable) =>
-      _updateSelectedEntries(entryIds, (entry) {
-        if (entry.type != EntryType.expense ||
-            entry.reimbursable == reimbursable) {
-          return null;
-        }
-        return entry.copyWith(reimbursable: reimbursable);
-      });
-
-  int setEntriesStatisticsScope(
-    Set<String> entryIds,
-    EntryStatisticsScope scope,
-  ) => _updateSelectedEntries(entryIds, (entry) {
-    if (!EntryStatisticsScope.supports(entry.type) ||
-        scope.forType(entry.type) != scope) {
-      return null;
-    }
-    final excludeBudget = scope == EntryStatisticsScope.excludeBudget;
-    final excludeStatistics = scope == EntryStatisticsScope.excludeStatistics;
-    if (entry.excludedFromBudget == excludeBudget &&
-        entry.excludedFromStatistics == excludeStatistics) {
-      return null;
-    }
-    return entry.copyWith(
-      excludedFromBudget: excludeBudget,
-      excludedFromStatistics: excludeStatistics,
-    );
   });
 
-  int _updateSelectedEntries(
+  Future<int?> setEntriesReimbursable(
+    Set<String> entryIds,
+    bool reimbursable,
+  ) => _runLedgerMutation(
+    () => _saveSelectedEntries(entryIds, (entry) {
+      if (entry.type != EntryType.expense ||
+          entry.reimbursable == reimbursable) {
+        return null;
+      }
+      return entry.copyWith(reimbursable: reimbursable);
+    }),
+  );
+
+  Future<int?> setEntriesStatisticsScope(
+    Set<String> entryIds,
+    EntryStatisticsScope scope,
+  ) => _runLedgerMutation(
+    () => _saveSelectedEntries(entryIds, (entry) {
+      if (!EntryStatisticsScope.supports(entry.type) ||
+          scope.forType(entry.type) != scope) {
+        return null;
+      }
+      final excludeBudget = scope == EntryStatisticsScope.excludeBudget;
+      final excludeStatistics = scope == EntryStatisticsScope.excludeStatistics;
+      if (entry.excludedFromBudget == excludeBudget &&
+          entry.excludedFromStatistics == excludeStatistics) {
+        return null;
+      }
+      return entry.copyWith(
+        excludedFromBudget: excludeBudget,
+        excludedFromStatistics: excludeStatistics,
+      );
+    }),
+  );
+
+  /// Returns null on a persistence failure and leaves the selected entries intact.
+  Future<int?> _saveSelectedEntries(
     Set<String> entryIds,
     LedgerEntry? Function(LedgerEntry entry) update,
-  ) {
+  ) async {
     if (entryIds.isEmpty) return 0;
-    var changed = 0;
-    for (var index = 0; index < _entries.length; index++) {
-      final entry = _entries[index];
+    final updates = <String, LedgerEntry>{};
+    for (final entry in _entries) {
       if (entry.bookId != _activeBookId || !entryIds.contains(entry.id)) {
         continue;
       }
       final next = update(entry);
       if (next != null) {
-        _writeLedgerEntryAt(index, next);
-        changed++;
+        updates[entry.id] = next;
       }
     }
-    if (changed > 0) {
-      _persistEntries(); // Also refreshes the widget projection.
-      notifyListeners();
-    }
-    return changed;
+    if (updates.isEmpty) return 0;
+    final nextEntries = [
+      for (final entry in _entries) updates[entry.id] ?? entry,
+    ];
+    final saved = await _runTrackedWrite(
+      () => _repository.saveEntries(nextEntries),
+    );
+    if (!saved) return null;
+    _replaceLedgerEntries(nextEntries);
+    _markWidgetProjectionChanged();
+    notifyListeners();
+    return updates.length;
   }
 
   List<LedgerEntry>? _safeBatchAccountEntries(Set<String> entryIds) {
@@ -3677,6 +3796,11 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   }
 
   Future<BatchAccountChangeResult> setEntriesAccount(
+    Set<String> entryIds,
+    String accountId,
+  ) => _runLedgerMutation(() => _setEntriesAccountInQueue(entryIds, accountId));
+
+  Future<BatchAccountChangeResult> _setEntriesAccountInQueue(
     Set<String> entryIds,
     String accountId,
   ) async {
@@ -3855,6 +3979,16 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   Future<int?> _deleteAccount(
     String accountId, {
     required bool deleteRelatedEntries,
+  }) => _runLedgerMutation(
+    () => _deleteAccountInQueue(
+      accountId,
+      deleteRelatedEntries: deleteRelatedEntries,
+    ),
+  );
+
+  Future<int?> _deleteAccountInQueue(
+    String accountId, {
+    required bool deleteRelatedEntries,
   }) async {
     if (!_accounts.any((account) => account.id == accountId)) {
       return null;
@@ -3961,13 +4095,26 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     }
   }
 
-  bool adjustAccountBalance(
+  Future<bool?> adjustAccountBalance(
     Account account,
     double targetBalance, {
     String note = '余额调整',
-  }) {
+  }) => _runLedgerMutation(
+    () => _adjustAccountBalanceInQueue(account.id, targetBalance, note: note),
+  );
+
+  Future<bool?> _adjustAccountBalanceInQueue(
+    String accountId,
+    double targetBalance, {
+    required String note,
+  }) async {
+    final account = _accounts.where((item) => item.id == accountId).firstOrNull;
+    if (account == null) return null;
     final currentBalance = accountBalance(account);
-    final difference = targetBalance - currentBalance;
+    final difference = normalizeCurrencyAmount(
+      targetBalance - currentBalance,
+      account.currencyCode,
+    );
     if (isZeroCurrencyAmount(difference, account.currencyCode)) {
       return false;
     }
@@ -3988,8 +4135,9 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
       difference.abs() * rate,
       book.baseCurrencyCode,
     );
-    addEntry(
-      LedgerEntry(
+    final saved = await _saveEntryAggregateDraftResultInQueue(
+      isNew: true,
+      entry: LedgerEntry(
         id: _generateId('entry'),
         bookId: account.bookId,
         type: difference > 0 ? EntryType.income : EntryType.expense,
@@ -4010,7 +4158,7 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
         occurredAt: now,
       ),
     );
-    return true;
+    return saved.isSuccess ? true : null;
   }
 
   /// 不生成交易,直接调整初始余额,使当前余额等于目标值。
@@ -4270,7 +4418,10 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     return true;
   }
 
-  Future<bool> deleteCategory(String categoryId) async {
+  Future<bool> deleteCategory(String categoryId) =>
+      _runLedgerMutation(() => _deleteCategoryInQueue(categoryId));
+
+  Future<bool> _deleteCategoryInQueue(String categoryId) async {
     final category = _categories
         .where((item) => item.id == categoryId)
         .firstOrNull;
@@ -4360,7 +4511,13 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   ///
   /// 返回被改动的交易笔数；无法合并时返回 -1（源受保护 / 源或目标不存在 / 类型不一致 /
   /// 源与目标相同 / 源仍有子分类 / 目标是源的后代）。源有子分类时应先移动或删除子分类。
-  Future<int> mergeCategoryInto(String sourceId, String targetId) async {
+  Future<int> mergeCategoryInto(String sourceId, String targetId) =>
+      _runLedgerMutation(() => _mergeCategoryIntoInQueue(sourceId, targetId));
+
+  Future<int> _mergeCategoryIntoInQueue(
+    String sourceId,
+    String targetId,
+  ) async {
     if (sourceId == targetId) {
       return -1;
     }
@@ -4546,7 +4703,10 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
 
   /// 删除当前账本的标签，并从**该账本**交易的 tagIds 中移除引用。
   /// 别的账本的同名标签与引用完全不受影响。
-  Future<bool> deleteTag(String tagId) async {
+  Future<bool> deleteTag(String tagId) =>
+      _runLedgerMutation(() => _deleteTagInQueue(tagId));
+
+  Future<bool> _deleteTagInQueue(String tagId) async {
     final index = _tags.indexWhere(
       (tag) => tag.id == tagId && tag.bookId == _activeBookId,
     );
@@ -4630,7 +4790,10 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
     return true;
   }
 
-  Future<bool> deleteAccountGroup(String groupId) async {
+  Future<bool> deleteAccountGroup(String groupId) =>
+      _runLedgerMutation(() => _deleteAccountGroupInQueue(groupId));
+
+  Future<bool> _deleteAccountGroupInQueue(String groupId) async {
     if (!_accountGroups.any((group) => group.id == groupId)) {
       return false;
     }
@@ -4754,7 +4917,10 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
 
   /// 清空账目并恢复默认数据。只有 SQLite 原子整替成功后才更新内存和 KV；
   /// 失败时保持当前数据和界面状态，调用方必须把 false 当作失败处理。
-  Future<bool> resetAllData() async {
+  Future<bool> resetAllData() =>
+      _runLedgerMutation(() => _resetAllDataInQueue());
+
+  Future<bool> _resetAllDataInQueue() async {
     final oldBookIds = _ledgerBooks.map((book) => book.id).toList();
     final nextBooks = List<LedgerBook>.of(_seedLedgerBooks);
     final nextAccounts = List<Account>.of(defaultAccounts);
@@ -5001,6 +5167,16 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
   /// 旧版内嵌 base64 的明文备份会在解包层先转成同样的暂存形态，因此这里只有一条路径。
   /// 附件字节先于任何 DB 写入落盘，读取/写入失败即中止导入、现有数据零改动。
   Future<void> importDataJson(
+    String rawJson, {
+    Future<Uint8List> Function(String id)? readStagedAttachment,
+  }) => _runLedgerMutation(
+    () => _importDataJsonInQueue(
+      rawJson,
+      readStagedAttachment: readStagedAttachment,
+    ),
+  );
+
+  Future<void> _importDataJsonInQueue(
     String rawJson, {
     Future<Uint8List> Function(String id)? readStagedAttachment,
   }) async {

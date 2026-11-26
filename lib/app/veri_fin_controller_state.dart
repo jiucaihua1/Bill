@@ -1000,6 +1000,19 @@ mixin _ControllerState on ChangeNotifier {
     _markWidgetProjectionChanged();
   }
 
+  // Repository writes are serialized after their snapshots already exist. Queue
+  // ledger commands here so each builds its snapshot from the previous result.
+  Future<void> _ledgerMutationTail = Future<void>.value();
+
+  Future<T> _runLedgerMutation<T>(Future<T> Function() mutation) {
+    final result = _ledgerMutationTail.then((_) => mutation());
+    _ledgerMutationTail = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return result;
+  }
+
   // 记录最近一次 SQLite 写入，供测试等待其落库。写入按连接串行，等待最新即可。
   Future<void> _pendingWrite = Future<void>.value();
   int _writeGeneration = 0;
@@ -1060,6 +1073,7 @@ mixin _ControllerState on ChangeNotifier {
   /// 确保应用锁 / 隐私同意等关键偏好，以及用户刚记下的交易，在进程可能被系统
   /// 回收前落盘。
   Future<void> flushPendingWrites() async {
+    await _ledgerMutationTail;
     try {
       await _store.flush();
     } catch (error, stackTrace) {
