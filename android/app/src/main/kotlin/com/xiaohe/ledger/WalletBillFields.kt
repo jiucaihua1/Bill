@@ -38,15 +38,24 @@ internal object WalletBillFields {
     )
     private val statusAdornment = Regex("""^[^\p{L}]+|[^\p{L}]+$""")
 
-    data class WechatDetail(val amount: Double, val paidAt: Long, val merchant: String, val product: String)
+    data class WechatDetail(
+        val amount: Double,
+        val paidAt: Long,
+        val merchant: String,
+        val product: String?,
+        val paymentMethod: String?,
+    )
 
     fun isWechatDetail(text: String): Boolean {
         val lines = linesOf(text).map { it.filterNot(Char::isWhitespace) }
-        return lines.any { it.startsWith("当前状态") } &&
-            lines.any { it.startsWith("支付时间") } &&
-            lines.any {
-                it.startsWith("交易单号") || it.startsWith("商户单号") || it == "全部账单"
-            }
+        val hasStatus = lines.any { it.startsWith("当前状态") }
+        val hasPaidAt = lines.any { it.startsWith("支付时间") }
+        val hasOrder = lines.any { it.startsWith("交易单号") || it.startsWith("商户单号") }
+        val hasAllBills = "全部账单" in lines
+        return hasPaidAt && (hasStatus || hasOrder || hasAllBills) ||
+            hasAllBills && (hasStatus || hasOrder) ||
+            hasStatus && lines.none { it == "完成" || it == "返回商家" } &&
+            lines.any { signedAmount.matchEntire(it)?.groupValues?.get(1)?.let { sign -> sign != "+" } == true }
     }
 
     fun wechatDetail(text: String): WechatDetail? {
@@ -63,8 +72,9 @@ internal object WalletBillFields {
             parseDate(it.filterNot(Char::isWhitespace), "yyyy年M月d日HH:mm:ss")
         } ?: return null
         val merchant = detailField(fields, "商户全称", "商户名称")?.let(::recipient) ?: return null
-        val product = detailField(fields, *purchaseProductLabels, "商品")?.let(::recipient) ?: return null
-        return WechatDetail(amount, paidAt, merchant, product)
+        val product = detailField(fields, *purchaseProductLabels, "商品")?.let(::recipient)
+        val method = detailField(fields, "支付方式", "付款方式")
+        return WechatDetail(amount, paidAt, merchant, product, method)
     }
 
     private fun detailField(lines: List<String>, vararg labels: String): String? =

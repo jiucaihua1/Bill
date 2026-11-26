@@ -82,6 +82,8 @@ class AutoBillOverlayBridge {
   );
   static Future<void> _lastLedgerWrite = Future<void>.value();
 
+  static String entryIdForDraft(String id) => 'auto-bill-$id';
+
   static Future<T> runLedgerWrite<T>(Future<T> Function() operation) {
     final next = _lastLedgerWrite.then((_) => operation());
     _lastLedgerWrite = next.then<void>(
@@ -169,7 +171,7 @@ class AutoBillOverlayBridge {
     final id = supplement['id'];
     if (id is! String) return false;
     final entry = controller.entries
-        .where((entry) => entry.id == 'auto-bill-$id')
+        .where((entry) => entry.id == entryIdForDraft(id))
         .firstOrNull;
     if (entry == null || entry.type != EntryType.expense) return false;
     final note = _matchingDraftRemark(
@@ -235,7 +237,7 @@ class AutoBillOverlayBridge {
     final recentId = receipt['id'];
     final identifiedDraft = recentId is String
         ? possibleEntries
-              .where((entry) => entry.id == 'auto-bill-$recentId')
+              .where((entry) => entry.id == entryIdForDraft(recentId))
               .firstOrNull
         : null;
     if (identifiedDraft != null &&
@@ -248,8 +250,9 @@ class AutoBillOverlayBridge {
     if (identifiedDraft != null) {
       entry = identifiedDraft;
     } else {
-      if (fundingAccount == null)
+      if (fundingAccount == null) {
         return possibleEntries.isNotEmpty || recentId != null;
+      }
       final matches =
           possibleEntries
               .where((entry) => entry.accountId == fundingAccount.id)
@@ -265,8 +268,9 @@ class AutoBillOverlayBridge {
             );
       }
       entry = matches.first;
-      if (matches.length > 1 && distance(matches[1]) == distance(entry))
+      if (matches.length > 1 && distance(matches[1]) == distance(entry)) {
         return true;
+      }
     }
 
     final merchant = (receipt['merchant'] as String?)?.trim() ?? '';
@@ -362,8 +366,8 @@ class AutoBillOverlayBridge {
       return false;
     }
 
-    final entryId = 'auto-bill-$id';
-    if (controller.entries.any((entry) => entry.id == entryId)) return true;
+    final entryId = entryIdForDraft(id);
+    if (controller.containsEntryId(entryId)) return true;
     bool validAccount(String id) => controller.accounts.any(
       (a) => a.id == id && !a.hidden && a.currencyCode == 'CNY',
     );

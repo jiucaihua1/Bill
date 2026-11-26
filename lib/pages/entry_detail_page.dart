@@ -42,6 +42,7 @@ class EntryDetailPage extends StatefulWidget {
     this.draftReviewHint,
     this.suggestedPlatformTag,
     this.autoCaptureSourcePackage,
+    this.autoCaptureEntryId,
   }) : draftEntry = null,
        draftExtraAccounts = null,
        draftExtraCategories = null,
@@ -55,6 +56,7 @@ class EntryDetailPage extends StatefulWidget {
       draftReviewHint = null,
       suggestedPlatformTag = null,
       autoCaptureSourcePackage = null,
+      autoCaptureEntryId = null,
       draftEntry = null,
       draftExtraAccounts = null,
       draftExtraCategories = null,
@@ -82,6 +84,7 @@ class EntryDetailPage extends StatefulWidget {
        draftReviewHint = null,
        suggestedPlatformTag = null,
        autoCaptureSourcePackage = null,
+       autoCaptureEntryId = null,
        inlineNumberPad = false;
 
   final double initialAmount;
@@ -94,6 +97,7 @@ class EntryDetailPage extends StatefulWidget {
   final String? draftReviewHint;
   final Tag? suggestedPlatformTag;
   final String? autoCaptureSourcePackage;
+  final String? autoCaptureEntryId;
 
   /// 草稿编辑模式下要编辑的交易；非空即进入「返回草稿不落库」模式。
   final LedgerEntry? draftEntry;
@@ -218,6 +222,7 @@ class _EntryDetailPageState extends State<_EntryDetailForm> {
   bool _allowPop = false;
   late final String _entryId =
       _config.draftEntry?.id ??
+      _config.autoCaptureEntryId ??
       DateTime.now().microsecondsSinceEpoch.toString();
   LedgerEntry? _initialEntryDraft;
   List<String>? _initialAttachmentIds;

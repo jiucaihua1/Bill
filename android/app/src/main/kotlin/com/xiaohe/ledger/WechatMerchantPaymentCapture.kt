@@ -60,15 +60,26 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
         var contentChanged = false
     }
 
+    fun routeDetailWindow(event: AccessibilityEvent, text: String): Boolean {
+        val windowId = event.windowId
+        val detail = AutoBillParser.handleWechatDetail(service, text)
+        if (windowId < 0 || Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return detail
+        val windowChanged = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+        val detailCandidate = windowChanged && event.className?.toString() == BILL_DETAIL_WEBVIEW
+        if (detail || detailCandidate) {
+            scheduleDetailRead(windowId)
+        } else if (windowChanged) {
+            lastDetailWindow = null
+        }
+        return detail
+    }
+
     fun onEvent(event: AccessibilityEvent, recognized: Boolean, visibleTexts: List<String>) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
         if (event.packageName?.toString() != WECHAT || event.windowId < 0) return
 
         val stateChanged = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
         val className = event.className?.toString()
-        if (stateChanged && className == BILL_DETAIL_WEBVIEW && !recognized) {
-            scheduleDetailRead(event.windowId)
-        }
         val entry = checkoutKind(className)
         if (stateChanged && entry != null) {
             if (entry == CheckoutKind.PAYMENT_CODE && !BuildConfig.DEBUG) return
@@ -263,6 +274,7 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
 
     fun reset() {
         session = null
+        lastDetailWindow = null
         handler.removeCallbacksAndMessages(null)
     }
 
@@ -273,7 +285,8 @@ internal class WechatMerchantPaymentCapture(private val service: AccessibilitySe
         if (target == lastDetailWindow) return
         lastDetailWindow = target
         fun isDetailWindowCurrent(): Boolean {
-            if (lastDetailWindow != target || AutoBillParser.recentWechatPurchaseId() != draftId ||
+            if (lastDetailWindow !== target ||
+                AutoBillParser.recentWechatPurchaseId() != draftId ||
                 !AutoBillParser.isAutoEnabled(service) || !AutoBillParser.isPlatformEnabled(service, WECHAT) ||
                 service.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == true
             ) return false

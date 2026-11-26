@@ -37,6 +37,8 @@
 
 微信商户付款成功页校验通过后，优先读取带标签的商户名。也可从实付金额正上方提取无标签名称，过滤支付状态、平台标题和按钮词。平台标签由已识别的电商订单决定。
 
+付款后进入微信账单详情时，网页窗口类名可触发 OCR 补读，识别分流以当前页面内容为准。同一笔已识别的付款最多显示一次补记通知，原确认入口和补记入口共用流水编号。详情匹配和补记规则见[自动采集](auto-capture.md)。
+
 Debug 版在自动记账和微信识别开启时可记录付款码窗口事件。已知入口为 `WalletOfflineEntranceUI` 和 `WalletOfflineCoinPurseUI`；若只收到后续的 `UIPageFragmentActivity`，记录为未分类窗口。日志把时间、类名、窗口 ID 和事件类型写入应用私有文件，保留最近 128 条。该诊断链路只记录事件。手机可脱离电脑，重新连接后用 `adb shell run-as com.xiaohe.ledger cat files/wechat-payment-code-windows.log` 读取。
 
 ## 弹窗耗时与排查

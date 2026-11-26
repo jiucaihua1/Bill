@@ -110,6 +110,9 @@ class AutoBookkeepingAccessibilityService : AccessibilityService() {
         if (eventTexts.isEmpty()) {
             event.text.mapNotNullTo(eventTexts) { it?.toString()?.trim()?.takeIf(String::isNotEmpty) }
         }
+        if (pkg == AutoBillParser.PKG_WECHAT &&
+            merchantCapture.routeDetailWindow(event, (texts + eventTexts).distinct().joinToString("\n"))
+        ) return
         val recognized = if (texts.isNotEmpty() || eventTexts.isNotEmpty()) {
             AutoBillParser.handleScreenTexts(
                 this,

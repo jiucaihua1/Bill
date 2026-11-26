@@ -21,6 +21,8 @@
     <string name="auto_bookkeeping_tile_label">Auto-record</string>
     <string name="auto_bookkeeping_accessibility_desc">Reads supported payment screens to show a bookkeeping confirmation prompt. If a WeChat merchant payment result has no readable text, the app can capture that window once for on-device recognition. The image is never saved or uploaded.</string>
     <string name="quick_entry_button">Add entry</string>
+    <string name="wechat_retry_title">WeChat payment</string>
+    <string name="wechat_retry_message">This payment may already be recorded. If it is missing, tap to record it.</string>
     <!-- Metric line rendered by each template. -->
     <string name="widget_today_expense">Today\'s spending</string>
     <string name="widget_budget_remaining">Budget remaining</string>

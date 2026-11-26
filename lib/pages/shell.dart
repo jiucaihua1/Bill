@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../app/ai/ai_entry_parser.dart';
 import '../app/app_lock_session.dart';
+import '../app/auto_bill_overlay.dart';
 import '../app/auto_bill_rules.dart';
 import '../app/haptics.dart';
 import '../app/models.dart';
@@ -651,6 +652,7 @@ class _VeriFinShellState extends State<VeriFinShell>
         final raw = await AppCaptureBridge.consumeAutoConfirmDraft();
         if (!mounted || raw == null) continue;
         _autoDraftRequested = true;
+        final draftId = raw['id'];
         final amount = raw['amount'];
         final timestamp = raw['occurredAt'];
         final type = switch (raw['type']) {
@@ -658,7 +660,8 @@ class _VeriFinShellState extends State<VeriFinShell>
           'income' => EntryType.income,
           _ => null,
         };
-        if (type == null ||
+        if (draftId is! String ||
+            type == null ||
             amount is! num ||
             !amount.isFinite ||
             amount <= 0 ||
@@ -666,6 +669,8 @@ class _VeriFinShellState extends State<VeriFinShell>
           continue;
         }
         final controller = VeriFinScope.of(context);
+        final entryId = AutoBillOverlayBridge.entryIdForDraft(draftId);
+        if (controller.containsEntryId(entryId)) continue;
         if (controller.activeBook.baseCurrencyCode == 'CNY') {
           await showAutoConfirmCaptureSheet(context, draft: raw);
           continue;
@@ -697,6 +702,7 @@ class _VeriFinShellState extends State<VeriFinShell>
               draftReviewHint: reviewHint,
               suggestedPlatformTag: platformTag,
               autoCaptureSourcePackage: raw['sourcePackage'] as String?,
+              autoCaptureEntryId: entryId,
             ),
           ),
         );

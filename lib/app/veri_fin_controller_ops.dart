@@ -75,6 +75,8 @@ mixin _ControllerOps on ChangeNotifier, _ControllerState {
         _entries.where((entry) => entry.bookId == _activeBookId),
       );
 
+  bool containsEntryId(String id) => _entries.any((entry) => entry.id == id);
+
   AutoBillMerchantIndex get autoBillMerchantIndex {
     final index = _autoBillMerchantIndex;
     if (index != null && index.bookId == _activeBookId) return index;

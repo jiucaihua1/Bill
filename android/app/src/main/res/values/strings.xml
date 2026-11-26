@@ -23,6 +23,8 @@
     <string name="auto_bookkeeping_tile_label">自动记账</string>
     <string name="auto_bookkeeping_accessibility_desc">读取支持的支付页面并弹出记账确认框。微信商户付款结果无法读取文字时，小禾会尝试截取该窗口一次并在本机识别，截图不保存、不上传。</string>
     <string name="quick_entry_button">记一笔</string>
+    <string name="wechat_retry_title">微信记账</string>
+    <string name="wechat_retry_message">这个页面似乎记过帐了，如未记账，点击即可再次记账</string>
     <!-- 组件正文的指标行（每个模板恰好一行）。 -->
     <string name="widget_today_expense">今日支出</string>
     <string name="widget_budget_remaining">剩余预算</string>

@@ -81,6 +81,7 @@ object AutoBillParser {
         var draftId: String? = null
         var occurredAt: Long? = null
         var noteSupplement: String? = null
+        var wechatRetryNotified = false
     }
     private val recentBills = mutableListOf<RecentBill>()
     private val lastScreenBills = mutableMapOf<String, Triple<String, Double, String?>>()
@@ -306,7 +307,6 @@ object AutoBillParser {
         // older cards in the same chat have different amounts.
         val wechatTexts = if (pkg == PKG_WECHAT) texts + eventTexts else emptyList()
         val wechatPage = wechatTexts.joinToString("\n")
-        if (pkg == PKG_WECHAT && handleWechatDetail(context, wechatPage)) return true
         if (pkg == PKG_ALIPAY) {
             val page = texts.joinToString("\n")
             val combined = (texts + eventTexts).distinct().joinToString("\n")
@@ -387,8 +387,8 @@ object AutoBillParser {
     internal fun recentWechatPurchaseId(): String? {
         val now = SystemClock.elapsedRealtime()
         return recentBills.lastOrNull {
-            it.wechatPurchaseSession == wechatPurchaseSession && now - it.capturedAt < it.lifetime &&
-                it.draftId != null && !it.bill.merchant.isNullOrBlank()
+            it.wechatPurchaseSession == wechatPurchaseSession && now - it.capturedAt < DRAFT_TTL_MS &&
+                it.draftId != null
         }?.draftId
     }
 
@@ -403,18 +403,30 @@ object AutoBillParser {
         val now = SystemClock.elapsedRealtime()
         val original = recentBills.singleOrNull { candidate ->
             candidate.wechatPurchaseSession != null && candidate.draftId != null &&
-                now - candidate.capturedAt < candidate.lifetime &&
+                now - candidate.capturedAt < DRAFT_TTL_MS &&
                 candidate.bill.amount == detail.amount && candidate.bill.merchant?.let {
                     WalletBillFields.sameWechatMerchant(it, detail.merchant)
-                } == true && candidate.occurredAt?.let {
+                } != false && candidate.occurredAt?.let {
                     kotlin.math.abs(it - detail.paidAt) <= WECHAT_DETAIL_TIME_TOLERANCE_MS
                 } == true
         } ?: return true
-        val originalNote = AutoBillRules.note(original.bill)
-        if (original.noteSupplement != null || originalNote.split(" · ").contains(detail.product)) return true
-        val note = "$originalNote · ${detail.product}"
-        original.noteSupplement = note
         val id = checkNotNull(original.draftId)
+        if (!original.wechatRetryNotified) {
+            val retry = original.bill.copy(
+                merchant = detail.merchant,
+                product = detail.product ?: original.bill.product,
+                paymentMethod = detail.paymentMethod ?: original.bill.paymentMethod,
+                bankLast4 = WalletBillFields.last4(detail.paymentMethod) ?: original.bill.bankLast4,
+                occurredAt = detail.paidAt,
+            )
+            original.wechatRetryNotified = notifyWechatRetry(context, retry, id)
+        }
+        val product = detail.product ?: return true
+        if (original.bill.merchant.isNullOrBlank()) return true
+        val originalNote = AutoBillRules.note(original.bill)
+        if (original.noteSupplement != null || originalNote.split(" · ").contains(product)) return true
+        val note = "$originalNote · $product"
+        original.noteSupplement = note
         val prefs = context.getSharedPreferences(AutoCapturePermissions.PREFS_NAME, Context.MODE_PRIVATE)
         try {
             prefs.getString(DRAFT_PREFIX + id, null)?.let { raw ->
@@ -827,7 +839,7 @@ object AutoBillParser {
         val ageClock = SystemClock.elapsedRealtime()
         val now = System.currentTimeMillis()
         recentBills.removeAll {
-            val retention = if (it.noteSupplement != null || it.pkg == PKG_ALIPAY && it.draftId != null) {
+            val retention = if (it.draftId != null && (it.wechatPurchaseSession != null || it.pkg == PKG_ALIPAY)) {
                 DRAFT_TTL_MS
             } else it.lifetime
             ageClock - it.capturedAt >= retention
@@ -848,6 +860,25 @@ object AutoBillParser {
             WalletRemarkTrace.draft(pkg, "cross_platform_duplicate", bill)
             return null
         }
+        val occurredAt = bill.occurredAt ?: observedAt ?: now
+        val id = writeDraft(context, pkg, bill, now, occurredAt) ?: return null
+        if (purchaseSession != null || pkg == PKG_ALIPAY) {
+            currentBill.draftId = id
+            currentBill.occurredAt = occurredAt
+        }
+        recentBills.add(currentBill)
+        AutoBillRules.remember(pkg, bill, ageClock, now)
+        return id
+    }
+
+    private fun writeDraft(
+        context: Context,
+        pkg: String,
+        bill: ParsedBill,
+        now: Long,
+        occurredAt: Long,
+        retryOf: String? = null,
+    ): String? {
         val prefs = context.getSharedPreferences(AutoCapturePermissions.PREFS_NAME, Context.MODE_PRIVATE)
         val manager = context.getSystemService(NotificationManager::class.java)
         val drafts = prefs.all.keys.filter { it.startsWith(DRAFT_PREFIX) }.sorted()
@@ -866,7 +897,6 @@ object AutoBillParser {
             manager?.cancel(stored.removePrefix(DRAFT_PREFIX), DETECTION_NOTIFICATION_ID)
         }
         val id = "$now-${UUID.randomUUID()}"
-        val occurredAt = bill.occurredAt ?: observedAt ?: now
         val note = AutoBillRules.note(bill)
         val payload = JSONObject()
             .put("amount", bill.amount)
@@ -882,18 +912,13 @@ object AutoBillParser {
             .put("product", bill.product)
             .put("paymentMethod", bill.paymentMethod)
             .put("bankLast4", bill.bankLast4)
+            .put("retryOf", retryOf)
 
         if (!editor.putString(DRAFT_PREFIX + id, payload.toString()).commit()) {
             WalletRemarkTrace.draft(pkg, "write_failed", bill, note)
             return null
         }
         WalletRemarkTrace.draft(pkg, "written", bill, note)
-        if (purchaseSession != null || pkg == PKG_ALIPAY) {
-            currentBill.draftId = id
-            currentBill.occurredAt = occurredAt
-        }
-        recentBills.add(currentBill)
-        AutoBillRules.remember(pkg, bill, ageClock, now)
         return id
     }
 
@@ -915,14 +940,25 @@ object AutoBillParser {
 
     @Synchronized
     fun consumeDraft(context: Context, id: String): Map<String, Any>? {
-        val draft = readDraft(context, id) ?: return null
+        val payload = readDraftPayload(context, id) ?: return null
+        val retryOf = payload.optString("retryOf").takeIf(String::isNotEmpty)
+        val original = retryOf?.let { readDraft(context, it) }
+        // A retry may outlive the original pending draft, but both confirm the same payment.
+        val draft = original ?: draftFields(retryOf ?: id, payload) ?: return null
         val prefs = context.getSharedPreferences(AutoCapturePermissions.PREFS_NAME, Context.MODE_PRIVATE)
-        if (!prefs.edit().remove(DRAFT_PREFIX + id).commit()) return null
-        context.getSystemService(NotificationManager::class.java)?.cancel(id, DETECTION_NOTIFICATION_ID)
+        val editor = prefs.edit().remove(DRAFT_PREFIX + id)
+        if (original != null) editor.remove(DRAFT_PREFIX + retryOf)
+        if (!editor.commit()) return null
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager?.cancel(id, DETECTION_NOTIFICATION_ID)
+        if (original != null) manager?.cancel(retryOf, DETECTION_NOTIFICATION_ID)
         return draft
     }
 
-    fun readDraft(context: Context, id: String): Map<String, Any>? {
+    fun readDraft(context: Context, id: String): Map<String, Any>? =
+        readDraftPayload(context, id)?.let { draftFields(id, it) }
+
+    private fun readDraftPayload(context: Context, id: String): JSONObject? {
         if (!isAutoEnabled(context)) return null
         val prefs = context.getSharedPreferences(AutoCapturePermissions.PREFS_NAME, Context.MODE_PRIVATE)
         val raw = prefs.getString(DRAFT_PREFIX + id, null) ?: return null
@@ -930,6 +966,16 @@ object AutoBillParser {
             val payload = JSONObject(raw)
             val capturedAt = id.substringBefore('-').toLongOrNull() ?: return null
             if (System.currentTimeMillis() - capturedAt !in 0L until DRAFT_TTL_MS) return null
+            if (payload.has("retryOf") && !isPlatformEnabled(context, PKG_WECHAT)) return null
+            payload
+        } catch (_: org.json.JSONException) {
+            Log.w("VeriAutoBill", "Stored capture draft is invalid")
+            null
+        }
+    }
+
+    private fun draftFields(id: String, payload: JSONObject): Map<String, Any>? =
+        try {
             mapOf(
                 "id" to id,
                 "amount" to payload.getDouble("amount"),
@@ -950,7 +996,6 @@ object AutoBillParser {
             Log.w("VeriAutoBill", "Stored capture draft is invalid")
             null
         }
-    }
 
     @Synchronized
     fun clearDrafts(context: Context) {
@@ -973,8 +1018,15 @@ object AutoBillParser {
     ) {
         val id = rememberDraft(context, pkg, bill, observedAt) ?: return
         Log.i("VeriAutoBill", "Payment draft created for $pkg")
+        val app = context.applicationContext
+        AutoBillOverlay.deliver(app, id) {
+            val manager = draftNotificationManager(app) ?: return@deliver
+            showDetectedNotification(app, manager, id, bill)
+        }
+    }
 
-        val intent = Intent(context, MainActivity::class.java).apply {
+    private fun draftIntent(context: Context, id: String): Intent =
+        Intent(context, MainActivity::class.java).apply {
             action = MainActivity.ACTION_AUTO_CONFIRM_DRAFT
             data = android.net.Uri.fromParts(MainActivity.AUTO_DRAFT_SCHEME, id, null)
             addFlags(
@@ -983,17 +1035,24 @@ object AutoBillParser {
                     Intent.FLAG_ACTIVITY_CLEAR_TOP,
             )
         }
-        val app = context.applicationContext
-        AutoBillOverlay.deliver(app, id) {
-            showDetectedNotification(app, id, bill, intent)
-        }
+
+    private fun notifyWechatRetry(context: Context, bill: ParsedBill, originalId: String): Boolean {
+        val manager = draftNotificationManager(context) ?: return false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            manager.getNotificationChannel(DETECTION_CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE
+        ) return false
+        val now = System.currentTimeMillis()
+        val id = writeDraft(context, PKG_WECHAT, bill, now, checkNotNull(bill.occurredAt), retryOf = originalId)
+            ?: return false
+        showDetectedNotification(context, manager, id, bill, wechatRetry = true)
+        return true
     }
 
-    private fun showDetectedNotification(context: Context, id: String, bill: ParsedBill, intent: Intent) {
-        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+    private fun draftNotificationManager(context: Context): NotificationManager? {
+        val manager = context.getSystemService(NotificationManager::class.java) ?: return null
         if (!manager.areNotificationsEnabled()) {
             Log.w("VeriAutoBill", "Payment draft notifications are disabled")
-            return
+            return null
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             manager.getNotificationChannel(DETECTION_CHANNEL_ID) == null
@@ -1007,17 +1066,37 @@ object AutoBillParser {
             }
             manager.createNotificationChannel(channel)
         }
+        return manager
+    }
+
+    private fun showDetectedNotification(
+        context: Context,
+        manager: NotificationManager,
+        id: String,
+        bill: ParsedBill,
+        wechatRetry: Boolean = false,
+    ) {
         val pendingIntent = PendingIntent.getActivity(
             context,
             0,
-            intent,
+            draftIntent(context, id),
             PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE,
         )
         val sign = if (bill.type == "income") "+" else "-"
+        val title = if (wechatRetry) context.getString(R.string.wechat_retry_title)
+            else "${bill.sourceLabel}：$sign¥${bill.amount}"
+        val message = if (wechatRetry) context.getString(R.string.wechat_retry_message)
+            else "${bill.note} · 点击确认入账"
         val notification = NotificationCompat.Builder(context, DETECTION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_quick_entry_tile)
-            .setContentTitle("${bill.sourceLabel}：$sign¥${bill.amount}")
-            .setContentText("${bill.note} · 点击确认入账")
+            .setContentTitle(title)
+            .setContentText(message)
+            .apply {
+                if (wechatRetry) {
+                    setStyle(NotificationCompat.BigTextStyle().bigText(message))
+                    setDefaults(NotificationCompat.DEFAULT_SOUND)
+                }
+            }
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setTimeoutAfter(DRAFT_TTL_MS)
