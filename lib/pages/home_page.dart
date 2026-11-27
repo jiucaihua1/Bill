@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:anchored_menu/anchored_menu.dart';
@@ -19,14 +20,64 @@ import 'panel_settings_page.dart';
 import 'recurring_page.dart';
 import 'transactions_pages.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
+  Timer? _midnightTimer;
+  DateTime? _lastBuiltDay;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refreshDate();
+  }
+
+  void _refreshDate() {
+    final now = DateTime.now();
+    final today = dateOnly(now);
+    if (_lastBuiltDay != null && _lastBuiltDay != today) {
+      setState(() {});
+    }
+    _midnightTimer?.cancel();
+    _midnightTimer = Timer(
+      addCalendarDays(today, 1).difference(now),
+      _refreshDate,
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _refreshDate();
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        _midnightTimer?.cancel();
+      case AppLifecycleState.inactive:
+        break;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _midnightTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final controller = VeriFinScope.of(context);
     final entries = controller.entries;
     final now = DateTime.now();
+    _lastBuiltDay = dateOnly(now);
     final trendWindow = lastSevenDaysWindowFor(now);
     final trendEntries = entriesInWindow(entries, trendWindow);
     final trendConfig = controller.homeTrendConfig;
